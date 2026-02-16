@@ -1,0 +1,101 @@
+{
+  "project": "Boop",
+  "branchName": "ralph/epic-1-foundation",
+  "description": "Epic 1: Foundation & OpenClaw Fork. Establish the stripped-down runtime — Boop exists, runs, and has the basic skeleton for everything else. Fork OpenClaw, strip to essentials, set up CLI, shared utilities, pipeline state machine, config system, and test infrastructure.",
+  "userStories": [
+    {
+      "id": "1.1",
+      "title": "Fork and strip OpenClaw",
+      "description": "As a developer, I want a clean fork of OpenClaw with marketplace/plugin/extension code removed, so that Boop has a secure, minimal runtime foundation.",
+      "acceptanceCriteria": [
+        "ClawHub, plugin loader, extension directory, Canvas/A2UI, and all channel adapters except WhatsApp + Telegram are removed",
+        "The project builds and runs cleanly with pnpm dev",
+        "No references to removed modules remain in the codebase",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Start from latest OpenClaw main. Remove src/plugins/, Canvas system, unused channel adapters. Update imports and configs. This is the foundation — everything else builds on it."
+    },
+    {
+      "id": "1.2",
+      "title": "CLI entry point and command structure",
+      "description": "As a user, I want to run npx boop with subcommands, so that I have a clean interface to interact with Boop.",
+      "acceptanceCriteria": [
+        "Running npx boop --help shows available commands: default (idea input), --profile, --status, --review, --resume, --autonomous",
+        "Running npx boop with no args enters interactive mode",
+        "Running npx boop 'an idea' passes the idea string to the pipeline",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Modify src/cli/program.ts. Use OpenClaw's existing CLI framework. Depends on 1.1 being complete."
+    },
+    {
+      "id": "1.3",
+      "title": "Shared utilities — logger, retry, types",
+      "description": "As a developer, I want structured logging and retry utilities available across all modules, so that error handling and observability are consistent from day one.",
+      "acceptanceCriteria": [
+        "Logger writes JSON to ~/.boop/logs/ and human-readable output to console",
+        "Retry utility supports configurable max retries with backoff",
+        "Shared TypeScript types for pipeline state, developer profile, and story format are defined and exported",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Create src/shared/logger.ts, src/shared/retry.ts, src/shared/types.ts. JSON log format: {ts, level, phase, epic, story, msg}. Console format: [phase] message. Depends on 1.1 being complete."
+    },
+    {
+      "id": "1.4",
+      "title": "Pipeline state machine skeleton",
+      "description": "As a developer, I want the pipeline state machine defined and persisting to .boop/state.yaml, so that Boop can track progress and resume after interruption.",
+      "acceptanceCriteria": [
+        "State is written atomically to .boop/state.yaml before and after each transition",
+        "States follow the sequence: IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE",
+        "SCAFFOLDING runs once per project (first epic only) — subsequent epics skip to BUILDING",
+        "npx boop --status reads and displays the current state",
+        "npx boop --resume displays current phase, epic number, story in progress, last completed step, and asks user to confirm before continuing",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Create src/pipeline/orchestrator.ts and src/pipeline/state.ts. Resume reads last committed state from .boop/state.yaml and presents context before continuing. Depends on 1.2 and 1.3 being complete."
+    },
+    {
+      "id": "1.5",
+      "title": "Configuration system (~/.boop/)",
+      "description": "As a user, I want Boop's global config directory created on first run, so that profile, logs, and credentials have a home.",
+      "acceptanceCriteria": [
+        "~/.boop/ is created with subdirectories: logs/, credentials/",
+        "Credentials directory has 0600 permissions",
+        "If ~/.boop/profile.yaml doesn't exist, the onboarding flow is triggered (stub for now — actual onboarding is Epic 2)",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Check for existing config on startup. Create directory structure. Trigger onboarding placeholder if no profile exists. Depends on 1.2 being complete."
+    },
+    {
+      "id": "1.6",
+      "title": "Test infrastructure setup",
+      "description": "As a developer, I want the test framework, runner config, and fixture directory established, so that quality gates can run tests from the very first story that needs them.",
+      "acceptanceCriteria": [
+        "A test runner (vitest or jest) is installed and configured in package.json",
+        "test/unit/, test/integration/, and test/fixtures/ directories exist",
+        "A smoke test exists that imports from src/ and passes",
+        "pnpm test runs the test suite and reports results",
+        "TypeScript path aliases work in test files",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Choose vitest (faster, native ESM/TS support) or jest (OpenClaw may already use it). Configure in vitest.config.ts or jest.config.ts. Smoke test proves the pipeline works before real tests are written. Depends on 1.1 being complete."
+    }
+  ]
+}
