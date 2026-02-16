@@ -17,7 +17,7 @@
         "All tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/planning/viability.ts. Load prompt from prompts/viability/. Include developer profile context. This is the first phase that actually calls the Claude API — set up the Anthropic SDK client as a shared utility if not already present. For tests, mock the API calls. Depends on 2.4 being complete."
     },
     {
