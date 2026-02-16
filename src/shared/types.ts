@@ -38,27 +38,13 @@ export interface PipelineState {
 }
 
 // ---------------------------------------------------------------------------
-// Developer Profile
+// Developer Profile (canonical definition in src/profile/schema.ts)
 // ---------------------------------------------------------------------------
 
-export interface DeveloperProfile {
-  /** Display name. */
-  name: string;
-  /** Preferred programming languages. */
-  languages: string[];
-  /** Preferred frameworks. */
-  frameworks: string[];
-  /** Preferred package manager (npm, pnpm, yarn, bun). */
-  packageManager: string;
-  /** Preferred test runner (vitest, jest, mocha). */
-  testRunner: string;
-  /** Preferred linter/formatter. */
-  linter: string;
-  /** AI model preference. */
-  aiModel: string;
-  /** Whether to run in autonomous mode by default. */
-  autonomousByDefault: boolean;
-}
+export type {
+  DeveloperProfile,
+  ProfileCategory,
+} from "../profile/schema.js";
 
 // ---------------------------------------------------------------------------
 // Story Format

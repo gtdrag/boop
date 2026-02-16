@@ -14,6 +14,7 @@ export type {
   LogLevel,
   PipelinePhase,
   PipelineState,
+  ProfileCategory,
   Prd,
   Story,
 } from "./types.js";

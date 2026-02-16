@@ -34,15 +34,26 @@ describe("types", () => {
     const profile: DeveloperProfile = {
       name: "Test Dev",
       languages: ["typescript"],
-      frameworks: ["express"],
+      frontendFramework: "next",
+      backendFramework: "express",
+      database: "postgresql",
+      cloudProvider: "vercel",
+      styling: "tailwind",
+      stateManagement: "zustand",
+      analytics: "posthog",
+      ciCd: "github-actions",
       packageManager: "pnpm",
       testRunner: "vitest",
       linter: "oxlint",
+      projectStructure: "monorepo",
       aiModel: "claude-opus-4-6",
       autonomousByDefault: false,
     };
     expect(profile.name).toBe("Test Dev");
     expect(profile.languages).toContain("typescript");
+    expect(profile.frontendFramework).toBe("next");
+    expect(profile.database).toBe("postgresql");
+    expect(profile.projectStructure).toBe("monorepo");
   });
 
   it("Story shape can be constructed", () => {

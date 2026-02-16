@@ -1,157 +1,38 @@
 # Ralph Progress Log
-Started: Mon Feb 16 14:23:49 CST 2026
+Started: Mon Feb 16 15:52:58 CST 2026
 
 ## Codebase Patterns
-- OpenClaw modules are deeply interconnected — almost every module imports from 3+ other modules
-- Self-contained files from OpenClaw (can be copied as-is): version.ts, shared/chat-content.ts, shared/chat-envelope.ts, shared/entry-metadata.ts, shared/model-param-b.ts, shared/node-match.ts, shared/pid-alive.ts, shared/subagents-format.ts, logging/levels.ts, logging/state.ts
-- Deeply coupled modules that need rewriting: config/ (imports from plugins, routing, infra, agents), logging/ (imports from config, terminal, infra), security/ (imports from plugins, agents, config, pairing), channels/registry.ts (imports from plugins/runtime)
-- The channel registry in OpenClaw uses a plugin system — Boop replaces this with a simple static registry for telegram + whatsapp
-- OpenClaw uses oxlint + oxfmt for linting/formatting — must scope oxlint to src/ to avoid scanning node_modules
-- OpenClaw uses vitest with forks pool — kept this pattern
-- Type declarations in src/types/ are module augmentations for npm packages without TS types
-- CLI uses options (--profile, --status, etc.) not subcommands — handleCli() exported separately for testing
-- handleCli() accepts optional globalConfigDir param to override ~/.boop/ in tests
-- initGlobalConfig() is idempotent — safe to call on every CLI invocation
-- credentials/ dir uses 0700 (not 0600) because directories need execute bit for traversal
-- Path alias #boop/* maps to src/* — configured in tsconfig.test.json (paths) and vitest.config.ts (resolve.alias)
-- Test directories: test/unit/ for unit tests, test/integration/ for integration tests, test/fixtures/ for shared fixtures
-- vitest.unit.config.ts extends vitest.config.ts and excludes src/gateway/** — all test/ files are included by base config
-- @clack/prompts used for interactive mode — dynamic import to avoid loading when not needed
-- Logger class uses child() pattern for context overrides — avoids passing context through every call
-- Retry utility uses exponential backoff with jitter by default — set jitter: false and low initialDelayMs for tests
-- Shared types: PipelineState, DeveloperProfile, Story, Prd, LogEntry — all in src/shared/types.ts
-- Pipeline state machine: PipelineOrchestrator in src/pipeline/orchestrator.ts, state persistence in src/pipeline/state.ts
-- State persisted to .boop/state.yaml via atomic write (tmp + rename) — YAML format via `yaml` package
-- handleCli() accepts optional projectDir param for testability — avoids coupling tests to process.cwd()
+- DeveloperProfile canonical definition lives in src/profile/schema.ts — re-exported through src/shared/types.ts and src/shared/index.ts
+- Profile categories defined in src/profile/defaults.ts — PROFILE_CATEGORIES array used by onboarding flow
+- Union types with `| string` escape hatch allow custom values beyond predefined options
+- ProfileCategory.multi flag indicates array fields (e.g. languages) vs single-value fields
+- DEFAULT_PROFILE provides the recommended value for every field — PROFILE_CATEGORIES.recommended mirrors these
 
 ---
 
-## 2026-02-16 14:30 - Story 1.1
+## 2026-02-16 15:56 - Story 2.1
 - What was implemented:
-  - Forked OpenClaw (cloned from github.com/openclaw/openclaw.git)
-  - Stripped ALL deeply coupled modules: plugins, plugin-sdk, canvas-host, discord, slack, line, signal, imessage, web, pairing, link-understanding, media-understanding, macos, daemon, terminal, tui, wizard, polls, auto-reply, cron, node-host, markdown, acp, commands, compat, infra, memory, providers, routing
-  - Kept self-contained shared utilities from OpenClaw (subagents-format, chat-content, chat-envelope, entry-metadata, model-param-b, node-match, pid-alive)
-  - Kept logging/levels.ts and logging/state.ts from OpenClaw
-  - Kept src/types/ type declarations (proper-lockfile, qrcode-terminal)
-  - Created clean foundation modules: index.ts, cli/program.ts, version.ts, config/index.ts, logging/index.ts, channels/registry.ts, channels/whatsapp/index.ts, channels/telegram/index.ts, gateway/server.ts, agents/index.ts, browser/index.ts, hooks/index.ts, process/index.ts, security/index.ts, sessions/index.ts, tts/index.ts, shared/index.ts
-  - Configured package.json for boop (stripped to essential deps), tsconfig.json, tsdown.config.ts, vitest.config.ts, vitest.unit.config.ts, pnpm-workspace.yaml
-  - Created .gitignore
-  - Created test infrastructure: test/setup.ts, 3 test files (version, registry, program) with 7 passing tests
-- Files changed: ~50 files created/modified
-- **Learnings for future iterations:**
-  - OpenClaw's codebase is too coupled to surgically preserve — modules must be reimplemented for Boop's simpler architecture
-  - The config/paths.ts depends on infra/home-dir.ts which is self-contained but the config types barrel re-exports 30+ sub-type files
-  - Keep oxlint scoped to src/ in package.json scripts
-  - OpenClaw's channel registry requires the plugin runtime — replaced with static registry
-  - Commander 14.x works well with ESM and .action(async ...)
----
-
-## 2026-02-16 15:22 - Story 1.2
-- What was implemented:
-  - Restructured CLI from subcommands to options: --profile, --status, --review, --resume, --autonomous
-  - Added optional [idea] positional argument that passes to pipeline
-  - Interactive mode via @clack/prompts when no args/flags provided — prompts for idea
-  - Exported handleCli() and CliOptions for testability
-  - Updated tests: 10 tests covering all flags, idea passing, autonomous mode, priority order
+  - Created src/profile/schema.ts — full DeveloperProfile interface covering all required categories: frontendFramework, backendFramework, database, cloudProvider, styling, stateManagement, analytics, ciCd, languages, projectStructure, packageManager, testRunner, linter, aiModel, autonomousByDefault
+  - Created typed unions for each category (FrontendFramework, BackendFramework, Database, etc.) with `| string` escape hatch for custom values
+  - Created ProfileCategory interface for onboarding metadata (key, label, recommended, alternatives, multi)
+  - Created src/profile/defaults.ts — DEFAULT_PROFILE with opinionated modern defaults (Next.js, Express, PostgreSQL, Vercel, Tailwind, Zustand, PostHog, GitHub Actions, pnpm, vitest, oxlint, monorepo)
+  - Created PROFILE_CATEGORIES ordered list for onboarding interview — each entry has recommended value and alternatives
+  - Updated src/shared/types.ts — replaced stub DeveloperProfile with re-export from profile/schema.ts
+  - Updated src/shared/index.ts — added ProfileCategory re-export
+  - Updated src/shared/types.test.ts — updated DeveloperProfile test to match new expanded schema
+  - Created src/profile/schema.test.ts — 4 tests (full profile construction, custom values, ProfileCategory shape, multi flag)
+  - Created src/profile/defaults.test.ts — 9 tests (all fields present, modern defaults verified, categories cover all fields, categories have labels/alternatives, recommended matches defaults, languages is multi-select)
+  - All 104 tests passing, typecheck clean, 0 lint errors
 - Files changed:
-  - src/cli/program.ts — rewrote from subcommand-based to option-based CLI
-  - src/cli/program.test.ts — expanded from 2 to 10 tests
+  - src/profile/schema.ts — new (DeveloperProfile, ProfileCategory, all union types)
+  - src/profile/defaults.ts — new (DEFAULT_PROFILE, PROFILE_CATEGORIES)
+  - src/profile/schema.test.ts — new (4 tests)
+  - src/profile/defaults.test.ts — new (9 tests)
+  - src/shared/types.ts — updated (replaced stub with re-export)
+  - src/shared/index.ts — updated (added ProfileCategory export)
+  - src/shared/types.test.ts — updated (expanded DeveloperProfile test)
 - **Learnings for future iterations:**
-  - Commander options (.option()) are better than subcommands for flags like --status/--resume that modify the default behavior
-  - @clack/prompts text() validate callback receives possibly-undefined value — guard with `!value ||` check
-  - `pnpm dev --` double-dash handling is tricky — use `npx tsx src/index.ts` for direct testing
-  - handleCli is exported separately from buildProgram for unit testing without Commander parsing
----
-
-## 2026-02-16 15:45 - Story 1.3
-- What was implemented:
-  - Created src/shared/types.ts — PipelineState, PipelinePhase, PIPELINE_PHASES, DeveloperProfile, Story, Prd, LogLevel, LogEntry
-  - Created src/shared/logger.ts — Logger class with JSON file output (~/.boop/logs/boop-YYYY-MM-DD.jsonl) and human-readable console output ([phase] message). Supports child() for context overrides, configurable min level.
-  - Created src/shared/retry.ts — retry() with configurable maxRetries, exponential backoff, jitter, maxDelayMs, isRetryable predicate, onRetry callback. RetryError class for exhausted retries.
-  - Updated src/shared/index.ts — re-exports all new types, Logger, createLogger, retry, RetryError
-  - Created 25 tests across 3 test files: types (6), logger (11), retry (8)
-- Files changed:
-  - src/shared/types.ts — new (pipeline state, developer profile, story format, log entry types)
-  - src/shared/logger.ts — new (structured JSON + console logger)
-  - src/shared/retry.ts — new (retry with exponential backoff)
-  - src/shared/index.ts — updated re-exports
-  - src/shared/types.test.ts — new (6 tests)
-  - src/shared/logger.test.ts — new (11 tests)
-  - src/shared/retry.test.ts — new (8 tests)
-- **Learnings for future iterations:**
-  - Logger silently drops file write errors to avoid crashing pipeline over logging — good pattern for non-critical I/O
-  - Retry tests with real delays are slow — use initialDelayMs: 1 and jitter: false in tests
-  - LogLevel type defined in shared/types.ts (not from logging/levels.ts which uses OpenClaw's tslog-centric ordering)
-  - fs.mkdirSync with recursive: true is safe to call repeatedly — no need to check existence first
----
-
-## 2026-02-16 16:00 - Story 1.4
-- What was implemented:
-  - Created src/pipeline/state.ts — state persistence with atomic YAML writes (write-to-tmp then rename). Functions: defaultState(), loadState(), saveState(), stateFilePath().
-  - Created src/pipeline/orchestrator.ts — PipelineOrchestrator class with full state machine. Supports: transition(), advance(), completeScaffolding(), startEpic(), setCurrentStory(), setLastCompletedStep(), reset(), formatStatus(), formatResumeContext().
-  - Wired --status to PipelineOrchestrator.formatStatus() — reads .boop/state.yaml and displays current pipeline state
-  - Wired --resume to PipelineOrchestrator.formatResumeContext() — shows full pipeline context (phase, epic, story, last step) and asks user to confirm via @clack/prompts confirm()
-  - handleCli() now accepts optional projectDir param for testability
-  - SCAFFOLDING skip logic: advance() auto-skips SCAFFOLDING when scaffoldingComplete is true; transition() rejects SCAFFOLDING when already complete
-  - 29 new tests across 2 test files: state (8), orchestrator (21)
-  - Updated CLI tests to use projectDir param and match new output format
-- Files changed:
-  - src/pipeline/state.ts — new (state persistence)
-  - src/pipeline/orchestrator.ts — new (state machine orchestrator)
-  - src/pipeline/state.test.ts — new (8 tests)
-  - src/pipeline/orchestrator.test.ts — new (21 tests)
-  - src/cli/program.ts — updated (wired --status and --resume to orchestrator, added projectDir param)
-  - src/cli/program.test.ts — updated (2 tests adjusted for new output)
-  - scripts/ralph/prd.json — marked 1.4 as passes: true
-- **Learnings for future iterations:**
-  - Atomic file writes (tmp + rename) prevent state corruption on crash — important for pipeline state
-  - Adding optional params (like projectDir) to handlers enables unit testing without touching the filesystem at process.cwd()
-  - YAML parse() from the `yaml` package returns plain objects — matches PipelineState interface directly
-  - TRANSITIONS map defines valid phase transitions as adjacency list — easy to validate and extend
----
-
-## 2026-02-16 16:35 - Story 1.5
-- What was implemented:
-  - Expanded src/config/index.ts with initGlobalConfig() — creates ~/.boop/, ~/.boop/logs/, ~/.boop/credentials/ (mode 0700)
-  - Added resolveProfilePath() to config module
-  - Added runOnboardingStub() — prints welcome message when no profile.yaml found
-  - Wired initGlobalConfig() into handleCli() — runs on every invocation, triggers onboarding stub when profile missing
-  - Added globalConfigDir parameter to handleCli() for test isolation
-  - 11 config tests: resolveHomeDir (2), resolveStateDir (2), resolveProfilePath (1), initGlobalConfig (5), runOnboardingStub (1)
-  - 2 new CLI tests: onboarding trigger + onboarding skip when profile exists
-  - Updated 7 existing CLI tests to pass globalConfigDir for test isolation
-- Files changed:
-  - src/config/index.ts — added initGlobalConfig(), resolveProfilePath(), runOnboardingStub(), InitResult interface
-  - src/config/config.test.ts — new (11 tests)
-  - src/cli/program.ts — added initGlobalConfig call, globalConfigDir param, onboarding trigger
-  - src/cli/program.test.ts — updated existing tests + 2 new onboarding tests
-  - scripts/ralph/prd.json — marked 1.5 as passes: true
-- **Learnings for future iterations:**
-  - Directories need execute bit for traversal — use 0700 not 0600 for restricted dirs
-  - initGlobalConfig is idempotent via recursive: true on mkdirSync — safe on every startup
-  - Adding optional override params (globalConfigDir) keeps tests isolated from the real filesystem
----
-
-## 2026-02-16 17:40 - Story 1.6
-- What was implemented:
-  - Created test/unit/, test/integration/, test/fixtures/ directory structure
-  - Created test/unit/smoke.test.ts — 7 tests verifying imports from all key src/ modules (version, shared utilities, CLI, channels, pipeline state, orchestrator, config)
-  - Created test/unit/path-alias.test.ts — 2 tests verifying #boop/* path alias resolves correctly
-  - Created tsconfig.test.json — extends base tsconfig, adds #boop/* path alias, includes test files
-  - Updated vitest.config.ts — added resolve.alias for #boop/* mapping to src/
-  - Added .gitkeep files to test/integration/ and test/fixtures/ to preserve empty dirs in git
-  - Total: 91 tests passing (82 existing + 9 new)
-- Files changed:
-  - test/unit/smoke.test.ts — new (7 tests, imports from all key modules)
-  - test/unit/path-alias.test.ts — new (2 tests, #boop/* alias verification)
-  - test/integration/.gitkeep — new (placeholder)
-  - test/fixtures/.gitkeep — new (placeholder)
-  - tsconfig.test.json — new (test-specific TypeScript config with path aliases)
-  - vitest.config.ts — updated (added resolve.alias for #boop/*)
-  - scripts/ralph/prd.json — marked 1.6 as passes: true
-- **Learnings for future iterations:**
-  - vitest resolve.alias and tsconfig paths must be configured separately — vitest doesn't read tsconfig paths by default
-  - import.meta.dirname works in vitest.config.ts for resolve.alias paths (no need for __dirname polyfill)
-  - PipelineOrchestrator constructor requires a real projectDir string (not a PipelineState object) — needs temp dir in tests
-  - Channel registry exports listChannels/isValidChannel/getChannelMeta, not getChannelRegistry
+  - Using `| string` on union types allows users to specify custom tools not in the predefined list — good for extensibility without sacrificing type-safety for known values
+  - Re-exporting types from shared/types.ts keeps downstream imports stable while moving canonical definitions to domain modules
+  - ProfileCategory metadata enables data-driven onboarding — iterate over PROFILE_CATEGORIES instead of hardcoding each prompt
 ---
