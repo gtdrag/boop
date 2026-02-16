@@ -11,6 +11,9 @@ Started: Mon Feb 16 14:23:49 CST 2026
 - Type declarations in src/types/ are module augmentations for npm packages without TS types
 - CLI uses options (--profile, --status, etc.) not subcommands — handleCli() exported separately for testing
 - @clack/prompts used for interactive mode — dynamic import to avoid loading when not needed
+- Logger class uses child() pattern for context overrides — avoids passing context through every call
+- Retry utility uses exponential backoff with jitter by default — set jitter: false and low initialDelayMs for tests
+- Shared types: PipelineState, DeveloperProfile, Story, Prd, LogEntry — all in src/shared/types.ts
 
 ---
 
@@ -49,4 +52,26 @@ Started: Mon Feb 16 14:23:49 CST 2026
   - @clack/prompts text() validate callback receives possibly-undefined value — guard with `!value ||` check
   - `pnpm dev --` double-dash handling is tricky — use `npx tsx src/index.ts` for direct testing
   - handleCli is exported separately from buildProgram for unit testing without Commander parsing
+---
+
+## 2026-02-16 15:45 - Story 1.3
+- What was implemented:
+  - Created src/shared/types.ts — PipelineState, PipelinePhase, PIPELINE_PHASES, DeveloperProfile, Story, Prd, LogLevel, LogEntry
+  - Created src/shared/logger.ts — Logger class with JSON file output (~/.boop/logs/boop-YYYY-MM-DD.jsonl) and human-readable console output ([phase] message). Supports child() for context overrides, configurable min level.
+  - Created src/shared/retry.ts — retry() with configurable maxRetries, exponential backoff, jitter, maxDelayMs, isRetryable predicate, onRetry callback. RetryError class for exhausted retries.
+  - Updated src/shared/index.ts — re-exports all new types, Logger, createLogger, retry, RetryError
+  - Created 25 tests across 3 test files: types (6), logger (11), retry (8)
+- Files changed:
+  - src/shared/types.ts — new (pipeline state, developer profile, story format, log entry types)
+  - src/shared/logger.ts — new (structured JSON + console logger)
+  - src/shared/retry.ts — new (retry with exponential backoff)
+  - src/shared/index.ts — updated re-exports
+  - src/shared/types.test.ts — new (6 tests)
+  - src/shared/logger.test.ts — new (11 tests)
+  - src/shared/retry.test.ts — new (8 tests)
+- **Learnings for future iterations:**
+  - Logger silently drops file write errors to avoid crashing pipeline over logging — good pattern for non-critical I/O
+  - Retry tests with real delays are slow — use initialDelayMs: 1 and jitter: false in tests
+  - LogLevel type defined in shared/types.ts (not from logging/levels.ts which uses OpenClaw's tslog-centric ordering)
+  - fs.mkdirSync with recursive: true is safe to call repeatedly — no need to check existence first
 ---
