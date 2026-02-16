@@ -9,6 +9,8 @@ Started: Mon Feb 16 14:23:49 CST 2026
 - OpenClaw uses oxlint + oxfmt for linting/formatting — must scope oxlint to src/ to avoid scanning node_modules
 - OpenClaw uses vitest with forks pool — kept this pattern
 - Type declarations in src/types/ are module augmentations for npm packages without TS types
+- CLI uses options (--profile, --status, etc.) not subcommands — handleCli() exported separately for testing
+- @clack/prompts used for interactive mode — dynamic import to avoid loading when not needed
 
 ---
 
@@ -30,4 +32,21 @@ Started: Mon Feb 16 14:23:49 CST 2026
   - Keep oxlint scoped to src/ in package.json scripts
   - OpenClaw's channel registry requires the plugin runtime — replaced with static registry
   - Commander 14.x works well with ESM and .action(async ...)
+---
+
+## 2026-02-16 15:22 - Story 1.2
+- What was implemented:
+  - Restructured CLI from subcommands to options: --profile, --status, --review, --resume, --autonomous
+  - Added optional [idea] positional argument that passes to pipeline
+  - Interactive mode via @clack/prompts when no args/flags provided — prompts for idea
+  - Exported handleCli() and CliOptions for testability
+  - Updated tests: 10 tests covering all flags, idea passing, autonomous mode, priority order
+- Files changed:
+  - src/cli/program.ts — rewrote from subcommand-based to option-based CLI
+  - src/cli/program.test.ts — expanded from 2 to 10 tests
+- **Learnings for future iterations:**
+  - Commander options (.option()) are better than subcommands for flags like --status/--resume that modify the default behavior
+  - @clack/prompts text() validate callback receives possibly-undefined value — guard with `!value ||` check
+  - `pnpm dev --` double-dash handling is tricky — use `npx tsx src/index.ts` for direct testing
+  - handleCli is exported separately from buildProgram for unit testing without Commander parsing
 ---

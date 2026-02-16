@@ -30,7 +30,7 @@
         "All tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Modify src/cli/program.ts. Use OpenClaw's existing CLI framework. Depends on 1.1 being complete."
     },
     {
