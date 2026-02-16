@@ -60,6 +60,7 @@ The minimum for Boop to be useful — replacing the manual orchestration I do to
 - State-of-the-art voice integration (Boop's fixed voice for status updates and conversational interaction)
 - Phone notifications via OpenClaw messaging (WhatsApp/Telegram)
 - Test hardening agent (fills coverage gaps, adds integration tests after each epic)
+- Full browser QA — walk through user flows, fill forms, verify end-to-end functionality, not just route checks
 - Deployment automation (Railway, Vercel, Supabase — based on developer profile)
 - Cross-project memory (wisdom that persists and improves across builds)
 - Course correction (absorb requirement changes mid-flight without restarting)
@@ -175,7 +176,8 @@ npx boop --autonomous       # Run without sign-off gates
 - FR-5.7: Fix all identified issues before advancing
 - FR-5.8: Run full test suite after all fixes — everything must be green
 - FR-5.9: Automated security scan — run SAST tools (Semgrep or equivalent) and dependency audit (npm audit) against the generated project code. Flag vulnerabilities by severity. Critical and high vulnerabilities are blocking — epic cannot advance until resolved. Medium/low are included in the epic summary for awareness.
-- FR-5.10: Generate epic summary: what was built, what was reviewed, what was fixed, gap analysis results, security scan results, test status
+- FR-5.10: Browser QA smoke test — spin up the generated project's dev server, verify app starts without crashing, key routes respond with 200, no console errors on page load, and basic UI elements render. Uses headless browser (Playwright). Failures are blocking. Screenshots captured at each route for the epic summary.
+- FR-5.11: Generate epic summary: what was built, what was reviewed, what was fixed, gap analysis results, security scan results, QA smoke test results with screenshots, test status
 
 ### FR-6: Epic Sign-off Gate
 

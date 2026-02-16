@@ -8,7 +8,7 @@
 
 ## Overview
 
-6 epics, 34 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
+6 epics, 35 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
 | Epic | Stories | FR Coverage |
 |------|---------|-------------|
@@ -16,9 +16,9 @@
 | 2: Developer Profile | 4 | FR-1 |
 | 3: Planning Pipeline | 6 | FR-2 |
 | 4: Bridge & Build | 5 | FR-3, FR-4 |
-| 5: Review & Epic Loop | 8 | FR-5, FR-6 |
+| 5: Review & Epic Loop | 9 | FR-5, FR-6 |
 | 6: Scaffolding, Defaults & Security | 5 | FR-7, FR-8 |
-| **Total** | **34** | **All FRs covered** |
+| **Total** | **35** | **All FRs covered** |
 
 ---
 
@@ -451,7 +451,8 @@ So that code review, tech debt, refactoring, and test hardening happen systemati
 - **And** test hardener runs after refactoring
 - **And** full test suite runs after all fixes
 - **And** security scanner (SAST + dependency audit) runs after tests are green
-- **And** unresolved gaps or critical/high vulnerabilities block epic advancement
+- **And** browser QA smoke test runs after security scan (starts dev server, hits routes, captures screenshots)
+- **And** unresolved gaps, critical/high vulnerabilities, or QA crashes block epic advancement
 
 **Prerequisites:** 4.3, 1.4
 **Technical Notes:** `src/review/team-orchestrator.ts`. Use Claude Code team capabilities.
@@ -554,7 +555,28 @@ So that security vulnerabilities are caught before sign-off.
 
 ---
 
-### Story 5.7: Epic summary and sign-off gate
+### Story 5.7: Browser QA smoke test
+
+As a developer,
+I want the generated project verified in a real browser after each epic,
+So that the app actually starts, renders, and doesn't crash — not just passes tests.
+
+**Acceptance Criteria:**
+- **Given** security scan is complete and tests are green
+- **When** the QA smoke test runs
+- **Then** the generated project's dev server is started automatically
+- **And** a headless Playwright browser visits every route defined in the project (detected from router config or sitemap)
+- **And** each route is checked for: HTTP 200 response, no JavaScript console errors, page renders without crash
+- **And** a screenshot is captured at each route
+- **And** if any route crashes, throws console errors, or returns non-200, it's flagged as a blocking failure
+- **And** screenshots and results are saved to `.boop/reviews/epic-N/qa-smoke-test/`
+
+**Prerequisites:** 5.6
+**Technical Notes:** `src/review/qa-smoke-test.ts`. Uses Playwright (headless Chromium). Discovers routes from the project's router config (React Router, Next.js pages, Express routes, etc.) or falls back to crawling from `/`. Dev server started via the project's `dev` script. Screenshots provide visual proof for the epic summary. Growth version will add form filling, user flow walking, and end-to-end functional verification.
+
+---
+
+### Story 5.8: Epic summary and sign-off gate
 
 As a user,
 I want a summary of what was built, reviewed, and fixed after each epic,
@@ -563,19 +585,19 @@ So that I can sign off before the next epic starts.
 **Acceptance Criteria:**
 - **Given** review phase is complete
 - **When** the sign-off gate triggers
-- **Then** an epic summary is generated: stories built, review findings, gap analysis results, security scan results, fixes applied, test status
+- **Then** an epic summary is generated: stories built, review findings, gap analysis results, security scan results, QA smoke test results with screenshots, fixes applied, test status
 - **And** the summary is saved to `.boop/reviews/epic-N/summary.md`
 - **And** Boop pauses and waits for user approval via `npx boop --review`
 - **And** if `--autonomous` is active, sign-off is skipped and next epic starts
 - **And** if user flags issues during sign-off, feedback is routed to the refactoring agent → fixes applied → test suite re-run → summary regenerated → user re-prompted for approval
 - **And** the rejection/fix cycle repeats until the user approves or explicitly defers issues
 
-**Prerequisites:** 5.6
-**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis and security scan results in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context.
+**Prerequisites:** 5.7
+**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis, security scan, and QA smoke test results (with screenshots) in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context.
 
 ---
 
-### Story 5.8: Bidirectional messaging integration
+### Story 5.9: Bidirectional messaging integration
 
 As a user,
 I want Boop to notify me via phone AND ask me questions when it needs input,
@@ -591,7 +613,7 @@ So that I can steer things from my phone without sitting at a terminal.
 - **And** credential requests are never sent as plaintext over messaging — Boop instructs the user to provide credentials via a secure local method (e.g., `npx boop --credential <name>` or environment variable)
 - **And** if no reply is received within a configurable timeout, Boop pauses and saves state for later resume
 
-**Prerequisites:** 5.7, 1.1 (channel adapters kept from OpenClaw)
+**Prerequisites:** 5.8, 1.1 (channel adapters kept from OpenClaw)
 **Technical Notes:** Use OpenClaw's existing WhatsApp/Telegram adapter code. Configure in `~/.boop/profile.yaml`. Bidirectional messaging uses OpenClaw's gateway for both inbound and outbound. Credential handling must be secure — never transmit secrets over messaging channels.
 
 ---
