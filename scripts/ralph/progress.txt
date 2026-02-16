@@ -35,3 +35,23 @@ Started: Mon Feb 16 16:38:33 CST 2026
   - The retry utility integrates cleanly with isRetryableApiError for Claude API fault tolerance
   - prompts/ directory is not in tsconfig include — markdown files are loaded at runtime via fs.readFileSync
 ---
+
+## 2026-02-16 - Story 3.2: PRD generation
+- What was implemented:
+  - Created `prompts/prd/system.md` — BMAD-style prompt template for PRD generation (executive summary, functional/non-functional requirements, MVP scope, success criteria, risks)
+  - Created `src/planning/prd.ts` — PRD generation module with `generatePrd()`, `buildUserMessage()`, `loadSystemPrompt()`, `savePrd()`, `loadViabilityAssessment()`. Chains viability output as input context. Uses 8192 maxTokens (higher than viability's 4096) for longer PRD output.
+  - Created `src/planning/prd.test.ts` — 16 tests covering prompt loading, user message building (profile + idea + viability), file saving, viability loading, and mocked API calls
+  - Updated `src/cli/program.ts` — after viability proceeds (user selects "proceed" or autonomous mode), now calls `runPrdPhase()` which generates and saves the PRD
+  - Updated `src/cli/program.test.ts` — added `mockGeneratePrd` mock to prevent real API calls during CLI tests
+- Files changed:
+  - NEW: `prompts/prd/system.md`
+  - NEW: `src/planning/prd.ts`, `src/planning/prd.test.ts`
+  - MODIFIED: `src/cli/program.ts` (PRD phase integration after viability)
+  - MODIFIED: `src/cli/program.test.ts` (PRD mock setup)
+  - MODIFIED: `scripts/ralph/prd.json` (3.2 passes: true)
+- **Learnings for future iterations:**
+  - Reuse `formatProfileContext()` from viability.ts — no need to duplicate profile formatting
+  - Each planning phase chains the prior phase's output as input context (viability → PRD → architecture → stories)
+  - PRD needs higher maxTokens (8192) than viability (4096) since the output is longer
+  - The `loadViabilityAssessment()` helper reads from `.boop/planning/viability.md` — useful for chaining phases that don't run in the same session
+---

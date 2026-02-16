@@ -6,8 +6,9 @@ import { buildProgram, handleCli } from "./program.js";
 import type { CliOptions } from "./program.js";
 
 // Use vi.hoisted for mock fns that need to survive resetAllMocks
-const { mockAssessViability } = vi.hoisted(() => ({
+const { mockAssessViability, mockGeneratePrd } = vi.hoisted(() => ({
   mockAssessViability: vi.fn(),
+  mockGeneratePrd: vi.fn(),
 }));
 
 // Mock the config module to avoid real interactive prompts
@@ -24,6 +25,11 @@ vi.mock("../config/index.js", async (importOriginal) => {
 // Mock the viability module to avoid real API calls
 vi.mock("../planning/viability.js", () => ({
   assessViability: mockAssessViability,
+}));
+
+// Mock the PRD module to avoid real API calls
+vi.mock("../planning/prd.js", () => ({
+  generatePrd: mockGeneratePrd,
 }));
 
 // Mock @clack/prompts to avoid interactive prompts hanging tests
@@ -80,6 +86,13 @@ describe("handleCli", () => {
       assessment: "## Viability Assessment\n**PROCEED**",
       recommendation: "PROCEED",
       usage: { inputTokens: 10, outputTokens: 20 },
+    });
+
+    // Reset PRD mock with default return value
+    mockGeneratePrd.mockReset();
+    mockGeneratePrd.mockResolvedValue({
+      prd: "# Product Requirements Document\n\nTest PRD content",
+      usage: { inputTokens: 100, outputTokens: 200 },
     });
   });
 

@@ -16,6 +16,8 @@ import {
 import type { DeveloperProfile } from "../shared/types.js";
 import { assessViability } from "../planning/viability.js";
 import type { ViabilityResult } from "../planning/viability.js";
+import { generatePrd } from "../planning/prd.js";
+import type { PrdResult } from "../planning/prd.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -173,7 +175,8 @@ async function startPipeline(
       console.log("[boop] Recommendation is RECONSIDER — stopping pipeline.");
       return;
     }
-    console.log("[boop] Proceeding to next phase...");
+    console.log("[boop] Proceeding to PRD generation...");
+    await runPrdPhase(idea, profile, projectDir, result.assessment);
     return;
   }
 
@@ -216,5 +219,32 @@ async function startPipeline(
   }
 
   // action === "proceed"
-  console.log("[boop] Proceeding to next phase...");
+  console.log("[boop] Proceeding to PRD generation...");
+  await runPrdPhase(idea, profile, projectDir, result.assessment);
+}
+
+/**
+ * Run the PRD generation phase.
+ */
+async function runPrdPhase(
+  idea: string,
+  profile: DeveloperProfile,
+  projectDir: string,
+  viabilityAssessment: string,
+): Promise<void> {
+  console.log("[boop] Generating PRD...");
+
+  let result: PrdResult;
+  try {
+    result = await generatePrd(idea, profile, viabilityAssessment, { projectDir });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[boop] PRD generation failed: ${msg}`);
+    return;
+  }
+
+  console.log();
+  console.log(result.prd);
+  console.log();
+  console.log("[boop] PRD saved to .boop/planning/prd.md");
 }
