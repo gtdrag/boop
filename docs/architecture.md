@@ -93,12 +93,14 @@ boop/
 │   ├── build/                       # Build phase (Ralph-derived)
 │   │   ├── ralph-loop.ts           # Story loop orchestrator
 │   │   ├── story-runner.ts         # Single story execution
+│   │   ├── reality-check.ts        # Mock data / stub / placeholder scanner
 │   │   └── progress.ts             # progress.txt management
 │   │
 │   ├── review/                      # Review phase (Claude Code team)
 │   │   ├── team-orchestrator.ts    # Coordinates review agents
 │   │   ├── code-reviewer.ts        # Code review agent
 │   │   ├── tech-debt-auditor.ts    # Tech debt identification
+│   │   ├── gap-analyst.ts          # Acceptance criteria vs reality verification
 │   │   ├── refactoring-agent.ts    # Active refactoring
 │   │   ├── test-hardener.ts        # Test coverage gaps + integration tests
 │   │   └── fix-runner.ts           # Applies fixes from review findings
@@ -192,11 +194,14 @@ while (incomplete stories exist):
     inject: story + progress.txt + CLAUDE.md
     implement story
     run typecheck + tests
-    if pass: commit, mark done, append to progress.txt
+    run reality check (scan for mock data, stubs, placeholders, TODO/FIXME in production code)
+    if all pass: commit, mark done, append to progress.txt
     if fail: retry once, then pause and report
 ```
 
 One story per context window. Fresh context each iteration. Progress compounds through progress.txt and CLAUDE.md, not through conversation history.
+
+**Reality Check (Story-Level):** Before committing, scan all changed files for: hardcoded/mock data in production code paths, stub implementations (`return []`, `return null`, fake API responses), `TODO`/`FIXME`/`HACK` comments, placeholder strings. If the story explicitly scopes a stub (e.g., "create UI skeleton"), the check allows it and tags it for future resolution. Otherwise, mock data in production code is treated as a failing test — the story cannot pass.
 
 ### Review Team Orchestration
 
@@ -205,12 +210,14 @@ After all stories in an epic complete:
 ```
 1. Code Reviewer agent → reads all new code, produces findings list
 2. Tech Debt Auditor agent → identifies duplication, inconsistencies, extraction opportunities
-3. (1 and 2 can run in parallel)
-4. Refactoring Agent → takes combined findings, applies fixes
-5. Test Hardener agent → identifies coverage gaps, writes missing tests
-6. Fix Runner → runs full test suite, confirms everything green
-7. If failures → retry fixes (up to configured limit)
-8. Generate epic summary → notify user for sign-off
+3. Gap Analyst agent → cross-references every acceptance criterion against actual implementation,
+   flags mock data / stubs / placeholders still in production code paths
+4. (1, 2, and 3 can run in parallel)
+5. Refactoring Agent → takes combined findings, applies fixes
+6. Test Hardener agent → identifies coverage gaps, writes missing tests
+7. Fix Runner → runs full test suite, confirms everything green
+8. If failures or unresolved gaps → retry fixes (up to configured limit)
+9. Generate epic summary (including gap analysis results) → notify user for sign-off
 ```
 
 ## Consistency Rules

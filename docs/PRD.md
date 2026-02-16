@@ -162,6 +162,7 @@ npx boop --autonomous       # Run without sign-off gates
 - FR-4.4: Progress tracking via `progress.txt` (append-only learnings between iterations)
 - FR-4.5: Pattern documentation via `CLAUDE.md` / `AGENTS.md` (discovered codebase conventions)
 - FR-4.6: Quality gates — never commit failing code. Typecheck and tests must pass before commit.
+- FR-4.7: Reality check before commit — scan for mock/placeholder data, hardcoded values that should come from APIs/DB, stub implementations (`return []`, fake responses), and `TODO`/`FIXME`/`HACK` markers. If found in production code paths and not explicitly scoped to the story, block the commit and fix before proceeding. Mock data in production code is treated as a failing test — not a warning.
 
 ### FR-5: Review Phase (Claude Code Team)
 
@@ -170,9 +171,10 @@ npx boop --autonomous       # Run without sign-off gates
 - FR-5.3: Tech debt audit — spot duplication, naming inconsistencies, opportunities to extract shared utilities
 - FR-5.4: Refactoring pass — actively fix what the audit finds (not just report it)
 - FR-5.5: Bug and gap identification — find edge cases, missing error handling, incomplete implementations
-- FR-5.6: Fix all identified issues before advancing
-- FR-5.7: Run full test suite after all fixes — everything must be green
-- FR-5.8: Generate epic summary: what was built, what was reviewed, what was fixed, test status
+- FR-5.6: Gap analysis — for every acceptance criterion in every story in this epic, verify it's actually working with real data. Cross-reference PRD/stories vs what's actually wired up. Flag any mock data, seed data, placeholder values, or stub implementations still present in production code paths. This is a blocking check — epic cannot advance until all gaps are resolved or explicitly deferred with documented justification.
+- FR-5.7: Fix all identified issues before advancing
+- FR-5.8: Run full test suite after all fixes — everything must be green
+- FR-5.9: Generate epic summary: what was built, what was reviewed, what was fixed, gap analysis results, test status
 
 ### FR-6: Epic Sign-off Gate
 

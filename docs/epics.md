@@ -8,7 +8,7 @@
 
 ## Overview
 
-6 epics, 31 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
+6 epics, 32 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
 | Epic | Stories | FR Coverage |
 |------|---------|-------------|
@@ -16,9 +16,9 @@
 | 2: Developer Profile | 4 | FR-1 |
 | 3: Planning Pipeline | 6 | FR-2 |
 | 4: Bridge & Build | 5 | FR-3, FR-4 |
-| 5: Review & Epic Loop | 6 | FR-5, FR-6 |
+| 5: Review & Epic Loop | 7 | FR-5, FR-6 |
 | 6: Scaffolding, Defaults & Security | 5 | FR-7, FR-8 |
-| **Total** | **31** | **All FRs covered** |
+| **Total** | **32** | **All FRs covered** |
 
 ---
 
@@ -364,11 +364,13 @@ So that stories are built autonomously one at a time.
 - **Then** the loop picks the highest-priority incomplete story
 - **And** spawns a fresh Claude context with: story details + progress.txt + CLAUDE.md
 - **And** the agent implements the story, runs typecheck and tests
-- **And** on pass: commits, marks story done in prd.json, appends to progress.txt
-- **And** on fail: retries once, then pauses and reports
+- **And** reality check scans for mock/placeholder data, stub implementations, and TODO/FIXME markers in production code paths
+- **And** on all pass: commits, marks story done in prd.json, appends to progress.txt
+- **And** on fail (including reality check failures): retries once, then pauses and reports
+- **And** mock data in production code is treated as a failing test — not a warning
 
 **Prerequisites:** 4.2, 1.4
-**Technical Notes:** `src/build/ralph-loop.ts`, `src/build/story-runner.ts`. Adapts ralph.sh logic to TypeScript.
+**Technical Notes:** `src/build/ralph-loop.ts`, `src/build/story-runner.ts`, `src/build/reality-check.ts`. Adapts ralph.sh logic to TypeScript. Reality check runs after typecheck + tests pass but before commit.
 
 ---
 
@@ -422,10 +424,11 @@ So that code review, tech debt, refactoring, and test hardening happen systemati
 - **Given** all stories in an epic are complete
 - **When** the review phase triggers
 - **Then** the orchestrator launches review agents in the defined sequence
-- **And** code reviewer and tech debt auditor run in parallel
-- **And** refactoring agent runs after both complete
+- **And** code reviewer, tech debt auditor, and gap analyst run in parallel
+- **And** refactoring agent runs after all three complete
 - **And** test hardener runs after refactoring
 - **And** full test suite runs after all fixes
+- **And** unresolved gaps block epic advancement
 
 **Prerequisites:** 4.3, 1.4
 **Technical Notes:** `src/review/team-orchestrator.ts`. Use Claude Code team capabilities.
@@ -449,7 +452,28 @@ So that issues, antipatterns, and inconsistencies are identified.
 
 ---
 
-### Story 5.3: Tech debt auditor and refactoring agent
+### Story 5.3: Gap analysis agent
+
+As a user,
+I want every acceptance criterion cross-referenced against the actual implementation after each epic,
+So that nothing ships with mock data, stubs, or incomplete wiring pretending to be done.
+
+**Acceptance Criteria:**
+- **Given** all stories in an epic are complete
+- **When** the gap analyst runs
+- **Then** it reads every acceptance criterion from every story in the epic
+- **And** verifies each criterion is met with real data, real API calls, real database queries — not mocks or placeholders
+- **And** scans all production code paths for: hardcoded mock data, placeholder strings, stub implementations, fake API responses, seed data displayed as real data
+- **And** produces a gap report listing: criterion, status (verified / gap found), evidence
+- **And** any gap found is a blocking issue — the epic cannot advance until resolved or explicitly deferred with documented justification
+- **And** the gap report is saved to `.boop/reviews/epic-N/gap-analysis.md`
+
+**Prerequisites:** 5.1
+**Technical Notes:** `src/review/gap-analyst.ts`. Runs in parallel with code reviewer and tech debt auditor. Cross-references story acceptance criteria from `.boop/prd.json` against actual code. Scans for patterns: `mock`, `fake`, `placeholder`, `TODO`, `FIXME`, `HACK`, `dummy`, `sample`, hardcoded arrays/objects that look like seed data.
+
+---
+
+### Story 5.4: Tech debt auditor and refactoring agent
 
 As a developer,
 I want tech debt identified and actively fixed after each epic,
@@ -468,7 +492,7 @@ So that the codebase stays clean as it grows.
 
 ---
 
-### Story 5.4: Test hardening agent
+### Story 5.5: Test hardening agent
 
 As a developer,
 I want test coverage gaps filled and integration tests added after each epic,
@@ -486,7 +510,7 @@ So that the test suite is comprehensive before moving on.
 
 ---
 
-### Story 5.5: Epic summary and sign-off gate
+### Story 5.6: Epic summary and sign-off gate
 
 As a user,
 I want a summary of what was built, reviewed, and fixed after each epic,
@@ -495,17 +519,17 @@ So that I can sign off before the next epic starts.
 **Acceptance Criteria:**
 - **Given** review phase is complete
 - **When** the sign-off gate triggers
-- **Then** an epic summary is generated: stories built, review findings, fixes applied, test status
+- **Then** an epic summary is generated: stories built, review findings, gap analysis results, fixes applied, test status
 - **And** the summary is saved to `.boop/reviews/epic-N/summary.md`
 - **And** Boop pauses and waits for user approval via `npx boop --review`
 - **And** if `--autonomous` is active, sign-off is skipped and next epic starts
 
-**Prerequisites:** 5.4
-**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic.
+**Prerequisites:** 5.5
+**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis results in summary.
 
 ---
 
-### Story 5.6: Notification integration
+### Story 5.7: Notification integration
 
 As a user,
 I want to receive phone notifications when an epic is ready for sign-off,
@@ -517,7 +541,7 @@ So that I don't have to keep checking the terminal.
 - **Then** a notification is sent via the configured channel with the epic summary
 - **And** status updates are also sent for: planning complete, build started, build complete, review complete
 
-**Prerequisites:** 5.5, 1.1 (channel adapters kept from OpenClaw)
+**Prerequisites:** 5.6, 1.1 (channel adapters kept from OpenClaw)
 **Technical Notes:** Use OpenClaw's existing WhatsApp/Telegram adapter code. Configure in `~/.boop/profile.yaml`.
 
 ---
