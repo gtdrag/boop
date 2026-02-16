@@ -77,11 +77,13 @@ The minimum for Boop to be useful — replacing the manual orchestration I do to
 ## CLI Specific Requirements
 
 **Installation:**
+
 - `npx boop` — single command, no global install required
 - Node.js runtime (inherited from OpenClaw)
 - First run triggers developer profile onboarding
 
 **Command Structure:**
+
 ```
 npx boop "your idea"        # Full pipeline from idea
 npx boop --profile          # Edit developer profile
@@ -92,17 +94,20 @@ npx boop --autonomous       # Run without sign-off gates
 ```
 
 **Configuration:**
+
 - `~/.boop/profile.yaml` — Developer profile (tech stack, cloud, patterns, quality defaults)
 - `~/.boop/prompts/` — Planning prompt library (BMAD-extracted instruction files, templates, personas)
 - `.boop/` in project root — Project-specific state (progress, current phase, story status)
 
 **Dependencies:**
+
 - OpenClaw core runtime (forked, stripped)
 - Claude API access (via OpenClaw's model integration)
 - Git (for Ralph's commit loop)
 - Node.js package manager
 
 **Output:**
+
 - A git repository with implemented code, passing tests, reviewed and refactored
 - Commit history organized by story (one commit per story, cleanup commits after review phase)
 - Project scaffolded according to developer profile (framework, structure, styling, defaults)

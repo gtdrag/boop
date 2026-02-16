@@ -32,6 +32,7 @@ Do NOT try to merge git histories. Just copy the source files we need.
 ## Progress Report Format
 
 APPEND to `scripts/ralph/progress.txt` (never replace, always append):
+
 ```
 ## [Date/Time] - [Story ID]
 - What was implemented
@@ -50,6 +51,7 @@ If you discover a **reusable pattern**, add it to the `## Codebase Patterns` sec
 ## Update CLAUDE.md Files
 
 Before committing, check if any edited files have learnings worth preserving in CLAUDE.md files:
+
 - API patterns specific to that module
 - Gotchas or non-obvious requirements
 - Dependencies between files

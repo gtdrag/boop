@@ -10,15 +10,15 @@
 
 6 epics, 35 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
-| Epic | Stories | FR Coverage |
-|------|---------|-------------|
-| 1: Foundation & OpenClaw Fork | 6 | FR-8 (partial), infrastructure |
-| 2: Developer Profile | 4 | FR-1 |
-| 3: Planning Pipeline | 6 | FR-2 |
-| 4: Bridge & Build | 5 | FR-3, FR-4 |
-| 5: Review & Epic Loop | 9 | FR-5, FR-6 |
-| 6: Scaffolding, Defaults & Security | 5 | FR-7, FR-8 |
-| **Total** | **35** | **All FRs covered** |
+| Epic                                | Stories | FR Coverage                    |
+| ----------------------------------- | ------- | ------------------------------ |
+| 1: Foundation & OpenClaw Fork       | 6       | FR-8 (partial), infrastructure |
+| 2: Developer Profile                | 4       | FR-1                           |
+| 3: Planning Pipeline                | 6       | FR-2                           |
+| 4: Bridge & Build                   | 5       | FR-3, FR-4                     |
+| 5: Review & Epic Loop               | 9       | FR-5, FR-6                     |
+| 6: Scaffolding, Defaults & Security | 5       | FR-7, FR-8                     |
+| **Total**                           | **35**  | **All FRs covered**            |
 
 ---
 
@@ -33,6 +33,7 @@ I want a clean fork of OpenClaw with marketplace/plugin/extension code removed,
 So that Boop has a secure, minimal runtime foundation.
 
 **Acceptance Criteria:**
+
 - **Given** the OpenClaw repo is forked to gtdrag/boop
 - **When** the stripping is complete
 - **Then** ClawHub, plugin loader, extension directory, Canvas/A2UI, and all channel adapters except WhatsApp + Telegram are removed
@@ -51,6 +52,7 @@ I want to run `npx boop` with subcommands,
 So that I have a clean interface to interact with Boop.
 
 **Acceptance Criteria:**
+
 - **Given** Boop is installed or run via npx
 - **When** I run `npx boop --help`
 - **Then** I see available commands: default (idea input), `--profile`, `--status`, `--review`, `--resume`, `--autonomous`
@@ -69,6 +71,7 @@ I want structured logging and retry utilities available across all modules,
 So that error handling and observability are consistent from day one.
 
 **Acceptance Criteria:**
+
 - **Given** any module imports the logger
 - **When** it logs a message
 - **Then** JSON is written to `~/.boop/logs/` and human-readable output goes to console
@@ -87,6 +90,7 @@ I want the pipeline state machine defined and persisting to `.boop/state.yaml`,
 So that Boop can track progress and resume after interruption.
 
 **Acceptance Criteria:**
+
 - **Given** a project directory with `.boop/`
 - **When** the pipeline transitions between states
 - **Then** state is written atomically to `.boop/state.yaml` before and after each transition
@@ -107,6 +111,7 @@ I want Boop's global config directory created on first run,
 So that profile, logs, and credentials have a home.
 
 **Acceptance Criteria:**
+
 - **Given** `~/.boop/` doesn't exist
 - **When** Boop runs for the first time
 - **Then** `~/.boop/` is created with subdirectories: `logs/`, `credentials/`
@@ -125,6 +130,7 @@ I want the test framework, runner config, and fixture directory established,
 So that quality gates can run tests from the very first story that needs them.
 
 **Acceptance Criteria:**
+
 - **Given** the stripped OpenClaw fork is set up
 - **When** the test infrastructure is configured
 - **Then** a test runner (vitest or jest) is installed and configured in `package.json`
@@ -149,6 +155,7 @@ I want the developer profile schema defined with sensible, opinionated defaults 
 So that the onboarding can lead with recommendations.
 
 **Acceptance Criteria:**
+
 - **Given** the profile schema is defined
 - **When** no overrides are provided
 - **Then** every field has a recommended default (e.g., PostgreSQL for database, Tailwind for styling, Zustand for state)
@@ -167,6 +174,7 @@ I want Boop to walk me through a setup interview where it recommends a tech choi
 So that my profile is generated quickly with good defaults.
 
 **Acceptance Criteria:**
+
 - **Given** no `~/.boop/profile.yaml` exists
 - **When** Boop runs for the first time
 - **Then** it presents each category with a recommended choice (e.g., "Database? PostgreSQL (recommended) — or type your preference:")
@@ -187,6 +195,7 @@ I want to edit my developer profile after initial setup,
 So that I can update preferences as my stack evolves.
 
 **Acceptance Criteria:**
+
 - **Given** `~/.boop/profile.yaml` exists
 - **When** I run `npx boop --profile`
 - **Then** the onboarding interview re-runs with current values shown as defaults
@@ -205,6 +214,7 @@ I want the pipeline to load and use the developer profile when making decisions,
 So that planning and scaffolding reflect my preferences automatically.
 
 **Acceptance Criteria:**
+
 - **Given** a profile exists at `~/.boop/profile.yaml`
 - **When** the pipeline starts
 - **Then** the profile is loaded and available to all pipeline phases
@@ -227,6 +237,7 @@ I want Boop to honestly evaluate my idea before investing effort,
 So that I get honest feedback and can pivot early if needed.
 
 **Acceptance Criteria:**
+
 - **Given** I provide an idea via `npx boop "my idea"`
 - **When** the viability phase runs
 - **Then** Claude assesses the idea for feasibility, market fit, and technical complexity
@@ -246,6 +257,7 @@ I want Boop to generate a PRD from my idea and viability assessment,
 So that requirements are documented before architecture and stories.
 
 **Acceptance Criteria:**
+
 - **Given** the viability phase passed
 - **When** the PRD phase runs
 - **Then** Claude generates a PRD using the extracted BMAD PRD prompt template
@@ -265,6 +277,7 @@ I want Boop to generate architecture decisions automatically from my profile and
 So that tech stack choices are made without me having to specify them again.
 
 **Acceptance Criteria:**
+
 - **Given** a PRD exists
 - **When** the architecture phase runs
 - **Then** Claude generates architecture decisions using the developer profile as primary input
@@ -284,6 +297,7 @@ I want Boop to decompose the PRD into epics and stories with acceptance criteria
 So that the build phase has clear, implementable units of work.
 
 **Acceptance Criteria:**
+
 - **Given** PRD and architecture exist
 - **When** the story breakdown phase runs
 - **Then** Claude generates epics with stories, each containing: user story, BDD acceptance criteria, prerequisites, technical notes
@@ -303,6 +317,7 @@ I want the planning phases to chain automatically with each feeding into the nex
 So that the pipeline runs without manual intervention between phases.
 
 **Acceptance Criteria:**
+
 - **Given** a user provides an idea
 - **When** the planning phase runs
 - **Then** viability → PRD → architecture → stories execute in sequence
@@ -322,6 +337,7 @@ I want the tested BMAD instruction files, templates, and personas extracted and 
 So that planning phases use proven, refined prompts.
 
 **Acceptance Criteria:**
+
 - **Given** the BMAD installation at `.bmad/`
 - **When** prompts are extracted
 - **Then** `prompts/viability/`, `prompts/prd/`, `prompts/architecture/`, `prompts/stories/` each contain the relevant instruction files and templates
@@ -345,6 +361,7 @@ I want a parser that reads BMAD story markdown files and extracts structured dat
 So that stories can be converted to Ralph's format.
 
 **Acceptance Criteria:**
+
 - **Given** a BMAD story markdown file
 - **When** the parser runs
 - **Then** it extracts: story ID, title, user story text, acceptance criteria (as array), tasks/subtasks, dev notes
@@ -363,6 +380,7 @@ I want the parsed stories converted to Ralph's prd.json format,
 So that the build loop can consume them.
 
 **Acceptance Criteria:**
+
 - **Given** parsed story data from the BMAD parser
 - **When** the converter runs
 - **Then** it generates a valid prd.json with: project, branchName, description, userStories[]
@@ -381,6 +399,7 @@ I want Ralph's story loop integrated into Boop,
 So that stories are built autonomously one at a time.
 
 **Acceptance Criteria:**
+
 - **Given** a valid `.boop/prd.json` exists
 - **When** the build phase runs
 - **Then** the loop picks the highest-priority incomplete story
@@ -403,6 +422,7 @@ I want progress.txt and CLAUDE.md maintained across story iterations,
 So that knowledge compounds between stories.
 
 **Acceptance Criteria:**
+
 - **Given** a story completes
 - **When** progress is recorded
 - **Then** `progress.txt` is appended with: iteration number, story ID, files changed, learnings
@@ -421,6 +441,7 @@ I want Boop to manage git branches for each project,
 So that work is isolated and organized.
 
 **Acceptance Criteria:**
+
 - **Given** prd.json has a branchName
 - **When** the build phase starts
 - **Then** the branch is created or checked out
@@ -443,6 +464,7 @@ I want the review phase to coordinate multiple specialized agents,
 So that code review, tech debt, refactoring, and test hardening happen systematically.
 
 **Acceptance Criteria:**
+
 - **Given** all stories in an epic are complete
 - **When** the review phase triggers
 - **Then** the orchestrator launches review agents in the defined sequence
@@ -466,6 +488,7 @@ I want an automated code review of all new code in the completed epic,
 So that issues, antipatterns, and inconsistencies are identified.
 
 **Acceptance Criteria:**
+
 - **Given** an epic's worth of committed code
 - **When** the code review agent runs
 - **Then** it produces a findings list covering: bugs, antipatterns, inconsistencies, security concerns, missing error handling
@@ -483,6 +506,7 @@ I want every acceptance criterion cross-referenced against the actual implementa
 So that nothing ships with mock data, stubs, or incomplete wiring pretending to be done.
 
 **Acceptance Criteria:**
+
 - **Given** all stories in an epic are complete
 - **When** the gap analyst runs
 - **Then** it reads every acceptance criterion from every story in the epic
@@ -504,6 +528,7 @@ I want tech debt identified and actively fixed after each epic,
 So that the codebase stays clean as it grows.
 
 **Acceptance Criteria:**
+
 - **Given** code review findings and the full codebase
 - **When** the tech debt auditor runs
 - **Then** it identifies: duplication, naming inconsistencies, extraction opportunities, unused code
@@ -523,6 +548,7 @@ I want test coverage gaps filled and integration tests added after each epic,
 So that the test suite is comprehensive before moving on.
 
 **Acceptance Criteria:**
+
 - **Given** refactoring is complete
 - **When** the test hardener runs
 - **Then** it identifies coverage gaps and missing edge case tests
@@ -541,6 +567,7 @@ I want SAST and dependency audits run against the generated project code after e
 So that security vulnerabilities are caught before sign-off.
 
 **Acceptance Criteria:**
+
 - **Given** all fixes are applied and the test suite is green
 - **When** the security scanner runs
 - **Then** a SAST tool (Semgrep or equivalent) scans all source code for vulnerability patterns (injection, XSS, insecure crypto, hardcoded secrets, path traversal)
@@ -562,6 +589,7 @@ I want the generated project verified in a real browser after each epic,
 So that the app actually starts, renders, and doesn't crash — not just passes tests.
 
 **Acceptance Criteria:**
+
 - **Given** security scan is complete and tests are green
 - **When** the QA smoke test runs
 - **Then** the generated project's dev server is started automatically
@@ -583,6 +611,7 @@ I want a summary of what was built, reviewed, and fixed after each epic,
 So that I can sign off before the next epic starts.
 
 **Acceptance Criteria:**
+
 - **Given** review phase is complete
 - **When** the sign-off gate triggers
 - **Then** an epic summary is generated: stories built, review findings, gap analysis results, security scan results, QA smoke test results with screenshots, fixes applied, test status
@@ -604,6 +633,7 @@ I want Boop to notify me via phone AND ask me questions when it needs input,
 So that I can steer things from my phone without sitting at a terminal.
 
 **Acceptance Criteria:**
+
 - **Given** WhatsApp or Telegram is configured in Boop
 - **When** an epic sign-off is ready
 - **Then** a notification is sent via the configured channel with the epic summary
@@ -629,6 +659,7 @@ I want Boop to generate a project skeleton based on my developer profile,
 So that every project starts with my preferred structure and tooling.
 
 **Acceptance Criteria:**
+
 - **Given** a developer profile exists
 - **When** the scaffolding phase runs (after planning, before build)
 - **Then** project structure is generated: directories, configs, boilerplate
@@ -647,6 +678,7 @@ I want every web project to ship with SEO optimization and analytics wiring,
 So that I never have to remember to add these manually.
 
 **Acceptance Criteria:**
+
 - **Given** the project is a web or mobile-web project (detected from profile/PRD)
 - **When** scaffolding runs
 - **Then** SEO defaults are included: meta tags, Open Graph, structured data template, sitemap config, robots.txt, semantic HTML patterns
@@ -665,6 +697,7 @@ I want every project to include accessibility defaults and security headers,
 So that these are always present without thinking about them.
 
 **Acceptance Criteria:**
+
 - **Given** scaffolding runs
 - **Then** accessibility defaults are included: ARIA landmarks, skip navigation, focus management patterns, semantic HTML
 - **And** security headers are configured: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
@@ -682,6 +715,7 @@ I want all build and review agents running in Docker sandboxes with restricted a
 So that no agent can affect anything outside the project scope.
 
 **Acceptance Criteria:**
+
 - **Given** a build or review agent is spawned
 - **When** it executes
 - **Then** it runs in a Docker container with filesystem access limited to the project directory
@@ -701,6 +735,7 @@ I want API keys stored securely and a security checklist validated before releas
 So that Boop is safe to distribute.
 
 **Acceptance Criteria:**
+
 - **Given** Boop requires a Claude API key
 - **When** the key is configured
 - **Then** it's stored in `~/.boop/credentials/` with 0600 permissions or system keychain

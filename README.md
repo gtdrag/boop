@@ -17,11 +17,11 @@ Boop is a personalized development pipeline that turns ideas into deployed softw
 ## Design Philosophy
 
 - **Opinionated** — George's choices. Fixed voice, fixed personality, fixed workflow. Take it or fork it.
-- **Developer Profile** — First-run onboarding interview generates a config encoding your tech stack, patterns, cloud preferences, and design sensibilities. Boop builds software *your way*.
+- **Developer Profile** — First-run onboarding interview generates a config encoding your tech stack, patterns, cloud preferences, and design sensibilities. Boop builds software _your way_.
 - **Keep the brains, ditch the ceremony** — Planning knowledge from BMAD (instruction files, templates, personas) without the workflow engine overhead.
 - **Nested loops** — Story loop (fast, silent), epic loop (notifies, includes code review + hardening), project loop (major gates, sign-off).
 - **Security-first** — Closed system. No external plugins, no marketplace, no auto-downloading from public repos. Every agent sandboxed at the runtime level.
-- **Best practices are defaults** — SEO, analytics, accessibility, security headers, error tracking. Every project ships with these automatically. The developer profile defines *which* providers, but the fact that they exist is non-negotiable.
+- **Best practices are defaults** — SEO, analytics, accessibility, security headers, error tracking. Every project ships with these automatically. The developer profile defines _which_ providers, but the fact that they exist is non-negotiable.
 - **Communicative, not needy** — Status updates at the right level. Knows when to ask and when to just handle it.
 
 ## Architecture

@@ -15,7 +15,7 @@
         "All tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Start from latest OpenClaw main. Remove src/plugins/, Canvas system, unused channel adapters. Update imports and configs. This is the foundation — everything else builds on it."
     },
     {

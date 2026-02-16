@@ -21,26 +21,26 @@ pnpm install
 
 ## Decision Summary
 
-| Category | Decision | Version | Affects | Rationale |
-| -------- | -------- | ------- | ------- | --------- |
-| Runtime | Node.js | 22+ | All | Inherited from OpenClaw |
-| Package Manager | pnpm | latest | All | OpenClaw standard |
-| Language | TypeScript | 5.x | All | OpenClaw standard |
-| AI Model | Claude Opus 4.6 | opus-4-6 | All phases | Quality over cost. Best model for everything. |
-| Agent Runtime | Pi Agent Core | latest | Build, Review | OpenClaw's agent execution engine |
-| Review Orchestration | Claude Code team | — | Review phase | Multi-agent: code reviewer, tech debt auditor, refactoring agent, test hardener |
-| Messaging | WhatsApp + Telegram | — | Notifications | Phone notifications for epic sign-offs |
-| Voice | ElevenLabs | — | Voice interaction | Boop's fixed voice |
-| Tool Sandbox | Docker | — | Build, Review | Per-session isolation for agent tool execution |
-| Config Format | YAML | — | Profile, State | Developer profile + project state |
-| Planning Prompts | Markdown files | — | Planning | Extracted from BMAD, no workflow engine |
-| Bridge | TypeScript | — | Bridge | Same runtime, no external dependency |
-| Build Loop | Shell orchestration | — | Build | Ralph's bash loop pattern |
-| VCS | Git | — | Build, Review | Commit-per-story pattern |
-| Distribution | npm | — | Install | `npx boop` |
-| Error Handling | Auto-retry with limit | — | All phases | Retry once automatically, configurable max retries, then pause and report |
-| Logging | Structured JSON + human-readable | — | All | JSON logs to file for machine parsing, clean console output for humans |
-| State Persistence | YAML in `.boop/` | — | All | Project state lives in project directory, survives between runs |
+| Category             | Decision                         | Version  | Affects           | Rationale                                                                       |
+| -------------------- | -------------------------------- | -------- | ----------------- | ------------------------------------------------------------------------------- |
+| Runtime              | Node.js                          | 22+      | All               | Inherited from OpenClaw                                                         |
+| Package Manager      | pnpm                             | latest   | All               | OpenClaw standard                                                               |
+| Language             | TypeScript                       | 5.x      | All               | OpenClaw standard                                                               |
+| AI Model             | Claude Opus 4.6                  | opus-4-6 | All phases        | Quality over cost. Best model for everything.                                   |
+| Agent Runtime        | Pi Agent Core                    | latest   | Build, Review     | OpenClaw's agent execution engine                                               |
+| Review Orchestration | Claude Code team                 | —        | Review phase      | Multi-agent: code reviewer, tech debt auditor, refactoring agent, test hardener |
+| Messaging            | WhatsApp + Telegram              | —        | Notifications     | Phone notifications for epic sign-offs                                          |
+| Voice                | ElevenLabs                       | —        | Voice interaction | Boop's fixed voice                                                              |
+| Tool Sandbox         | Docker                           | —        | Build, Review     | Per-session isolation for agent tool execution                                  |
+| Config Format        | YAML                             | —        | Profile, State    | Developer profile + project state                                               |
+| Planning Prompts     | Markdown files                   | —        | Planning          | Extracted from BMAD, no workflow engine                                         |
+| Bridge               | TypeScript                       | —        | Bridge            | Same runtime, no external dependency                                            |
+| Build Loop           | Shell orchestration              | —        | Build             | Ralph's bash loop pattern                                                       |
+| VCS                  | Git                              | —        | Build, Review     | Commit-per-story pattern                                                        |
+| Distribution         | npm                              | —        | Install           | `npx boop`                                                                      |
+| Error Handling       | Auto-retry with limit            | —        | All phases        | Retry once automatically, configurable max retries, then pause and report       |
+| Logging              | Structured JSON + human-readable | —        | All               | JSON logs to file for machine parsing, clean console output for humans          |
+| State Persistence    | YAML in `.boop/`                 | —        | All               | Project state lives in project directory, survives between runs                 |
 
 ## Project Structure
 
@@ -177,6 +177,7 @@ State transitions are atomic — written to `.boop/state.yaml` before and after 
 ### Planning Prompt Chain
 
 Each planning phase is a function that:
+
 1. Loads the appropriate prompt file from `prompts/`
 2. Assembles context (developer profile + output from previous phase)
 3. Calls Claude Opus 4.6
@@ -238,15 +239,15 @@ After all stories in an epic complete:
 
 ```typescript
 try {
-    await action()
+  await action();
 } catch (error) {
-    if (retryCount < MAX_RETRIES) {
-        log.warn(`Retrying (${retryCount + 1}/${MAX_RETRIES}): ${error.message}`)
-        await retry(action)
-    } else {
-        log.error(`Failed after ${MAX_RETRIES} retries: ${error.message}`)
-        await pauseAndReport(error)  // notify user, save state, halt
-    }
+  if (retryCount < MAX_RETRIES) {
+    log.warn(`Retrying (${retryCount + 1}/${MAX_RETRIES}): ${error.message}`);
+    await retry(action);
+  } else {
+    log.error(`Failed after ${MAX_RETRIES} retries: ${error.message}`);
+    await pauseAndReport(error); // notify user, save state, halt
+  }
 }
 ```
 
@@ -306,26 +307,32 @@ pnpm dev              # Run in development mode
 ## Architecture Decision Records (ADRs)
 
 ### ADR-1: Fork OpenClaw rather than build from scratch
+
 **Decision:** Fork OpenClaw as the base runtime.
 **Rationale:** OpenClaw provides gateway, channel adapters, agent runtime, Docker sandboxing, voice integration, and session persistence. Building these from scratch would take months. Forking and stripping is faster and inherits a battle-tested foundation.
 
 ### ADR-2: Strip workflow engine, keep prompt knowledge
+
 **Decision:** Extract BMAD instruction files, templates, and personas as static prompt files. Do not port the workflow.xml execution engine.
 **Rationale:** The value is in the tested planning knowledge, not the orchestration ceremony. A simple TypeScript function chain replaces the workflow engine with less complexity and more control.
 
 ### ADR-3: Opus 4.6 for all phases
+
 **Decision:** Use Claude Opus 4.6 for planning, building, and reviewing. No model mixing.
 **Rationale:** Quality over cost. Planning requires deep reasoning. Building requires precise implementation. Reviewing requires critical analysis. All benefit from the best available model.
 
 ### ADR-4: Claude Code team for review phase
+
 **Decision:** Use Claude Code's multi-agent team capability for the review cycle, not a single sequential agent.
 **Rationale:** Code review, tech debt audit, refactoring, and test hardening are distinct specializations. Parallel agents with different focuses produce better results than one agent switching hats.
 
 ### ADR-5: Closed system, no external plugins
+
 **Decision:** Remove ClawHub, plugin loader, and all external skill/extension mechanisms.
 **Rationale:** Security-first. Agent-level access to a machine is too powerful to trust third-party code from a public marketplace. Everything Boop does ships with it.
 
 ### ADR-6: YAML state in project directory
+
 **Decision:** All project state lives in `.boop/` within the project directory as YAML files.
 **Rationale:** Matches existing patterns (BMAD's sprint-status.yaml, Ralph's prd.json). Human-readable. Survives between runs. Easy to inspect and debug. Git-trackable if desired.
 

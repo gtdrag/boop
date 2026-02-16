@@ -1,0 +1,33 @@
+# Ralph Progress Log
+Started: Mon Feb 16 14:23:49 CST 2026
+
+## Codebase Patterns
+- OpenClaw modules are deeply interconnected — almost every module imports from 3+ other modules
+- Self-contained files from OpenClaw (can be copied as-is): version.ts, shared/chat-content.ts, shared/chat-envelope.ts, shared/entry-metadata.ts, shared/model-param-b.ts, shared/node-match.ts, shared/pid-alive.ts, shared/subagents-format.ts, logging/levels.ts, logging/state.ts
+- Deeply coupled modules that need rewriting: config/ (imports from plugins, routing, infra, agents), logging/ (imports from config, terminal, infra), security/ (imports from plugins, agents, config, pairing), channels/registry.ts (imports from plugins/runtime)
+- The channel registry in OpenClaw uses a plugin system — Boop replaces this with a simple static registry for telegram + whatsapp
+- OpenClaw uses oxlint + oxfmt for linting/formatting — must scope oxlint to src/ to avoid scanning node_modules
+- OpenClaw uses vitest with forks pool — kept this pattern
+- Type declarations in src/types/ are module augmentations for npm packages without TS types
+
+---
+
+## 2026-02-16 14:30 - Story 1.1
+- What was implemented:
+  - Forked OpenClaw (cloned from github.com/openclaw/openclaw.git)
+  - Stripped ALL deeply coupled modules: plugins, plugin-sdk, canvas-host, discord, slack, line, signal, imessage, web, pairing, link-understanding, media-understanding, macos, daemon, terminal, tui, wizard, polls, auto-reply, cron, node-host, markdown, acp, commands, compat, infra, memory, providers, routing
+  - Kept self-contained shared utilities from OpenClaw (subagents-format, chat-content, chat-envelope, entry-metadata, model-param-b, node-match, pid-alive)
+  - Kept logging/levels.ts and logging/state.ts from OpenClaw
+  - Kept src/types/ type declarations (proper-lockfile, qrcode-terminal)
+  - Created clean foundation modules: index.ts, cli/program.ts, version.ts, config/index.ts, logging/index.ts, channels/registry.ts, channels/whatsapp/index.ts, channels/telegram/index.ts, gateway/server.ts, agents/index.ts, browser/index.ts, hooks/index.ts, process/index.ts, security/index.ts, sessions/index.ts, tts/index.ts, shared/index.ts
+  - Configured package.json for boop (stripped to essential deps), tsconfig.json, tsdown.config.ts, vitest.config.ts, vitest.unit.config.ts, pnpm-workspace.yaml
+  - Created .gitignore
+  - Created test infrastructure: test/setup.ts, 3 test files (version, registry, program) with 7 passing tests
+- Files changed: ~50 files created/modified
+- **Learnings for future iterations:**
+  - OpenClaw's codebase is too coupled to surgically preserve — modules must be reimplemented for Boop's simpler architecture
+  - The config/paths.ts depends on infra/home-dir.ts which is self-contained but the config types barrel re-exports 30+ sub-type files
+  - Keep oxlint scoped to src/ in package.json scripts
+  - OpenClaw's channel registry requires the plugin runtime — replaced with static registry
+  - Commander 14.x works well with ESM and .action(async ...)
+---

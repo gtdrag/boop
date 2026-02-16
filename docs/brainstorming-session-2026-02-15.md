@@ -31,22 +31,22 @@
 
 **The 12 Bedrock Principles:**
 
-| # | Principle | Description | Current Status |
-|---|-----------|-------------|----------------|
-| 1 | Viability gate | Honestly assess the idea before investing effort — push back if it's not worth building | New — doesn't exist in current workflow |
-| 2 | Developer profile | Onboarding interview → living config file encoding stack, patterns, cloud preferences, styling, UX principles | New — replaces manual config |
-| 3 | Automate the rote | All scaffolding, boilerplate, project setup handled automatically | Partially exists |
-| 4 | Opinionated architecture | Makes tech decisions automatically based on developer profile, only escalates genuinely novel choices | Exists but interactive — should be mostly automated |
-| 5 | Smooth handoff | Planning flows into building with no manual bridging | The core bridge — currently manual |
-| 6 | Smart autonomy | Runs independently with selective escalation — knows what it knows and what it doesn't | Partially exists in Ralph |
-| 7 | Communicative | Keeps the user in the loop without being needy | Exists but fragmented |
-| 8 | Quality gates | Never ships broken code forward — typecheck, tests, linting are structural, not optional | Exists in Ralph, needs to be elevated to principle |
-| 9 | Course correction | Absorbs change mid-flight without torching everything | Exists in BMAD, needs integration |
-| 10 | Deploy to production | Pipeline goes all the way to running software, not just committed code | Missing entirely |
-| 11 | Cross-project memory | Accumulates wisdom across projects — patterns, pitfalls, solutions that worked | Partially exists, needs elevation |
-| 12 | Sandboxed autonomy | Every agent operates within hard boundaries — autonomous within its sandbox, physically unable to act outside it. No unauthorized file access, network calls, package installs, or irreversible actions. Enforced at the runtime level, not by policy. | New — critical for security |
+| #   | Principle                | Description                                                                                                                                                                                                                                            | Current Status                                      |
+| --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| 1   | Viability gate           | Honestly assess the idea before investing effort — push back if it's not worth building                                                                                                                                                                | New — doesn't exist in current workflow             |
+| 2   | Developer profile        | Onboarding interview → living config file encoding stack, patterns, cloud preferences, styling, UX principles                                                                                                                                          | New — replaces manual config                        |
+| 3   | Automate the rote        | All scaffolding, boilerplate, project setup handled automatically                                                                                                                                                                                      | Partially exists                                    |
+| 4   | Opinionated architecture | Makes tech decisions automatically based on developer profile, only escalates genuinely novel choices                                                                                                                                                  | Exists but interactive — should be mostly automated |
+| 5   | Smooth handoff           | Planning flows into building with no manual bridging                                                                                                                                                                                                   | The core bridge — currently manual                  |
+| 6   | Smart autonomy           | Runs independently with selective escalation — knows what it knows and what it doesn't                                                                                                                                                                 | Partially exists in Ralph                           |
+| 7   | Communicative            | Keeps the user in the loop without being needy                                                                                                                                                                                                         | Exists but fragmented                               |
+| 8   | Quality gates            | Never ships broken code forward — typecheck, tests, linting are structural, not optional                                                                                                                                                               | Exists in Ralph, needs to be elevated to principle  |
+| 9   | Course correction        | Absorbs change mid-flight without torching everything                                                                                                                                                                                                  | Exists in BMAD, needs integration                   |
+| 10  | Deploy to production     | Pipeline goes all the way to running software, not just committed code                                                                                                                                                                                 | Missing entirely                                    |
+| 11  | Cross-project memory     | Accumulates wisdom across projects — patterns, pitfalls, solutions that worked                                                                                                                                                                         | Partially exists, needs elevation                   |
+| 12  | Sandboxed autonomy       | Every agent operates within hard boundaries — autonomous within its sandbox, physically unable to act outside it. No unauthorized file access, network calls, package installs, or irreversible actions. Enforced at the runtime level, not by policy. | New — critical for security                         |
 
-**Key Insight:** The developer profile + onboarding interview is what makes this tool *personal* and differentiates it from generic AI code generators. The system is "you-shaped."
+**Key Insight:** The developer profile + onboarding interview is what makes this tool _personal_ and differentiates it from generic AI code generators. The system is "you-shaped."
 
 ### Dream Fusion Laboratory
 
@@ -91,46 +91,52 @@
 - **Notifications flow upward** — story loop is silent, epic loop pings George, project loop gets attention for major gates
 - **The builder vs. the QA engineer** — two different mindsets applied in sequence
 - **Boop is a character** — fixed name, fixed voice (state-of-the-art TTS), fixed personality. Not configurable. Opinionated down to the identity level.
-- **Best practices are defaults, not features** — SEO (meta tags, OG, structured data, sitemaps, robots.txt, semantic HTML, Core Web Vitals), analytics (wired to your preferred provider), accessibility, security headers, error tracking. Every project ships with these automatically. The developer profile defines *which* analytics provider, but the fact that analytics exists is non-negotiable.
+- **Best practices are defaults, not features** — SEO (meta tags, OG, structured data, sitemaps, robots.txt, semantic HTML, Core Web Vitals), analytics (wired to your preferred provider), accessibility, security headers, error tracking. Every project ships with these automatically. The developer profile defines _which_ analytics provider, but the fact that analytics exists is non-negotiable.
 
 **Gaps Between Fantasy and Reality:**
 
-| Gap | Difficulty | Notes |
-|-----|-----------|-------|
-| Voice → structured input (product brief) | Low | Claude conversation that outputs a brief — doable now |
-| Automated workflow chaining | Medium | BMAD workflows need to chain without manual invocation |
-| Phone notifications | Medium | WhatsApp API, Telegram bot, or push notification integration |
-| Tech debt + refactoring agent | Medium | New agent — doesn't exist in BMAD or Ralph |
-| Test hardening agent | Medium | New agent — gap-filling after story implementation |
-| Epic-level sign-off gate | Low | Pause pipeline, notify, wait for approval |
-| Full deployment automation | High | Cloud-specific, varies by project |
+| Gap                                      | Difficulty | Notes                                                        |
+| ---------------------------------------- | ---------- | ------------------------------------------------------------ |
+| Voice → structured input (product brief) | Low        | Claude conversation that outputs a brief — doable now        |
+| Automated workflow chaining              | Medium     | BMAD workflows need to chain without manual invocation       |
+| Phone notifications                      | Medium     | WhatsApp API, Telegram bot, or push notification integration |
+| Tech debt + refactoring agent            | Medium     | New agent — doesn't exist in BMAD or Ralph                   |
+| Test hardening agent                     | Medium     | New agent — gap-filling after story implementation           |
+| Epic-level sign-off gate                 | Low        | Pause pipeline, notify, wait for approval                    |
+| Full deployment automation               | High       | Cloud-specific, varies by project                            |
 
 ### SCAMPER Analysis
 
 **S — Substitute:**
+
 - Replace BMAD's ceremonial workflow engine (workflow.xml orchestrator) with something dead simple
 - **Keep the brains, ditch the ceremony** — the instruction files, templates, personas, and checklists are the real IP
 - A simple script that feeds the right prompt + template to Claude for each phase, collects output, moves to the next
 - The planning phase becomes well-organized prompt files, not a workflow engine
 
 **C — Combine:**
+
 - Merge the product brief into an enhanced viability gate — one step instead of two, no quality lost
 - The viability gate does the "what are we building and why" assessment AND produces a summary that feeds directly into the PRD as its opening section
 
 **A — Adapt:**
+
 - **Build as a fork of OpenClaw** — inherit its agent runtime, messaging (phone/WhatsApp), model integration, and local execution capabilities
 - OpenClaw already solves orchestration, notification delivery, and model bridging
 - The workflow is baked directly into the fork, not a plugin on top of someone else's platform
 - Full ownership of the stack
 
 **M — Modify:**
+
 - Scope shift: from "fork BMAD + Ralph and merge" to "fork OpenClaw, extract essential knowledge from BMAD + Ralph, bake it in"
 - The project is now: OpenClaw fork + planning prompt library + developer profile system + execution loops
 
 **P — Put to other uses:**
+
 - Skipped — focus is on the core use case: idea to software
 
 **E — Eliminate:**
+
 - ClawHub integration — gone (security risk)
 - External skill/plugin loading — gone
 - Community marketplace / third-party skill registry — gone
@@ -139,10 +145,12 @@
 - This is a selling point: the locked-down, opinionated, single-purpose fork in a world where OpenClaw's open ecosystem is a security concern
 
 **R — Reverse:**
+
 - Future consideration: point it at an existing app/screenshot and reverse-engineer a build plan
 - Deferred for later — not core to v1
 
 **New Principle Added:**
+
 - **#12: Sandboxed autonomy** — every agent operates within hard runtime-enforced boundaries. Autonomous within its sandbox, physically unable to act outside it. Dedicated security audit phase before first public release.
 
 ## Idea Categorization
@@ -217,6 +225,7 @@ _Key realizations from the session_
 - Timeline: Third — depends on #1 and #2 being at least partially complete
 
 **Next Tier (after core is working):**
+
 - Developer profile onboarding interview + config generator
 - Tech debt + refactoring agent (epic loop)
 - Test hardening agent (epic loop)

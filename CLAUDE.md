@@ -31,6 +31,7 @@ Built as a fork of OpenClaw — an open-source multi-channel AI gateway (Node.js
 ### What to Strip from OpenClaw
 
 Remove completely:
+
 - `extensions/` — All 36 plugin extensions (clawhub marketplace plugins)
 - `skills/` — All 50+ skill directories (clawhub skills)
 - `src/plugins/` — Plugin framework (loader, registry, hooks, install, manifest)
@@ -44,6 +45,7 @@ Remove completely:
 - `docs/` — OpenClaw docs (we have our own)
 
 Remove channel adapters (keep only WhatsApp + Telegram):
+
 - `src/discord/`
 - `src/slack/`
 - `src/line/`
@@ -52,6 +54,7 @@ Remove channel adapters (keep only WhatsApp + Telegram):
 - `src/web/` (the web/HTTP channel adapter — NOT the browser module)
 
 Remove features not needed for MVP:
+
 - `src/canvas-host/`
 - `src/pairing/` — Device pairing
 - `src/link-understanding/` — URL content extraction
@@ -155,6 +158,7 @@ boop/
 ```
 
 User-side directories (created at runtime):
+
 ```
 ~/.boop/
 ├── profile.yaml
@@ -205,6 +209,7 @@ Epic breakdown: `docs/epics.md`
 ## Key Dependencies from OpenClaw
 
 These are the critical packages to keep in package.json after stripping:
+
 - `@mariozechner/pi-agent-core` — Agent execution engine
 - `@whiskeysockets/baileys` — WhatsApp
 - `grammy` — Telegram

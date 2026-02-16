@@ -1,0 +1,7 @@
+packages:
+  - .
+
+onlyBuiltDependencies:
+  - "@whiskeysockets/baileys"
+  - protobufjs
+  - sharp
