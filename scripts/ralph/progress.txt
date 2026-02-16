@@ -55,3 +55,23 @@ Started: Mon Feb 16 16:38:33 CST 2026
   - PRD needs higher maxTokens (8192) than viability (4096) since the output is longer
   - The `loadViabilityAssessment()` helper reads from `.boop/planning/viability.md` — useful for chaining phases that don't run in the same session
 ---
+
+## 2026-02-16 - Story 3.3: Architecture generation
+- What was implemented:
+  - Created `prompts/architecture/system.md` — BMAD-style prompt template for architecture generation (tech stack, architecture decisions, escalated decisions, deployment, security). Key design: auto-decide from profile, only escalate genuinely novel choices.
+  - Created `src/planning/architecture.ts` — architecture generation module with `generateArchitecture()`, `buildUserMessage()`, `loadSystemPrompt()`, `saveArchitecture()`, `loadPrd()`. Chains PRD output as input context. Uses 8192 maxTokens (same as PRD).
+  - Created `src/planning/architecture.test.ts` — 16 tests covering prompt loading, user message building (profile + idea + PRD), file saving, PRD loading, and mocked API calls
+  - Updated `src/cli/program.ts` — after PRD generation completes, now calls `runArchitecturePhase()` which generates and saves the architecture document. Added import for `generateArchitecture`.
+  - Updated `src/cli/program.test.ts` — added `mockGenerateArchitecture` mock to prevent real API calls during CLI tests
+- Files changed:
+  - NEW: `prompts/architecture/system.md`
+  - NEW: `src/planning/architecture.ts`, `src/planning/architecture.test.ts`
+  - MODIFIED: `src/cli/program.ts` (architecture phase integration after PRD)
+  - MODIFIED: `src/cli/program.test.ts` (architecture mock setup)
+  - MODIFIED: `scripts/ralph/prd.json` (3.3 passes: true)
+- **Learnings for future iterations:**
+  - Pattern is very consistent across planning phases: loadSystemPrompt → buildUserMessage → sendMessage → save. Each new phase is a straightforward copy of the prior with different input chaining.
+  - Architecture uses same maxTokens (8192) as PRD — the output is similarly detailed
+  - `loadPrd()` helper reads from `.boop/planning/prd.md` — mirrors `loadViabilityAssessment()` for cross-session chaining
+  - CLI pipeline chain: viability → PRD → architecture. Each `run*Phase` function calls the next at the end.
+---

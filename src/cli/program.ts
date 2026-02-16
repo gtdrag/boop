@@ -18,6 +18,8 @@ import { assessViability } from "../planning/viability.js";
 import type { ViabilityResult } from "../planning/viability.js";
 import { generatePrd } from "../planning/prd.js";
 import type { PrdResult } from "../planning/prd.js";
+import { generateArchitecture } from "../planning/architecture.js";
+import type { ArchitectureResult } from "../planning/architecture.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -247,4 +249,34 @@ async function runPrdPhase(
   console.log(result.prd);
   console.log();
   console.log("[boop] PRD saved to .boop/planning/prd.md");
+
+  // Chain to architecture generation
+  console.log("[boop] Proceeding to architecture generation...");
+  await runArchitecturePhase(idea, profile, projectDir, result.prd);
+}
+
+/**
+ * Run the architecture generation phase.
+ */
+async function runArchitecturePhase(
+  idea: string,
+  profile: DeveloperProfile,
+  projectDir: string,
+  prd: string,
+): Promise<void> {
+  console.log("[boop] Generating architecture...");
+
+  let result: ArchitectureResult;
+  try {
+    result = await generateArchitecture(idea, profile, prd, { projectDir });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[boop] Architecture generation failed: ${msg}`);
+    return;
+  }
+
+  console.log();
+  console.log(result.architecture);
+  console.log();
+  console.log("[boop] Architecture saved to .boop/planning/architecture.md");
 }
