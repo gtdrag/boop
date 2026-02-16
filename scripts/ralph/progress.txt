@@ -10,6 +10,9 @@ Started: Mon Feb 16 14:23:49 CST 2026
 - OpenClaw uses vitest with forks pool — kept this pattern
 - Type declarations in src/types/ are module augmentations for npm packages without TS types
 - CLI uses options (--profile, --status, etc.) not subcommands — handleCli() exported separately for testing
+- handleCli() accepts optional globalConfigDir param to override ~/.boop/ in tests
+- initGlobalConfig() is idempotent — safe to call on every CLI invocation
+- credentials/ dir uses 0700 (not 0600) because directories need execute bit for traversal
 - @clack/prompts used for interactive mode — dynamic import to avoid loading when not needed
 - Logger class uses child() pattern for context overrides — avoids passing context through every call
 - Retry utility uses exponential backoff with jitter by default — set jitter: false and low initialDelayMs for tests
@@ -102,4 +105,26 @@ Started: Mon Feb 16 14:23:49 CST 2026
   - Adding optional params (like projectDir) to handlers enables unit testing without touching the filesystem at process.cwd()
   - YAML parse() from the `yaml` package returns plain objects — matches PipelineState interface directly
   - TRANSITIONS map defines valid phase transitions as adjacency list — easy to validate and extend
+---
+
+## 2026-02-16 16:35 - Story 1.5
+- What was implemented:
+  - Expanded src/config/index.ts with initGlobalConfig() — creates ~/.boop/, ~/.boop/logs/, ~/.boop/credentials/ (mode 0700)
+  - Added resolveProfilePath() to config module
+  - Added runOnboardingStub() — prints welcome message when no profile.yaml found
+  - Wired initGlobalConfig() into handleCli() — runs on every invocation, triggers onboarding stub when profile missing
+  - Added globalConfigDir parameter to handleCli() for test isolation
+  - 11 config tests: resolveHomeDir (2), resolveStateDir (2), resolveProfilePath (1), initGlobalConfig (5), runOnboardingStub (1)
+  - 2 new CLI tests: onboarding trigger + onboarding skip when profile exists
+  - Updated 7 existing CLI tests to pass globalConfigDir for test isolation
+- Files changed:
+  - src/config/index.ts — added initGlobalConfig(), resolveProfilePath(), runOnboardingStub(), InitResult interface
+  - src/config/config.test.ts — new (11 tests)
+  - src/cli/program.ts — added initGlobalConfig call, globalConfigDir param, onboarding trigger
+  - src/cli/program.test.ts — updated existing tests + 2 new onboarding tests
+  - scripts/ralph/prd.json — marked 1.5 as passes: true
+- **Learnings for future iterations:**
+  - Directories need execute bit for traversal — use 0700 not 0600 for restricted dirs
+  - initGlobalConfig is idempotent via recursive: true on mkdirSync — safe on every startup
+  - Adding optional override params (globalConfigDir) keeps tests isolated from the real filesystem
 ---

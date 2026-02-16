@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildProgram, handleCli } from "./program.js";
 import type { CliOptions } from "./program.js";
 
@@ -28,9 +31,19 @@ describe("CLI program", () => {
 });
 
 describe("handleCli", () => {
+  let configDir: string;
+
+  beforeEach(() => {
+    configDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-cli-test-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(configDir, { recursive: true, force: true });
+  });
+
   it("logs pipeline start when idea is provided", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli("build a todo app", {});
+    await handleCli("build a todo app", {}, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
       '[boop] Starting pipeline with idea: "build a todo app"',
     );
@@ -39,7 +52,7 @@ describe("handleCli", () => {
 
   it("logs autonomous mode when --autonomous is set with idea", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli("build a todo app", { autonomous: true });
+    await handleCli("build a todo app", { autonomous: true }, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
       '[boop] Starting pipeline with idea: "build a todo app"',
     );
@@ -49,7 +62,7 @@ describe("handleCli", () => {
 
   it("handles --profile flag", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { profile: true });
+    await handleCli(undefined, { profile: true }, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
       "[boop] Profile management — not yet implemented.",
     );
@@ -58,7 +71,7 @@ describe("handleCli", () => {
 
   it("handles --status flag", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { status: true }, "/tmp/boop-test-nonexistent");
+    await handleCli(undefined, { status: true }, "/tmp/boop-test-nonexistent", configDir);
     expect(spy).toHaveBeenCalledWith(
       "No active pipeline. Run 'boop <idea>' to start.",
     );
@@ -67,7 +80,7 @@ describe("handleCli", () => {
 
   it("handles --review flag", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { review: true });
+    await handleCli(undefined, { review: true }, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
       "[boop] Review phase — not yet implemented.",
     );
@@ -76,7 +89,7 @@ describe("handleCli", () => {
 
   it("handles --resume flag with no active pipeline", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { resume: true }, "/tmp/boop-test-nonexistent");
+    await handleCli(undefined, { resume: true }, "/tmp/boop-test-nonexistent", configDir);
     expect(spy).toHaveBeenCalledWith(
       "No interrupted pipeline to resume.",
     );
@@ -91,12 +104,30 @@ describe("handleCli", () => {
       review: true,
       resume: true,
     };
-    await handleCli(undefined, opts);
-    // profile takes priority
+    await handleCli(undefined, opts, undefined, configDir);
+    // profile takes priority — but onboarding also fires since no profile.yaml
     expect(spy).toHaveBeenCalledWith(
       "[boop] Profile management — not yet implemented.",
     );
-    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it("triggers onboarding stub when profile.yaml does not exist", async () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await handleCli("test idea", {}, undefined, configDir);
+    expect(spy).toHaveBeenCalledWith(
+      "[boop] Welcome! No developer profile found.",
+    );
+    spy.mockRestore();
+  });
+
+  it("skips onboarding when profile.yaml exists", async () => {
+    // Pre-create profile
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await handleCli("test idea", {}, undefined, configDir);
+    const calls = spy.mock.calls.flat().join("\n");
+    expect(calls).not.toContain("Welcome");
     spy.mockRestore();
   });
 });

@@ -77,7 +77,7 @@
         "All tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Check for existing config on startup. Create directory structure. Trigger onboarding placeholder if no profile exists. Depends on 1.2 being complete."
     },
     {
