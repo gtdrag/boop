@@ -10,6 +10,7 @@ Started: Mon Feb 16 15:52:58 CST 2026
 - Onboarding flow in src/profile/onboarding.ts — runOnboarding() for new, loadProfile() to read existing
 - config/index.ts exports runOnboarding() and editProfile() that delegate to profile/onboarding.ts
 - CLI --profile flag: calls runOnboarding (no profile) or editProfile (profile exists)
+- Prompt messages show "(current)" when editing existing values, "(recommended)" for new onboarding
 - @clack/prompts mocking pattern: mock text/multiselect/confirm with response queues, use symbol for cancel
 
 ---
@@ -69,4 +70,28 @@ Started: Mon Feb 16 15:52:58 CST 2026
   - Dynamic import (`await import("@clack/prompts")`) inside functions works well with vitest mocking
   - Profile YAML round-tripping works cleanly with the `yaml` package (parse/stringify)
   - Pre-populating existing values for editing just requires passing existingProfile to runOnboarding
+---
+
+## 2026-02-16 16:06 - Story 2.3
+- What was implemented:
+  - Updated prompt messages in src/profile/onboarding.ts to distinguish "(current)" vs "(recommended)" tags
+  - promptSingleValue: shows "(current)" when editing existing values, "(recommended)" for new onboarding
+  - promptName: shows "Your name? ExistingName (current)" when editing, "What's your name?" for new
+  - promptBoolean: appends "(current)" when editing existing boolean values
+  - Added 6 new tests in src/profile/onboarding.test.ts covering the editing flow (Story 2.3):
+    - Shows "current" tag for existing values in single-value prompts
+    - Shows "recommended" tag for new onboarding prompts
+    - Preserves unchanged values when accepting all defaults during edit
+    - Allows changing specific values during edit (with file persistence verification)
+    - Overwrites existing profile.yaml on save
+    - Full round-trip: load → edit → save → reload
+  - CLI wiring was already complete from Story 2.2 (--profile → editProfile when profile exists)
+  - All 123 tests passing, typecheck clean, 0 lint errors
+- Files changed:
+  - src/profile/onboarding.ts — updated (prompt message tags: current vs recommended)
+  - src/profile/onboarding.test.ts — updated (6 new editing tests)
+- **Learnings for future iterations:**
+  - Story 2.2 built the editing infrastructure proactively via existingProfile option — Story 2.3 mostly needed UX polish and dedicated test coverage
+  - When mock response queues are empty, the mock falls through to defaultValue — useful for "accept all defaults" test scenarios
+  - Distinguishing "current" vs "recommended" in prompts prevents confusing users during edit mode
 ---

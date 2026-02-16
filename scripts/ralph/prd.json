@@ -47,7 +47,7 @@
         "All tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Re-use onboarding flow from 2.2, pre-populate with current profile values. Wire into the --profile CLI flag from Story 1.2. Depends on 2.2 being complete."
     },
     {

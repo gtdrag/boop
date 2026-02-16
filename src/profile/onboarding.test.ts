@@ -197,6 +197,186 @@ describe("profile/onboarding", () => {
   });
 });
 
+describe("profile/editing (Story 2.3)", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-edit-test-"));
+    textCalls = [];
+    multiselectCalls = [];
+    confirmCalls = [];
+    textResponses = [];
+    multiselectResponses = [];
+    confirmResponses = [];
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    vi.clearAllMocks();
+  });
+
+  it("shows 'current' tag for existing values in single-value prompts", async () => {
+    const { runOnboarding } = await import("./onboarding.js");
+
+    const existing: DeveloperProfile = {
+      ...DEFAULT_PROFILE,
+      name: "EditUser",
+      frontendFramework: "astro",
+    };
+
+    textResponses = []; // accept all defaults
+
+    await runOnboarding({ stateDir: tmpDir, existingProfile: existing });
+
+    // Name prompt should show "current"
+    expect(textCalls[0]!.message).toContain("(current)");
+    // frontendFramework prompt should show the current value "astro"
+    expect(textCalls[1]!.message).toContain("astro");
+    expect(textCalls[1]!.message).toContain("(current)");
+  });
+
+  it("shows 'recommended' tag for new onboarding prompts", async () => {
+    const { runOnboarding } = await import("./onboarding.js");
+
+    textResponses = ["NewUser"];
+
+    await runOnboarding({ stateDir: tmpDir });
+
+    // frontendFramework prompt should show "recommended" (no existing profile)
+    expect(textCalls[1]!.message).toContain("(recommended)");
+  });
+
+  it("preserves unchanged values when accepting all defaults during edit", async () => {
+    const { runOnboarding, loadProfile } = await import("./onboarding.js");
+
+    const existing: DeveloperProfile = {
+      ...DEFAULT_PROFILE,
+      name: "KeepUser",
+      frontendFramework: "remix",
+      database: "sqlite",
+      languages: ["typescript", "python"],
+      autonomousByDefault: true,
+    };
+
+    // Accept all defaults — no overrides
+    textResponses = [];
+    multiselectResponses = [];
+    confirmResponses = [];
+
+    const result = await runOnboarding({
+      stateDir: tmpDir,
+      existingProfile: existing,
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.profile!.name).toBe("KeepUser");
+    expect(result.profile!.frontendFramework).toBe("remix");
+    expect(result.profile!.database).toBe("sqlite");
+    expect(result.profile!.languages).toEqual(["typescript", "python"]);
+    expect(result.profile!.autonomousByDefault).toBe(true);
+
+    // Verify it round-trips through file
+    const loaded = loadProfile(tmpDir);
+    expect(loaded!.name).toBe("KeepUser");
+    expect(loaded!.frontendFramework).toBe("remix");
+    expect(loaded!.database).toBe("sqlite");
+  });
+
+  it("allows changing specific values during edit", async () => {
+    const { runOnboarding, loadProfile } = await import("./onboarding.js");
+
+    const existing: DeveloperProfile = {
+      ...DEFAULT_PROFILE,
+      name: "ChangeUser",
+      frontendFramework: "next",
+      database: "postgresql",
+    };
+
+    // Override name and frontendFramework, accept rest
+    textResponses = ["UpdatedUser", "sveltekit"];
+
+    const result = await runOnboarding({
+      stateDir: tmpDir,
+      existingProfile: existing,
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.profile!.name).toBe("UpdatedUser");
+    expect(result.profile!.frontendFramework).toBe("sveltekit");
+    // Unchanged values preserved
+    expect(result.profile!.database).toBe("postgresql");
+
+    // Verify persistence
+    const loaded = loadProfile(tmpDir);
+    expect(loaded!.name).toBe("UpdatedUser");
+    expect(loaded!.frontendFramework).toBe("sveltekit");
+    expect(loaded!.database).toBe("postgresql");
+  });
+
+  it("overwrites existing profile.yaml on save", async () => {
+    const { runOnboarding, loadProfile } = await import("./onboarding.js");
+    const { stringify } = await import("yaml");
+
+    // Write an initial profile
+    const initial: DeveloperProfile = {
+      ...DEFAULT_PROFILE,
+      name: "OldUser",
+      database: "mysql",
+    };
+    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "profile.yaml"), stringify(initial));
+
+    // Edit with changes
+    textResponses = ["NewUser"];
+
+    await runOnboarding({
+      stateDir: tmpDir,
+      existingProfile: initial,
+    });
+
+    const loaded = loadProfile(tmpDir);
+    expect(loaded!.name).toBe("NewUser");
+    // database should still be "mysql" from the existing profile (accepted as default)
+    expect(loaded!.database).toBe("mysql");
+  });
+
+  it("full edit round-trip: load → edit → save → reload", async () => {
+    const { runOnboarding, loadProfile } = await import("./onboarding.js");
+    const { stringify } = await import("yaml");
+
+    // Step 1: Write initial profile to disk
+    const initial: DeveloperProfile = {
+      ...DEFAULT_PROFILE,
+      name: "RoundTrip",
+      styling: "css-modules",
+      testRunner: "jest",
+    };
+    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "profile.yaml"), stringify(initial));
+
+    // Step 2: Load it
+    const loaded = loadProfile(tmpDir);
+    expect(loaded).toBeDefined();
+    expect(loaded!.styling).toBe("css-modules");
+
+    // Step 3: Edit — change just name, accept everything else
+    textResponses = ["RoundTripEdited"];
+
+    const result = await runOnboarding({
+      stateDir: tmpDir,
+      existingProfile: loaded,
+    });
+
+    expect(result.completed).toBe(true);
+
+    // Step 4: Reload and verify
+    const reloaded = loadProfile(tmpDir);
+    expect(reloaded!.name).toBe("RoundTripEdited");
+    expect(reloaded!.styling).toBe("css-modules"); // unchanged
+    expect(reloaded!.testRunner).toBe("jest"); // unchanged
+  });
+});
+
 describe("profile/loadProfile", () => {
   let tmpDir: string;
 

@@ -47,16 +47,13 @@ async function promptSingleValue(
   clack: typeof import("@clack/prompts"),
 ): Promise<string | symbol> {
   const defaultValue = currentValue ?? category.recommended;
-  const hint =
-    category.alternatives.length > 0
-      ? `Alternatives: ${category.alternatives.join(", ")}`
-      : undefined;
+  const isCurrentValue = currentValue !== undefined;
+  const tag = isCurrentValue ? "current" : "recommended";
 
   return clack.text({
-    message: `${category.label}? ${defaultValue} (recommended)`,
+    message: `${category.label}? ${defaultValue} (${tag})`,
     placeholder: defaultValue,
     defaultValue,
-    ...(hint ? { validate: undefined } : {}),
   });
 }
 
@@ -91,8 +88,11 @@ async function promptName(
   currentValue: string | undefined,
   clack: typeof import("@clack/prompts"),
 ): Promise<string | symbol> {
+  const message = currentValue
+    ? `Your name? ${currentValue} (current)`
+    : "What's your name?";
   return clack.text({
-    message: "What's your name?",
+    message,
     placeholder: currentValue || "Your name",
     defaultValue: currentValue || undefined,
     validate(value) {
@@ -110,8 +110,9 @@ async function promptBoolean(
   clack: typeof import("@clack/prompts"),
 ): Promise<boolean | symbol> {
   const defaultIsYes = currentValue ?? category.recommended === "true";
+  const tag = currentValue !== undefined ? " (current)" : "";
   return clack.confirm({
-    message: `${category.label}?`,
+    message: `${category.label}?${tag}`,
     initialValue: defaultIsYes,
   });
 }
