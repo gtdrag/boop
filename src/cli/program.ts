@@ -6,6 +6,7 @@
  */
 import { Command } from "commander";
 import { VERSION } from "../version.js";
+import { PipelineOrchestrator } from "../pipeline/orchestrator.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -40,6 +41,7 @@ export interface CliOptions {
 export async function handleCli(
   idea: string | undefined,
   opts: CliOptions,
+  projectDir?: string,
 ): Promise<void> {
   if (opts.profile) {
     console.log("[boop] Profile management — not yet implemented.");
@@ -47,7 +49,8 @@ export async function handleCli(
   }
 
   if (opts.status) {
-    console.log("[boop] No active pipeline. Run 'boop <idea>' to start.");
+    const orch = new PipelineOrchestrator(projectDir ?? process.cwd());
+    console.log(orch.formatStatus());
     return;
   }
 
@@ -57,7 +60,21 @@ export async function handleCli(
   }
 
   if (opts.resume) {
-    console.log("[boop] No interrupted pipeline to resume.");
+    const orch = new PipelineOrchestrator(projectDir ?? process.cwd());
+    const context = orch.formatResumeContext();
+    console.log(context);
+
+    // If there's an active pipeline, ask user to confirm
+    const state = orch.getState();
+    if (state.phase !== "IDLE" || state.epicNumber !== 0) {
+      const { confirm, isCancel } = await import("@clack/prompts");
+      const shouldResume = await confirm({ message: "Resume pipeline?" });
+      if (isCancel(shouldResume) || !shouldResume) {
+        console.log("[boop] Resume cancelled.");
+        return;
+      }
+      console.log("[boop] Resuming pipeline...");
+    }
     return;
   }
 
@@ -66,7 +83,6 @@ export async function handleCli(
     if (opts.autonomous) {
       console.log("[boop] Running in autonomous mode.");
     }
-    // Pipeline orchestrator will be wired here in Story 1.4
     return;
   }
 
@@ -95,5 +111,4 @@ async function enterInteractiveMode(opts: CliOptions): Promise<void> {
   if (opts.autonomous) {
     console.log("[boop] Running in autonomous mode.");
   }
-  // Pipeline orchestrator will be wired here in Story 1.4
 }

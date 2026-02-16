@@ -58,9 +58,9 @@ describe("handleCli", () => {
 
   it("handles --status flag", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { status: true });
+    await handleCli(undefined, { status: true }, "/tmp/boop-test-nonexistent");
     expect(spy).toHaveBeenCalledWith(
-      "[boop] No active pipeline. Run 'boop <idea>' to start.",
+      "No active pipeline. Run 'boop <idea>' to start.",
     );
     spy.mockRestore();
   });
@@ -74,11 +74,11 @@ describe("handleCli", () => {
     spy.mockRestore();
   });
 
-  it("handles --resume flag", async () => {
+  it("handles --resume flag with no active pipeline", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { resume: true });
+    await handleCli(undefined, { resume: true }, "/tmp/boop-test-nonexistent");
     expect(spy).toHaveBeenCalledWith(
-      "[boop] No interrupted pipeline to resume.",
+      "No interrupted pipeline to resume.",
     );
     spy.mockRestore();
   });
