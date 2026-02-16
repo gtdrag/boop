@@ -99,7 +99,7 @@
         "All tests pass"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Create the prompts/ directory structure with extracted BMAD content. Since we don't have the actual BMAD installation in this repo, create well-structured prompt templates based on the BMAD methodology described in the docs. Each prompt should be a markdown file loadable at runtime. Include: system instructions for each phase, output format templates, validation checklists. This can run independently of 3.1-3.5. Depends on 1.1 being complete."
     }
   ]

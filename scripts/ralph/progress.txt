@@ -124,3 +124,26 @@ Started: Mon Feb 16 16:38:33 CST 2026
   - The retry in `runPlanning` is layered: each planning function already has its own `retry()` call (maxRetries: 1), and `runPlanningSubPhase` wraps that with another `retry()` using `isRetryableApiError` — this gives 2 total attempts per phase
   - Mock planning modules at test file level so both orchestrator tests and CLI tests share the same mock strategy
 ---
+
+## 2026-02-16 - Story 3.6: BMAD prompt library extraction
+- What was implemented:
+  - Created `prompts/personas/pm.md` — Product Manager persona definition (requirements gathering, prioritization, risk assessment, communication style)
+  - Created `prompts/personas/architect.md` — Software Architect persona definition (decision-making philosophy, technology selection, architecture patterns, escalation judgment)
+  - Created `prompts/personas/developer.md` — Developer Agent persona definition (coding patterns, testing, story execution, debugging)
+  - Created `prompts/checklists/viability.md` — Validation checklist for viability assessments (feasibility, market fit, complexity, risks, recommendation)
+  - Created `prompts/checklists/prd.md` — Validation checklist for PRDs (requirements, scope, success criteria, risks)
+  - Created `prompts/checklists/architecture.md` — Validation checklist for architecture decisions (tech stack, decisions, profile alignment, escalations, security)
+  - Created `prompts/checklists/stories.md` — Validation checklist for story breakdowns (story format, sizing, ordering, PRD coverage, criteria quality)
+  - Created `src/planning/prompt-library.test.ts` — 25 tests verifying all prompt files exist, are loadable, contain expected content, and directories are complete
+- Files changed:
+  - NEW: `prompts/personas/pm.md`, `prompts/personas/architect.md`, `prompts/personas/developer.md`
+  - NEW: `prompts/checklists/viability.md`, `prompts/checklists/prd.md`, `prompts/checklists/architecture.md`, `prompts/checklists/stories.md`
+  - NEW: `src/planning/prompt-library.test.ts`
+  - MODIFIED: `scripts/ralph/prd.json` (3.6 passes: true)
+- **Learnings for future iterations:**
+  - Personas are standalone knowledge files — they describe role behavior without workflow engine code
+  - Checklists use `- [ ]` markdown checkbox format — loadable as validation templates for quality gates
+  - All prompt files are plain markdown loaded via `fs.readFileSync` — no special format or parser needed
+  - The prompt library test validates directory structure, file existence, and content quality in one test suite
+  - Personas and checklists are not yet wired into the planning phase system prompts — that can be done in a future story when composite prompt building is needed
+---
