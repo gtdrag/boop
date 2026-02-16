@@ -43,10 +43,7 @@ export class RetryError extends Error {
  * @returns The result of the function.
  * @throws RetryError if all attempts fail.
  */
-export async function retry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {},
-): Promise<T> {
+export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const {
     maxRetries = 3,
     initialDelayMs = 1000,
@@ -80,11 +77,7 @@ export async function retry<T>(
     }
   }
 
-  throw new RetryError(
-    `All ${maxRetries + 1} attempts failed`,
-    lastError,
-    maxRetries + 1,
-  );
+  throw new RetryError(`All ${maxRetries + 1} attempts failed`, lastError, maxRetries + 1);
 }
 
 function sleep(ms: number): Promise<void> {

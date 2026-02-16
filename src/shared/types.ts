@@ -41,10 +41,7 @@ export interface PipelineState {
 // Developer Profile (canonical definition in src/profile/schema.ts)
 // ---------------------------------------------------------------------------
 
-export type {
-  DeveloperProfile,
-  ProfileCategory,
-} from "../profile/schema.js";
+export type { DeveloperProfile, ProfileCategory } from "../profile/schema.js";
 
 // ---------------------------------------------------------------------------
 // Story Format

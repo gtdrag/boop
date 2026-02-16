@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildProgram, handleCli } from "./program.js";
 import type { CliOptions } from "./program.js";
 
+// Use vi.hoisted for mock fns that need to survive resetAllMocks
+const { mockAssessViability } = vi.hoisted(() => ({
+  mockAssessViability: vi.fn(),
+}));
+
 // Mock the config module to avoid real interactive prompts
 vi.mock("../config/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../config/index.js")>();
@@ -15,6 +20,19 @@ vi.mock("../config/index.js", async (importOriginal) => {
     loadProfileFromDisk: vi.fn().mockReturnValue(undefined),
   };
 });
+
+// Mock the viability module to avoid real API calls
+vi.mock("../planning/viability.js", () => ({
+  assessViability: mockAssessViability,
+}));
+
+// Mock @clack/prompts to avoid interactive prompts hanging tests
+vi.mock("@clack/prompts", () => ({
+  confirm: vi.fn().mockResolvedValue(true),
+  text: vi.fn().mockResolvedValue("test idea"),
+  select: vi.fn().mockResolvedValue("proceed"),
+  isCancel: vi.fn().mockReturnValue(false),
+}));
 
 describe("CLI program", () => {
   it("creates a program with name boop", () => {
@@ -46,16 +64,27 @@ describe("handleCli", () => {
 
   beforeEach(async () => {
     configDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-cli-test-"));
-    // Reset mock implementations to defaults
+    // Reset mock implementations and call history
     const config = await import("../config/index.js");
+    (config.runOnboarding as ReturnType<typeof vi.fn>).mockClear();
+    (config.editProfile as ReturnType<typeof vi.fn>).mockClear();
+    (config.loadProfileFromDisk as ReturnType<typeof vi.fn>).mockClear();
     (config.runOnboarding as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
     (config.editProfile as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
     (config.loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+
+    // Reset viability mock with default return value
+    mockAssessViability.mockReset();
+    mockAssessViability.mockResolvedValue({
+      idea: "test",
+      assessment: "## Viability Assessment\n**PROCEED**",
+      recommendation: "PROCEED",
+      usage: { inputTokens: 10, outputTokens: 20 },
+    });
   });
 
   afterEach(() => {
     fs.rmSync(configDir, { recursive: true, force: true });
-    vi.resetAllMocks();
   });
 
   it("logs pipeline start when idea is provided", async () => {
@@ -66,9 +95,7 @@ describe("handleCli", () => {
     (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "test" });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("build a todo app", {}, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith(
-      '[boop] Starting pipeline with idea: "build a todo app"',
-    );
+    expect(spy).toHaveBeenCalledWith('[boop] Starting pipeline with idea: "build a todo app"');
     spy.mockRestore();
   });
 
@@ -79,9 +106,7 @@ describe("handleCli", () => {
     (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "test" });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("build a todo app", { autonomous: true }, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith(
-      '[boop] Starting pipeline with idea: "build a todo app"',
-    );
+    expect(spy).toHaveBeenCalledWith('[boop] Starting pipeline with idea: "build a todo app"');
     expect(spy).toHaveBeenCalledWith("[boop] Running in autonomous mode.");
     spy.mockRestore();
   });
@@ -105,9 +130,7 @@ describe("handleCli", () => {
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { status: true }, "/tmp/boop-test-nonexistent", configDir);
-    expect(spy).toHaveBeenCalledWith(
-      "No active pipeline. Run 'boop <idea>' to start.",
-    );
+    expect(spy).toHaveBeenCalledWith("No active pipeline. Run 'boop <idea>' to start.");
     spy.mockRestore();
   });
 
@@ -116,9 +139,7 @@ describe("handleCli", () => {
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { review: true }, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith(
-      "[boop] Review phase — not yet implemented.",
-    );
+    expect(spy).toHaveBeenCalledWith("[boop] Review phase — not yet implemented.");
     spy.mockRestore();
   });
 
@@ -127,9 +148,7 @@ describe("handleCli", () => {
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { resume: true }, "/tmp/boop-test-nonexistent", configDir);
-    expect(spy).toHaveBeenCalledWith(
-      "No interrupted pipeline to resume.",
-    );
+    expect(spy).toHaveBeenCalledWith("No interrupted pipeline to resume.");
     spy.mockRestore();
   });
 
@@ -182,9 +201,7 @@ describe("handleCli", () => {
     (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "Alice" });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("my app", {}, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith(
-      '[boop] Starting pipeline with idea: "my app"',
-    );
+    expect(spy).toHaveBeenCalledWith('[boop] Starting pipeline with idea: "my app"');
     spy.mockRestore();
   });
 });

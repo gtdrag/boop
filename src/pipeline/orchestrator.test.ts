@@ -75,9 +75,7 @@ describe("PipelineOrchestrator", () => {
 
     it("throws on invalid transition", () => {
       const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
-      expect(() => orch.transition("BUILDING")).toThrow(
-        "Invalid transition: IDLE → BUILDING",
-      );
+      expect(() => orch.transition("BUILDING")).toThrow("Invalid transition: IDLE → BUILDING");
     });
 
     it("allows BRIDGING → BUILDING when scaffolding is already complete", () => {
@@ -95,9 +93,7 @@ describe("PipelineOrchestrator", () => {
       orch.transition("PLANNING");
       orch.transition("BRIDGING");
       orch.completeScaffolding();
-      expect(() => orch.transition("SCAFFOLDING")).toThrow(
-        "SCAFFOLDING already complete",
-      );
+      expect(() => orch.transition("SCAFFOLDING")).toThrow("SCAFFOLDING already complete");
     });
 
     it("persists state to disk after transition", () => {
@@ -216,9 +212,7 @@ describe("PipelineOrchestrator", () => {
   describe("formatResumeContext", () => {
     it("shows 'no interrupted pipeline' when in default state", () => {
       const orch = new PipelineOrchestrator(tmpDir);
-      expect(orch.formatResumeContext()).toContain(
-        "No interrupted pipeline to resume",
-      );
+      expect(orch.formatResumeContext()).toContain("No interrupted pipeline to resume");
     });
 
     it("shows full context for an active pipeline", () => {
@@ -259,9 +253,7 @@ describe("PipelineOrchestrator", () => {
 
     it("transition from IDLE to PLANNING throws without profile", () => {
       const orch = new PipelineOrchestrator(tmpDir);
-      expect(() => orch.transition("PLANNING")).toThrow(
-        "No developer profile found",
-      );
+      expect(() => orch.transition("PLANNING")).toThrow("No developer profile found");
     });
 
     it("transition from IDLE to PLANNING succeeds with profile", () => {

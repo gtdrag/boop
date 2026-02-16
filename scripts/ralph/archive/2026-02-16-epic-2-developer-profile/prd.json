@@ -1,0 +1,106 @@
+{
+  "project": "Boop",
+  "branchName": "ralph/epic-3-planning-pipeline",
+  "description": "Epic 3: Planning Pipeline. Idea goes in, stories come out. Viability assessment, PRD generation, architecture generation, story breakdown — all chained automatically with BMAD-extracted prompts.",
+  "userStories": [
+    {
+      "id": "3.1",
+      "title": "Viability assessment",
+      "description": "As a user, I want Boop to honestly evaluate my idea before investing effort, so that I get honest feedback and can pivot early if needed.",
+      "acceptanceCriteria": [
+        "Given an idea via npx boop 'my idea', Claude assesses it for feasibility, market fit, and technical complexity",
+        "Assessment is presented with a recommendation (proceed / concerns / reconsider)",
+        "User can confirm to proceed or provide a revised idea",
+        "Viability summary is saved to .boop/planning/viability.md",
+        "Developer profile context is included in the assessment",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Create src/planning/viability.ts. Load prompt from prompts/viability/. Include developer profile context. This is the first phase that actually calls the Claude API — set up the Anthropic SDK client as a shared utility if not already present. For tests, mock the API calls. Depends on 2.4 being complete."
+    },
+    {
+      "id": "3.2",
+      "title": "PRD generation",
+      "description": "As a user, I want Boop to generate a PRD from my idea and viability assessment, so that requirements are documented before architecture and stories.",
+      "acceptanceCriteria": [
+        "Given the viability phase passed, Claude generates a PRD using the BMAD PRD prompt template",
+        "PRD includes: executive summary, functional requirements, NFRs, MVP scope, success criteria",
+        "Developer profile informs tech-specific requirements",
+        "PRD is saved to .boop/planning/prd.md",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Create src/planning/prd.ts. Prompt from prompts/prd/. Chain viability output as input context. Depends on 3.1 being complete."
+    },
+    {
+      "id": "3.3",
+      "title": "Architecture generation",
+      "description": "As a user, I want Boop to generate architecture decisions automatically from my profile and PRD, so that tech stack choices are made without me having to specify them again.",
+      "acceptanceCriteria": [
+        "Given a PRD exists, Claude generates architecture decisions using the developer profile as primary input",
+        "Most decisions are made automatically (database, framework, styling, etc. from profile)",
+        "Only genuinely novel choices are escalated to the user",
+        "Architecture is saved to .boop/planning/architecture.md",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Create src/planning/architecture.ts. Prompt from prompts/architecture/. Profile replaces most interactive decisions. Depends on 3.2 being complete."
+    },
+    {
+      "id": "3.4",
+      "title": "Epic and story breakdown",
+      "description": "As a user, I want Boop to decompose the PRD into epics and stories with acceptance criteria, so that the build phase has clear, implementable units of work.",
+      "acceptanceCriteria": [
+        "Given PRD and architecture exist, Claude generates epics with stories",
+        "Each story contains: user story, BDD acceptance criteria, prerequisites, technical notes",
+        "Stories are sized for single dev agent sessions",
+        "Stories are sequentially ordered with no forward dependencies",
+        "Output is saved to .boop/planning/epics.md",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Create src/planning/stories.ts. Prompt from prompts/stories/. Depends on 3.3 being complete."
+    },
+    {
+      "id": "3.5",
+      "title": "Planning prompt chain orchestration",
+      "description": "As a developer, I want the planning phases to chain automatically with each feeding into the next, so that the pipeline runs without manual intervention between phases.",
+      "acceptanceCriteria": [
+        "Given a user provides an idea, viability → PRD → architecture → stories execute in sequence",
+        "Each phase receives the output of the previous phase as context",
+        "Pipeline state updates after each phase completes",
+        "If any phase fails, Boop retries once then pauses and reports",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Wire the planning functions together in src/pipeline/orchestrator.ts. Each phase is a function, chained. Use the retry utility from shared/retry.ts. Update pipeline state machine to transition through PLANNING sub-phases. Depends on 3.1-3.4 being complete."
+    },
+    {
+      "id": "3.6",
+      "title": "BMAD prompt library extraction",
+      "description": "As a developer, I want the tested BMAD instruction files, templates, and personas extracted and organized in the prompts directory, so that planning phases use proven, refined prompts.",
+      "acceptanceCriteria": [
+        "prompts/viability/, prompts/prd/, prompts/architecture/, prompts/stories/ each contain relevant instruction files and templates",
+        "Persona definitions (PM, architect, dev) are in prompts/personas/",
+        "Validation checklists are in prompts/checklists/",
+        "No workflow engine code is included — only the knowledge files",
+        "Each prompt file is loadable by the planning phase functions",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Create the prompts/ directory structure with extracted BMAD content. Since we don't have the actual BMAD installation in this repo, create well-structured prompt templates based on the BMAD methodology described in the docs. Each prompt should be a markdown file loadable at runtime. Include: system instructions for each phase, output format templates, validation checklists. This can run independently of 3.1-3.5. Depends on 1.1 being complete."
+    }
+  ]
+}

@@ -139,10 +139,6 @@ export function loadProfileFromDisk(stateDir?: string): DeveloperProfile | undef
  * @deprecated Use runOnboarding() instead. Kept for backward compatibility with tests.
  */
 export function runOnboardingStub(): void {
-  console.log(
-    "[boop] Welcome! No developer profile found.",
-  );
-  console.log(
-    "[boop] Run 'boop --profile' to set up your profile.",
-  );
+  console.log("[boop] Welcome! No developer profile found.");
+  console.log("[boop] Run 'boop --profile' to set up your profile.");
 }

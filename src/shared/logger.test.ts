@@ -50,10 +50,7 @@ describe("Logger", () => {
 
   it("uses [boop] prefix when phase is empty", () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const logger = new Logger(
-      { phase: "", epic: "", story: "" },
-      { fileOutput: false },
-    );
+    const logger = new Logger({ phase: "", epic: "", story: "" }, { fileOutput: false });
     logger.info("no phase");
     expect(spy).toHaveBeenCalledWith("[boop] no phase");
     spy.mockRestore();
@@ -106,10 +103,7 @@ describe("Logger", () => {
     const files = fs.readdirSync(tmpDir);
     expect(files).toHaveLength(1);
 
-    const lines = fs
-      .readFileSync(path.join(tmpDir, files[0]!), "utf-8")
-      .trim()
-      .split("\n");
+    const lines = fs.readFileSync(path.join(tmpDir, files[0]!), "utf-8").trim().split("\n");
     expect(lines).toHaveLength(3);
   });
 

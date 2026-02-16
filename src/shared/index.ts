@@ -23,3 +23,5 @@ export { Logger, createLogger } from "./logger.js";
 export type { LoggerContext, LoggerOptions } from "./logger.js";
 export { retry, RetryError } from "./retry.js";
 export type { RetryOptions } from "./retry.js";
+export { createAnthropicClient, sendMessage, isRetryableApiError } from "./claude-client.js";
+export type { ClaudeClientOptions, ClaudeMessage, ClaudeResponse } from "./claude-client.js";

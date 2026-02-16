@@ -26,14 +26,10 @@ vi.mock("@clack/prompts", () => ({
     textCalls.push(opts);
     return Promise.resolve(textResponses.shift() ?? opts.defaultValue ?? "");
   }),
-  multiselect: vi.fn(
-    (opts: { message: string; initialValues?: string[] }) => {
-      multiselectCalls.push(opts);
-      return Promise.resolve(
-        multiselectResponses.shift() ?? opts.initialValues ?? [],
-      );
-    },
-  ),
+  multiselect: vi.fn((opts: { message: string; initialValues?: string[] }) => {
+    multiselectCalls.push(opts);
+    return Promise.resolve(multiselectResponses.shift() ?? opts.initialValues ?? []);
+  }),
   confirm: vi.fn((opts: { message: string; initialValue?: boolean }) => {
     confirmCalls.push(opts);
     return Promise.resolve(confirmResponses.shift() ?? opts.initialValue ?? false);
@@ -131,8 +127,7 @@ describe("profile/onboarding", () => {
     await runOnboarding({ stateDir: tmpDir });
 
     // Count total prompts: text + multiselect + confirm
-    const totalPrompts =
-      textCalls.length + multiselectCalls.length + confirmCalls.length;
+    const totalPrompts = textCalls.length + multiselectCalls.length + confirmCalls.length;
     expect(totalPrompts).toBe(PROFILE_CATEGORIES.length);
   });
 

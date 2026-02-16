@@ -19,14 +19,7 @@ export type FrontendFramework =
   | string;
 
 /** Backend framework preference. */
-export type BackendFramework =
-  | "express"
-  | "fastify"
-  | "hono"
-  | "nest"
-  | "koa"
-  | "none"
-  | string;
+export type BackendFramework = "express" | "fastify" | "hono" | "nest" | "koa" | "none" | string;
 
 /** Database preference. */
 export type Database =
@@ -80,21 +73,10 @@ export type AnalyticsProvider =
   | string;
 
 /** CI/CD provider. */
-export type CiCdProvider =
-  | "github-actions"
-  | "gitlab-ci"
-  | "circleci"
-  | "none"
-  | string;
+export type CiCdProvider = "github-actions" | "gitlab-ci" | "circleci" | "none" | string;
 
 /** Programming language preference. */
-export type Language =
-  | "typescript"
-  | "javascript"
-  | "python"
-  | "go"
-  | "rust"
-  | string;
+export type Language = "typescript" | "javascript" | "python" | "go" | "rust" | string;
 
 /** Package manager. */
 export type PackageManager = "pnpm" | "npm" | "yarn" | "bun" | string;

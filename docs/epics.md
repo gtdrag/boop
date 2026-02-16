@@ -17,7 +17,7 @@
 | 3: Planning Pipeline                | 6       | FR-2                           |
 | 4: Bridge & Build                   | 5       | FR-3, FR-4                     |
 | 5: Review & Epic Loop               | 9       | FR-5, FR-6                     |
-| 6: Scaffolding, Defaults & Security | 6       | FR-7, FR-8, FR-9              |
+| 6: Scaffolding, Defaults & Security | 6       | FR-7, FR-8, FR-9               |
 | **Total**                           | **36**  | **All FRs covered**            |
 
 ---

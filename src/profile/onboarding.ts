@@ -88,9 +88,7 @@ async function promptName(
   currentValue: string | undefined,
   clack: typeof import("@clack/prompts"),
 ): Promise<string | symbol> {
-  const message = currentValue
-    ? `Your name? ${currentValue} (current)`
-    : "What's your name?";
+  const message = currentValue ? `Your name? ${currentValue} (current)` : "What's your name?";
   return clack.text({
     message,
     placeholder: currentValue || "Your name",
@@ -123,9 +121,7 @@ async function promptBoolean(
  * Iterates over PROFILE_CATEGORIES, prompting for each field.
  * Returns the completed profile or indicates cancellation.
  */
-export async function runOnboarding(
-  options: OnboardingOptions,
-): Promise<OnboardingResult> {
+export async function runOnboarding(options: OnboardingOptions): Promise<OnboardingResult> {
   const clack = await import("@clack/prompts");
   const existing = options.existingProfile;
 
@@ -141,10 +137,7 @@ export async function runOnboarding(
     const key = category.key;
 
     if (key === "name") {
-      const result = await promptName(
-        existing?.name,
-        clack,
-      );
+      const result = await promptName(existing?.name, clack);
       if (clack.isCancel(result)) {
         clack.outro("Profile setup cancelled.");
         return { completed: false };
@@ -154,11 +147,7 @@ export async function runOnboarding(
     }
 
     if (key === "autonomousByDefault") {
-      const result = await promptBoolean(
-        category,
-        existing?.autonomousByDefault,
-        clack,
-      );
+      const result = await promptBoolean(category, existing?.autonomousByDefault, clack);
       if (clack.isCancel(result)) {
         clack.outro("Profile setup cancelled.");
         return { completed: false };
@@ -168,9 +157,7 @@ export async function runOnboarding(
     }
 
     if (category.multi) {
-      const currentArr = existing
-        ? (existing[key] as string[])
-        : undefined;
+      const currentArr = existing ? (existing[key] as string[]) : undefined;
       const result = await promptMultiValue(category, currentArr, clack);
       if (clack.isCancel(result)) {
         clack.outro("Profile setup cancelled.");
@@ -181,9 +168,7 @@ export async function runOnboarding(
     }
 
     // Single-value string field
-    const currentStr = existing
-      ? String(existing[key])
-      : undefined;
+    const currentStr = existing ? String(existing[key]) : undefined;
     const result = await promptSingleValue(category, currentStr, clack);
     if (clack.isCancel(result)) {
       clack.outro("Profile setup cancelled.");

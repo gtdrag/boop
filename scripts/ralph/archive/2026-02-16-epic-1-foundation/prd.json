@@ -1,0 +1,69 @@
+{
+  "project": "Boop",
+  "branchName": "ralph/epic-2-developer-profile",
+  "description": "Epic 2: Developer Profile. First-run onboarding with opinionated recommendations produces a profile that informs all downstream decisions. Covers profile schema, onboarding interview, profile editing, and pipeline integration.",
+  "userStories": [
+    {
+      "id": "2.1",
+      "title": "Profile schema and defaults",
+      "description": "As a developer, I want the developer profile schema defined with sensible, opinionated defaults for every category, so that the onboarding can lead with recommendations.",
+      "acceptanceCriteria": [
+        "Every field has a recommended default (e.g., PostgreSQL for database, Tailwind for styling, Zustand for state)",
+        "Schema covers: frontend framework, backend framework, database, cloud/deployment, styling, state management, analytics, CI/CD, language preferences, project structure preference (monorepo vs single)",
+        "Schema is validated with TypeScript types",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Create src/profile/schema.ts and src/profile/defaults.ts. Defaults should reflect practical, modern choices. Depends on shared types from 1.3 being complete."
+    },
+    {
+      "id": "2.2",
+      "title": "Onboarding interview with opinionated suggestions",
+      "description": "As a new user, I want Boop to walk me through a setup interview where it recommends a tech choice for each category and I can accept or override, so that my profile is generated quickly with good defaults.",
+      "acceptanceCriteria": [
+        "When no ~/.boop/profile.yaml exists, Boop presents each category with a recommended choice (e.g., 'Database? PostgreSQL (recommended) — or type your preference:')",
+        "Pressing enter accepts the recommendation",
+        "Typing a different answer overrides it",
+        "The interview completes in under 3 minutes for users accepting all defaults",
+        "~/.boop/profile.yaml is generated and saved",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Create src/profile/onboarding.ts. Use interactive CLI prompts (@clack/prompts is already installed from Epic 1). Lead with opinion, allow override. Replace the onboarding stub from Story 1.5. Depends on 2.1 and 1.5 being complete."
+    },
+    {
+      "id": "2.3",
+      "title": "Profile editing",
+      "description": "As a user, I want to edit my developer profile after initial setup, so that I can update preferences as my stack evolves.",
+      "acceptanceCriteria": [
+        "Running npx boop --profile when profile.yaml exists re-runs the onboarding interview with current values shown as defaults",
+        "User can accept current values or change them",
+        "Updated profile is saved",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Re-use onboarding flow from 2.2, pre-populate with current profile values. Wire into the --profile CLI flag from Story 1.2. Depends on 2.2 being complete."
+    },
+    {
+      "id": "2.4",
+      "title": "Profile integration with pipeline",
+      "description": "As a developer, I want the pipeline to load and use the developer profile when making decisions, so that planning and scaffolding reflect my preferences automatically.",
+      "acceptanceCriteria": [
+        "Profile is loaded from ~/.boop/profile.yaml and available to all pipeline phases",
+        "Planning prompts receive profile context (tech stack, patterns, preferences)",
+        "If no profile exists, Boop refuses to start and triggers onboarding",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Profile loaded in src/pipeline/orchestrator.ts and passed to all phase functions. Add profile parameter to PipelineOrchestrator constructor or phase methods. Depends on 2.2 and 1.4 being complete."
+    }
+  ]
+}

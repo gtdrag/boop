@@ -7,16 +7,22 @@
 import { Command } from "commander";
 import { VERSION } from "../version.js";
 import { PipelineOrchestrator } from "../pipeline/orchestrator.js";
-import { editProfile, initGlobalConfig, loadProfileFromDisk, runOnboarding } from "../config/index.js";
+import {
+  editProfile,
+  initGlobalConfig,
+  loadProfileFromDisk,
+  runOnboarding,
+} from "../config/index.js";
+import type { DeveloperProfile } from "../shared/types.js";
+import { assessViability } from "../planning/viability.js";
+import type { ViabilityResult } from "../planning/viability.js";
 
 export function buildProgram(): Command {
   const program = new Command();
 
   program
     .name("boop")
-    .description(
-      "Automated development workflow — plan, build, review in one pipeline",
-    )
+    .description("Automated development workflow — plan, build, review in one pipeline")
     .version(VERSION)
     .argument("[idea]", "describe your project idea to start the pipeline")
     .option("--profile", "manage developer profile")
@@ -100,10 +106,7 @@ export async function handleCli(
       console.log("[boop] No developer profile found. Please run onboarding first.");
       return;
     }
-    console.log(`[boop] Starting pipeline with idea: "${idea}"`);
-    if (opts.autonomous) {
-      console.log("[boop] Running in autonomous mode.");
-    }
+    await startPipeline(idea, profile, projectDir ?? process.cwd(), opts.autonomous);
     return;
   }
 
@@ -132,4 +135,86 @@ async function enterInteractiveMode(opts: CliOptions): Promise<void> {
   if (opts.autonomous) {
     console.log("[boop] Running in autonomous mode.");
   }
+}
+
+/**
+ * Start the pipeline: run viability assessment, then ask user to confirm.
+ */
+async function startPipeline(
+  idea: string,
+  profile: DeveloperProfile,
+  projectDir: string,
+  autonomous?: boolean,
+): Promise<void> {
+  console.log(`[boop] Starting pipeline with idea: "${idea}"`);
+  if (autonomous) {
+    console.log("[boop] Running in autonomous mode.");
+  }
+
+  console.log("[boop] Running viability assessment...");
+
+  let result: ViabilityResult;
+  try {
+    result = await assessViability(idea, profile, { projectDir });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[boop] Viability assessment failed: ${msg}`);
+    return;
+  }
+
+  console.log();
+  console.log(result.assessment);
+  console.log();
+  console.log(`[boop] Recommendation: ${result.recommendation}`);
+  console.log(`[boop] Assessment saved to .boop/planning/viability.md`);
+
+  if (autonomous) {
+    if (result.recommendation === "RECONSIDER") {
+      console.log("[boop] Recommendation is RECONSIDER — stopping pipeline.");
+      return;
+    }
+    console.log("[boop] Proceeding to next phase...");
+    return;
+  }
+
+  // Ask user to confirm, revise, or stop
+  const { select, text, isCancel } = await import("@clack/prompts");
+
+  const action = await select({
+    message: "How would you like to proceed?",
+    options: [
+      { value: "proceed", label: "Proceed to PRD generation" },
+      { value: "revise", label: "Revise the idea and re-assess" },
+      { value: "stop", label: "Stop and reconsider" },
+    ],
+  });
+
+  if (isCancel(action)) {
+    console.log("[boop] Cancelled.");
+    return;
+  }
+
+  if (action === "stop") {
+    console.log("[boop] Pipeline stopped. You can resume later with 'boop --resume'.");
+    return;
+  }
+
+  if (action === "revise") {
+    const revised = await text({
+      message: "Describe your revised idea:",
+      placeholder: idea,
+    });
+
+    if (isCancel(revised) || !revised?.trim()) {
+      console.log("[boop] Cancelled.");
+      return;
+    }
+
+    // Recurse with revised idea
+    await startPipeline(revised as string, profile, projectDir, autonomous);
+    return;
+  }
+
+  // action === "proceed"
+  console.log("[boop] Proceeding to next phase...");
 }

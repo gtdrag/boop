@@ -26,9 +26,9 @@ describe("retry", () => {
       throw new Error("always fails");
     };
 
-    await expect(
-      retry(fn, { maxRetries: 2, initialDelayMs: 1, jitter: false }),
-    ).rejects.toThrow(RetryError);
+    await expect(retry(fn, { maxRetries: 2, initialDelayMs: 1, jitter: false })).rejects.toThrow(
+      RetryError,
+    );
 
     try {
       await retry(fn, { maxRetries: 2, initialDelayMs: 1, jitter: false });
