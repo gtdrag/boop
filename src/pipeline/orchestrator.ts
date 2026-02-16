@@ -6,7 +6,7 @@
  *
  * SCAFFOLDING runs once per project (first epic only) — subsequent epics skip to BUILDING.
  */
-import type { PipelinePhase, PipelineState } from "../shared/types.js";
+import type { DeveloperProfile, PipelinePhase, PipelineState } from "../shared/types.js";
 import { PIPELINE_PHASES } from "../shared/types.js";
 import { loadState, saveState, defaultState } from "./state.js";
 
@@ -28,10 +28,33 @@ const TRANSITIONS: Record<PipelinePhase, PipelinePhase[]> = {
 export class PipelineOrchestrator {
   private state: PipelineState;
   private readonly projectDir: string;
+  private readonly profile: DeveloperProfile | null;
 
-  constructor(projectDir: string) {
+  constructor(projectDir: string, profile?: DeveloperProfile) {
     this.projectDir = projectDir;
     this.state = loadState(projectDir) ?? defaultState();
+    this.profile = profile ?? null;
+  }
+
+  /**
+   * Get the developer profile loaded for this pipeline.
+   * Returns null if no profile was provided at construction.
+   */
+  getProfile(): DeveloperProfile | null {
+    return this.profile;
+  }
+
+  /**
+   * Require a developer profile to be loaded.
+   * Throws if no profile is available — callers should trigger onboarding.
+   */
+  requireProfile(): DeveloperProfile {
+    if (!this.profile) {
+      throw new Error(
+        "No developer profile found. Run 'boop --profile' to set up your profile before starting the pipeline.",
+      );
+    }
+    return this.profile;
   }
 
   /** Get the current pipeline state (read-only copy). */
@@ -41,9 +64,15 @@ export class PipelineOrchestrator {
 
   /**
    * Transition to the next phase.
+   * Requires a loaded profile for any transition out of IDLE.
    * Saves state atomically before and after the transition.
    */
   transition(targetPhase: PipelinePhase): void {
+    // Require profile for any forward pipeline transition (IDLE → PLANNING, etc.)
+    if (this.state.phase === "IDLE" && targetPhase !== "IDLE") {
+      this.requireProfile();
+    }
+
     const allowed = TRANSITIONS[this.state.phase];
     if (!allowed?.includes(targetPhase)) {
       throw new Error(
@@ -155,6 +184,10 @@ export class PipelineOrchestrator {
     lines.push(`Phase:    ${s.phase}`);
     lines.push(`Epic:     ${s.epicNumber}`);
 
+    if (this.profile) {
+      lines.push(`Profile:  ${this.profile.name}`);
+    }
+
     if (s.currentStory) {
       lines.push(`Story:    ${s.currentStory}`);
     }
@@ -183,9 +216,13 @@ export class PipelineOrchestrator {
       `  Story:          ${s.currentStory ?? "(none)"}`,
       `  Last step:      ${s.lastCompletedStep ?? "(none)"}`,
       `  Last updated:   ${s.updatedAt}`,
-      "",
-      "Continue from this point?",
     ];
+
+    if (this.profile) {
+      lines.push(`  Profile:        ${this.profile.name}`);
+    }
+
+    lines.push("", "Continue from this point?");
 
     return lines.join("\n");
   }

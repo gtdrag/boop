@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   initGlobalConfig,
+  loadProfileFromDisk,
   resolveHomeDir,
   resolveProfilePath,
   resolveStateDir,
@@ -126,5 +127,54 @@ describe("runOnboardingStub", () => {
     } finally {
       console.log = orig;
     }
+  });
+});
+
+describe("loadProfileFromDisk", () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) rmrf(tmpDir);
+  });
+
+  it("returns undefined when no profile.yaml exists", () => {
+    tmpDir = makeTmpDir();
+    expect(loadProfileFromDisk(tmpDir)).toBeUndefined();
+  });
+
+  it("loads a valid YAML profile from disk", () => {
+    tmpDir = makeTmpDir();
+    const yaml = [
+      "name: Alice",
+      "languages:",
+      "  - typescript",
+      "  - python",
+      "frontendFramework: next",
+      "backendFramework: express",
+      "database: postgresql",
+      "cloudProvider: vercel",
+      "styling: tailwind",
+      "stateManagement: zustand",
+      "analytics: posthog",
+      "ciCd: github-actions",
+      "packageManager: pnpm",
+      "testRunner: vitest",
+      "linter: oxlint",
+      "projectStructure: monorepo",
+      "aiModel: claude-opus-4-6",
+      "autonomousByDefault: false",
+    ].join("\n");
+    fs.writeFileSync(path.join(tmpDir, "profile.yaml"), yaml, "utf-8");
+
+    const profile = loadProfileFromDisk(tmpDir);
+    expect(profile).toBeDefined();
+    expect(profile!.name).toBe("Alice");
+    expect(profile!.frontendFramework).toBe("next");
+    expect(profile!.languages).toEqual(["typescript", "python"]);
+    expect(profile!.autonomousByDefault).toBe(false);
+  });
+
+  it("returns undefined for a non-existent directory", () => {
+    expect(loadProfileFromDisk("/tmp/nonexistent-boop-dir-12345")).toBeUndefined();
   });
 });

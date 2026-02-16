@@ -7,7 +7,7 @@
 import { Command } from "commander";
 import { VERSION } from "../version.js";
 import { PipelineOrchestrator } from "../pipeline/orchestrator.js";
-import { editProfile, initGlobalConfig, runOnboarding } from "../config/index.js";
+import { editProfile, initGlobalConfig, loadProfileFromDisk, runOnboarding } from "../config/index.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -62,8 +62,11 @@ export async function handleCli(
     await runOnboarding(stateDir);
   }
 
+  // Load profile for pipeline operations
+  const profile = loadProfileFromDisk(stateDir);
+
   if (opts.status) {
-    const orch = new PipelineOrchestrator(projectDir ?? process.cwd());
+    const orch = new PipelineOrchestrator(projectDir ?? process.cwd(), profile ?? undefined);
     console.log(orch.formatStatus());
     return;
   }
@@ -74,7 +77,7 @@ export async function handleCli(
   }
 
   if (opts.resume) {
-    const orch = new PipelineOrchestrator(projectDir ?? process.cwd());
+    const orch = new PipelineOrchestrator(projectDir ?? process.cwd(), profile ?? undefined);
     const context = orch.formatResumeContext();
     console.log(context);
 
@@ -93,6 +96,10 @@ export async function handleCli(
   }
 
   if (idea) {
+    if (!profile) {
+      console.log("[boop] No developer profile found. Please run onboarding first.");
+      return;
+    }
     console.log(`[boop] Starting pipeline with idea: "${idea}"`);
     if (opts.autonomous) {
       console.log("[boop] Running in autonomous mode.");

@@ -7,6 +7,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { parse as parseYaml } from "yaml";
+import type { DeveloperProfile } from "../profile/schema.js";
 
 const STATE_DIRNAME = ".boop";
 const CONFIG_FILENAME = "config.yaml";
@@ -115,6 +117,22 @@ export async function editProfile(stateDir?: string): Promise<void> {
   const dir = stateDir ?? resolveStateDir();
   const existing = loadProfile(dir);
   await doOnboarding({ stateDir: dir, existingProfile: existing });
+}
+
+/**
+ * Load the developer profile from disk.
+ *
+ * Returns the profile or undefined if it doesn't exist.
+ * Used by the pipeline orchestrator to load profile context.
+ */
+export function loadProfileFromDisk(stateDir?: string): DeveloperProfile | undefined {
+  const dir = stateDir ?? resolveStateDir();
+  const profilePath = resolveProfilePath(dir);
+  if (!fs.existsSync(profilePath)) {
+    return undefined;
+  }
+  const raw = fs.readFileSync(profilePath, "utf-8");
+  return parseYaml(raw) as DeveloperProfile;
 }
 
 /**

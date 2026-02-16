@@ -12,6 +12,7 @@ vi.mock("../config/index.js", async (importOriginal) => {
     ...actual,
     runOnboarding: vi.fn().mockResolvedValue(undefined),
     editProfile: vi.fn().mockResolvedValue(undefined),
+    loadProfileFromDisk: vi.fn().mockReturnValue(undefined),
   };
 });
 
@@ -43,19 +44,26 @@ describe("CLI program", () => {
 describe("handleCli", () => {
   let configDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     configDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-cli-test-"));
+    // Reset mock implementations to defaults
+    const config = await import("../config/index.js");
+    (config.runOnboarding as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (config.editProfile as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (config.loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
   });
 
   afterEach(() => {
     fs.rmSync(configDir, { recursive: true, force: true });
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("logs pipeline start when idea is provided", async () => {
     // Pre-create profile so onboarding doesn't trigger
     fs.mkdirSync(configDir, { recursive: true });
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { loadProfileFromDisk } = await import("../config/index.js");
+    (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "test" });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("build a todo app", {}, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -67,6 +75,8 @@ describe("handleCli", () => {
   it("logs autonomous mode when --autonomous is set with idea", async () => {
     fs.mkdirSync(configDir, { recursive: true });
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { loadProfileFromDisk } = await import("../config/index.js");
+    (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "test" });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("build a todo app", { autonomous: true }, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -149,5 +159,32 @@ describe("handleCli", () => {
     const { runOnboarding } = await import("../config/index.js");
     await handleCli("test idea", {}, undefined, configDir);
     expect(runOnboarding).not.toHaveBeenCalled();
+  });
+
+  it("refuses to start pipeline when no profile is loaded", async () => {
+    // Profile.yaml exists (so onboarding is skipped) but loadProfileFromDisk returns undefined
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { loadProfileFromDisk } = await import("../config/index.js");
+    (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await handleCli("test idea", {}, undefined, configDir);
+    expect(spy).toHaveBeenCalledWith(
+      "[boop] No developer profile found. Please run onboarding first.",
+    );
+    spy.mockRestore();
+  });
+
+  it("starts pipeline when profile is loaded", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { loadProfileFromDisk } = await import("../config/index.js");
+    (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "Alice" });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await handleCli("my app", {}, undefined, configDir);
+    expect(spy).toHaveBeenCalledWith(
+      '[boop] Starting pipeline with idea: "my app"',
+    );
+    spy.mockRestore();
   });
 });
