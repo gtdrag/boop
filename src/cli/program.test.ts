@@ -5,6 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildProgram, handleCli } from "./program.js";
 import type { CliOptions } from "./program.js";
 
+// Mock the config module to avoid real interactive prompts
+vi.mock("../config/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../config/index.js")>();
+  return {
+    ...actual,
+    runOnboarding: vi.fn().mockResolvedValue(undefined),
+    editProfile: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 describe("CLI program", () => {
   it("creates a program with name boop", () => {
     const program = buildProgram();
@@ -39,9 +49,13 @@ describe("handleCli", () => {
 
   afterEach(() => {
     fs.rmSync(configDir, { recursive: true, force: true });
+    vi.clearAllMocks();
   });
 
   it("logs pipeline start when idea is provided", async () => {
+    // Pre-create profile so onboarding doesn't trigger
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("build a todo app", {}, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -51,6 +65,8 @@ describe("handleCli", () => {
   });
 
   it("logs autonomous mode when --autonomous is set with idea", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli("build a todo app", { autonomous: true }, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -60,16 +76,23 @@ describe("handleCli", () => {
     spy.mockRestore();
   });
 
-  it("handles --profile flag", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+  it("handles --profile flag by calling runOnboarding when no profile exists", async () => {
+    const { runOnboarding } = await import("../config/index.js");
     await handleCli(undefined, { profile: true }, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith(
-      "[boop] Profile management — not yet implemented.",
-    );
-    spy.mockRestore();
+    expect(runOnboarding).toHaveBeenCalled();
+  });
+
+  it("handles --profile flag by calling editProfile when profile exists", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { editProfile } = await import("../config/index.js");
+    await handleCli(undefined, { profile: true }, undefined, configDir);
+    expect(editProfile).toHaveBeenCalled();
   });
 
   it("handles --status flag", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { status: true }, "/tmp/boop-test-nonexistent", configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -79,6 +102,8 @@ describe("handleCli", () => {
   });
 
   it("handles --review flag", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { review: true }, undefined, configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -88,6 +113,8 @@ describe("handleCli", () => {
   });
 
   it("handles --resume flag with no active pipeline", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { resume: true }, "/tmp/boop-test-nonexistent", configDir);
     expect(spy).toHaveBeenCalledWith(
@@ -97,7 +124,7 @@ describe("handleCli", () => {
   });
 
   it("flags are checked in priority order: profile > status > review > resume", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { runOnboarding } = await import("../config/index.js");
     const opts: CliOptions = {
       profile: true,
       status: true,
@@ -105,29 +132,22 @@ describe("handleCli", () => {
       resume: true,
     };
     await handleCli(undefined, opts, undefined, configDir);
-    // profile takes priority — but onboarding also fires since no profile.yaml
-    expect(spy).toHaveBeenCalledWith(
-      "[boop] Profile management — not yet implemented.",
-    );
-    spy.mockRestore();
+    // profile takes priority — triggers onboarding since no profile exists
+    expect(runOnboarding).toHaveBeenCalled();
   });
 
-  it("triggers onboarding stub when profile.yaml does not exist", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+  it("triggers onboarding when profile.yaml does not exist", async () => {
+    const { runOnboarding } = await import("../config/index.js");
     await handleCli("test idea", {}, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith(
-      "[boop] Welcome! No developer profile found.",
-    );
-    spy.mockRestore();
+    expect(runOnboarding).toHaveBeenCalled();
   });
 
   it("skips onboarding when profile.yaml exists", async () => {
     // Pre-create profile
+    fs.mkdirSync(configDir, { recursive: true });
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { runOnboarding } = await import("../config/index.js");
     await handleCli("test idea", {}, undefined, configDir);
-    const calls = spy.mock.calls.flat().join("\n");
-    expect(calls).not.toContain("Welcome");
-    spy.mockRestore();
+    expect(runOnboarding).not.toHaveBeenCalled();
   });
 });

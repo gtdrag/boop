@@ -94,14 +94,37 @@ export function initGlobalConfig(stateDir?: string): InitResult {
 }
 
 /**
- * Stub onboarding flow — prints a message and returns.
- * Actual onboarding is implemented in Epic 2.
+ * Run the onboarding interview.
+ *
+ * Walks the user through each profile category with opinionated
+ * recommendations. Saves the result to ~/.boop/profile.yaml.
+ */
+export async function runOnboarding(stateDir?: string): Promise<void> {
+  const { runOnboarding: doOnboarding } = await import("../profile/onboarding.js");
+  const dir = stateDir ?? resolveStateDir();
+  await doOnboarding({ stateDir: dir });
+}
+
+/**
+ * Run the profile editor (re-runs onboarding with current values).
+ *
+ * Loads the existing profile and presents it for editing.
+ */
+export async function editProfile(stateDir?: string): Promise<void> {
+  const { runOnboarding: doOnboarding, loadProfile } = await import("../profile/onboarding.js");
+  const dir = stateDir ?? resolveStateDir();
+  const existing = loadProfile(dir);
+  await doOnboarding({ stateDir: dir, existingProfile: existing });
+}
+
+/**
+ * @deprecated Use runOnboarding() instead. Kept for backward compatibility with tests.
  */
 export function runOnboardingStub(): void {
   console.log(
     "[boop] Welcome! No developer profile found.",
   );
   console.log(
-    "[boop] Run 'boop --profile' to set up your profile (coming soon).",
+    "[boop] Run 'boop --profile' to set up your profile.",
   );
 }

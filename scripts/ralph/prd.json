@@ -32,7 +32,7 @@
         "All tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/profile/onboarding.ts. Use interactive CLI prompts (@clack/prompts is already installed from Epic 1). Lead with opinion, allow override. Replace the onboarding stub from Story 1.5. Depends on 2.1 and 1.5 being complete."
     },
     {

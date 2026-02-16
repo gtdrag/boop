@@ -7,6 +7,10 @@ Started: Mon Feb 16 15:52:58 CST 2026
 - Union types with `| string` escape hatch allow custom values beyond predefined options
 - ProfileCategory.multi flag indicates array fields (e.g. languages) vs single-value fields
 - DEFAULT_PROFILE provides the recommended value for every field — PROFILE_CATEGORIES.recommended mirrors these
+- Onboarding flow in src/profile/onboarding.ts — runOnboarding() for new, loadProfile() to read existing
+- config/index.ts exports runOnboarding() and editProfile() that delegate to profile/onboarding.ts
+- CLI --profile flag: calls runOnboarding (no profile) or editProfile (profile exists)
+- @clack/prompts mocking pattern: mock text/multiselect/confirm with response queues, use symbol for cancel
 
 ---
 
@@ -35,4 +39,34 @@ Started: Mon Feb 16 15:52:58 CST 2026
   - Using `| string` on union types allows users to specify custom tools not in the predefined list — good for extensibility without sacrificing type-safety for known values
   - Re-exporting types from shared/types.ts keeps downstream imports stable while moving canonical definitions to domain modules
   - ProfileCategory metadata enables data-driven onboarding — iterate over PROFILE_CATEGORIES instead of hardcoding each prompt
+---
+
+## 2026-02-16 16:01 - Story 2.2
+- What was implemented:
+  - Created src/profile/onboarding.ts — full interactive interview flow using @clack/prompts
+  - runOnboarding() iterates over PROFILE_CATEGORIES, prompting each field with opinionated defaults
+  - Supports three prompt types: text (single-value), multiselect (languages), confirm (boolean)
+  - Each prompt shows "Category? recommended (recommended)" pattern — enter accepts, typing overrides
+  - Supports pre-populated values via existingProfile option (for editing in 2.3)
+  - loadProfile() reads and parses existing ~/.boop/profile.yaml
+  - Saves profile as YAML using the `yaml` package
+  - Updated src/config/index.ts — added runOnboarding() and editProfile() exports that delegate to profile/onboarding.ts
+  - Kept runOnboardingStub() as deprecated for backward compat
+  - Updated src/cli/program.ts — --profile flag now calls real onboarding/editing flow
+  - First-run auto-onboarding now uses real interactive flow (not stub)
+  - Created src/profile/onboarding.test.ts — 12 tests covering: defaults, overrides, YAML persistence, cancellation, pre-populated editing, multi-select, boolean confirm, directory creation
+  - Updated src/cli/program.test.ts — mock config module to avoid interactive prompts, test --profile dispatches correctly
+  - All 117 tests passing, typecheck clean, 0 lint errors
+- Files changed:
+  - src/profile/onboarding.ts — new (runOnboarding, loadProfile, OnboardingOptions, OnboardingResult)
+  - src/profile/onboarding.test.ts — new (12 tests)
+  - src/config/index.ts — updated (added runOnboarding, editProfile exports)
+  - src/cli/program.ts — updated (wired real onboarding into --profile and first-run)
+  - src/cli/program.test.ts — updated (mock config module, test onboarding dispatch)
+- **Learnings for future iterations:**
+  - @clack/prompts can be mocked by providing vi.fn() implementations for text/multiselect/confirm + response queues
+  - Use symbol for cancel detection: `const CANCEL = Symbol("cancel")` and `isCancel: (v) => v === CANCEL`
+  - Dynamic import (`await import("@clack/prompts")`) inside functions works well with vitest mocking
+  - Profile YAML round-tripping works cleanly with the `yaml` package (parse/stringify)
+  - Pre-populating existing values for editing just requires passing existingProfile to runOnboarding
 ---

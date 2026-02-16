@@ -7,7 +7,7 @@
 import { Command } from "commander";
 import { VERSION } from "../version.js";
 import { PipelineOrchestrator } from "../pipeline/orchestrator.js";
-import { initGlobalConfig, runOnboardingStub } from "../config/index.js";
+import { editProfile, initGlobalConfig, runOnboarding } from "../config/index.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -47,14 +47,19 @@ export async function handleCli(
   globalConfigDir?: string,
 ): Promise<void> {
   // Initialize global ~/.boop/ directory structure on every run
-  const { needsOnboarding } = initGlobalConfig(globalConfigDir);
-  if (needsOnboarding) {
-    runOnboardingStub();
-  }
+  const { needsOnboarding, stateDir } = initGlobalConfig(globalConfigDir);
 
   if (opts.profile) {
-    console.log("[boop] Profile management — not yet implemented.");
+    if (needsOnboarding) {
+      await runOnboarding(stateDir);
+    } else {
+      await editProfile(stateDir);
+    }
     return;
+  }
+
+  if (needsOnboarding) {
+    await runOnboarding(stateDir);
   }
 
   if (opts.status) {
