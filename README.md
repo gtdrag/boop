@@ -46,6 +46,63 @@ Boop is a personalized development pipeline that turns ideas into deployed softw
 └──────────────────────────────────────────────────────────────┘
 ```
 
+## Installation
+
+```bash
+npx boop
+```
+
+First run, Boop detects no developer profile and runs the onboarding interview:
+
+```
+Hey, I'm Boop. Let's get to know each other.
+
+Frontend framework?     > React Native / Next.js / Vue / ...
+Backend framework?      > FastAPI / Express / Django / ...
+Database?               > PostgreSQL / Supabase / MongoDB / ...
+Deployment?             > Railway / Vercel / AWS / ...
+Styling?                > Tailwind / NativeWind / StyleSheet / ...
+State management?       > Zustand / Redux / Context / ...
+Analytics provider?     > Plausible / PostHog / Google Analytics / ...
+CI/CD?                  > GitHub Actions / CircleCI / ...
+```
+
+Generates `~/.boop/profile.yaml` — your developer profile. Done once, used forever, editable anytime.
+
+## Usage
+
+Give Boop an idea:
+
+```bash
+npx boop "I want an app that tracks vinyl records"
+```
+
+Boop takes it from there — viability check, PRD, architecture, stories, build, test, deploy. You get status updates and sign-off requests at epic boundaries.
+
+Or run interactively for more control:
+
+```bash
+npx boop
+```
+
+### Commands
+
+```bash
+npx boop "your idea"        # Full pipeline from idea to deployed software
+npx boop --profile          # Edit your developer profile
+npx boop --status           # Check progress on the current project
+npx boop --review           # Review and sign off on the latest epic
+```
+
+### Development
+
+```bash
+git clone https://github.com/gtdrag/boop.git
+cd boop
+npm install
+npm start
+```
+
 ## Status
 
 Early ideation. See [docs/brainstorming-session-2026-02-15.md](docs/brainstorming-session-2026-02-15.md) for the full brainstorming session.
