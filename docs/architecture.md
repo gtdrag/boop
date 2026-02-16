@@ -106,6 +106,10 @@ boop/
 │   │   ├── generator.ts            # Scaffold project structure
 │   │   └── defaults/               # SEO, analytics, a11y, security headers
 │   │
+│   ├── retrospective/               # Post-project analysis
+│   │   ├── analyzer.ts             # Build history analysis engine
+│   │   └── reporter.ts             # Retrospective report generation
+│   │
 │   └── shared/                      # Shared utilities
 │       ├── logger.ts               # JSON + human-readable logging
 │       ├── retry.ts                # Auto-retry with configurable limits
@@ -169,10 +173,10 @@ boop/
 Every project moves through a fixed state sequence. No skipping.
 
 ```
-IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → (next epic or COMPLETE)
+IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → (next epic or RETROSPECTIVE → COMPLETE)
 ```
 
-State transitions are atomic — written to `.boop/state.yaml` before and after each transition. If Boop crashes, it resumes from the last committed state. SCAFFOLDING runs once per project (first epic only) — subsequent epics skip directly from BRIDGING to BUILDING.
+State transitions are atomic — written to `.boop/state.yaml` before and after each transition. If Boop crashes, it resumes from the last committed state. SCAFFOLDING runs once per project (first epic only) — subsequent epics skip directly from BRIDGING to BUILDING. RETROSPECTIVE runs once after the final epic's sign-off — it analyzes the full build history and generates improvement suggestions before marking the project complete.
 
 ### Planning Prompt Chain
 
@@ -224,6 +228,29 @@ After all stories in an epic complete:
 10. If failures, unresolved gaps, critical/high vulnerabilities, or QA crashes → retry fixes (up to configured limit)
 11. Generate epic summary (including gap analysis + security scan + QA screenshots) → notify user for sign-off
 ```
+
+### Project Retrospective
+
+After the final epic's sign-off, before marking the project COMPLETE:
+
+```
+1. Collect all build data: progress.txt, review findings per epic, git log, iteration counts
+2. Analyze patterns:
+   - Stories that needed multiple iterations (what caused retries?)
+   - Most common review findings across epics (what keeps slipping through?)
+   - Reality check failures (where did mock data appear?)
+   - Gap analysis hits (what was claimed done but wasn't?)
+   - Security scan findings (recurring vulnerability patterns?)
+3. Generate retrospective.md:
+   - Build statistics (stories, iterations, time per epic)
+   - Failure pattern analysis with concrete examples
+   - Prompt quality assessment (which planning prompts produced unclear stories?)
+   - Pipeline improvement suggestions (specific, actionable)
+4. Save cross-project learnings to ~/.boop/memory/
+5. Present summary to user
+```
+
+The retrospective feeds the "cross-project memory" growth feature — learnings from one project improve planning and building for the next.
 
 ## Consistency Rules
 

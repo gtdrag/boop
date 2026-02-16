@@ -17,8 +17,8 @@
 | 3: Planning Pipeline                | 6       | FR-2                           |
 | 4: Bridge & Build                   | 5       | FR-3, FR-4                     |
 | 5: Review & Epic Loop               | 9       | FR-5, FR-6                     |
-| 6: Scaffolding, Defaults & Security | 5       | FR-7, FR-8                     |
-| **Total**                           | **35**  | **All FRs covered**            |
+| 6: Scaffolding, Defaults & Security | 6       | FR-7, FR-8, FR-9              |
+| **Total**                           | **36**  | **All FRs covered**            |
 
 ---
 
@@ -744,6 +744,28 @@ So that Boop is safe to distribute.
 
 **Prerequisites:** 6.4
 **Technical Notes:** Inherit OpenClaw's credential pattern. Security checklist as a pre-release gate.
+
+---
+
+### Story 6.6: Project retrospective and self-improvement analysis
+
+As a user,
+I want Boop to analyze the full build history after the final epic and generate improvement suggestions,
+So that each project makes Boop smarter for the next one.
+
+**Acceptance Criteria:**
+
+- **Given** the final epic's sign-off is approved
+- **When** the retrospective phase runs
+- **Then** it walks the full build history: progress.txt, review findings per epic, git log, iteration counts per story, reality check failures, gap analysis results, security scan findings
+- **And** identifies patterns: stories that needed multiple iterations (and why), most common review findings, where mock data slipped through, recurring vulnerability patterns
+- **And** generates `retrospective.md` with: build statistics, failure pattern analysis, prompt quality assessment, and concrete pipeline improvement suggestions
+- **And** saves actionable cross-project learnings to `~/.boop/memory/` (e.g., "stories involving auth consistently need explicit session handling criteria", "React projects need reality checks for hardcoded API URLs")
+- **And** presents the retrospective summary to the user as the final project output
+- **And** the pipeline transitions to COMPLETE after the retrospective is presented
+
+**Prerequisites:** 6.5, 5.8
+**Technical Notes:** `src/retrospective/analyzer.ts`, `src/retrospective/reporter.ts`. Runs once per project after the final epic. Reads `.boop/reviews/` for all epic review data, `scripts/ralph/progress.txt` for build learnings, git log for iteration counts. Memory saved to `~/.boop/memory/` as structured YAML — keyed by pattern type for easy retrieval in future projects.
 
 ---
 

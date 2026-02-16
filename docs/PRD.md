@@ -62,7 +62,7 @@ The minimum for Boop to be useful — replacing the manual orchestration I do to
 - Test hardening agent (fills coverage gaps, adds integration tests after each epic)
 - Full browser QA — walk through user flows, fill forms, verify end-to-end functionality, not just route checks
 - Deployment automation (Railway, Vercel, Supabase — based on developer profile)
-- Cross-project memory (wisdom that persists and improves across builds)
+- Cross-project memory (wisdom that persists and improves across builds, fed by retrospective analysis)
 - Course correction (absorb requirement changes mid-flight without restarting)
 
 ### Vision (Future)
@@ -200,6 +200,15 @@ npx boop --autonomous       # Run without sign-off gates
 - FR-7.5: Include security headers
 - FR-7.6: Include error tracking setup
 - FR-7.7: Initialize git repo, CI/CD config stubs, linting/formatting config from profile
+
+### FR-9: Project Retrospective
+
+- FR-9.1: After the final epic's sign-off, run a full retrospective over the entire build history
+- FR-9.2: Analyze: progress.txt entries, review findings per epic, iteration counts per story, reality check failures, gap analysis results, security scan findings
+- FR-9.3: Identify patterns — what failed repeatedly, what needed the most review fixes, where mock data slipped through, which stories took multiple iterations vs one-shot
+- FR-9.4: Generate `retrospective.md` with: build statistics, failure pattern analysis, prompt quality assessment, concrete suggestions for improving the pipeline
+- FR-9.5: Save actionable learnings to `~/.boop/memory/` for cross-project wisdom (feeds future planning and build phases)
+- FR-9.6: Present the retrospective summary to the user as the final output of the project
 
 ### FR-8: Security and Sandboxing
 
