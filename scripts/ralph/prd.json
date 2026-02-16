@@ -94,7 +94,7 @@
         "All tests pass"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Choose vitest (faster, native ESM/TS support) or jest (OpenClaw may already use it). Configure in vitest.config.ts or jest.config.ts. Smoke test proves the pipeline works before real tests are written. Depends on 1.1 being complete."
     }
   ]

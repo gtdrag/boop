@@ -1,4 +1,5 @@
 import os from "node:os";
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
@@ -7,6 +8,11 @@ const localWorkers = Math.max(4, Math.min(16, os.cpus().length));
 const ciWorkers = isWindows ? 2 : 3;
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "#boop": path.resolve(import.meta.dirname, "src"),
+    },
+  },
   test: {
     testTimeout: 120_000,
     hookTimeout: isWindows ? 180_000 : 120_000,

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "#boop/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*", "src/**/*.test.ts", "test/**/*"]
+}

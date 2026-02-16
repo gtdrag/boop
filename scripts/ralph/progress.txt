@@ -13,6 +13,9 @@ Started: Mon Feb 16 14:23:49 CST 2026
 - handleCli() accepts optional globalConfigDir param to override ~/.boop/ in tests
 - initGlobalConfig() is idempotent — safe to call on every CLI invocation
 - credentials/ dir uses 0700 (not 0600) because directories need execute bit for traversal
+- Path alias #boop/* maps to src/* — configured in tsconfig.test.json (paths) and vitest.config.ts (resolve.alias)
+- Test directories: test/unit/ for unit tests, test/integration/ for integration tests, test/fixtures/ for shared fixtures
+- vitest.unit.config.ts extends vitest.config.ts and excludes src/gateway/** — all test/ files are included by base config
 - @clack/prompts used for interactive mode — dynamic import to avoid loading when not needed
 - Logger class uses child() pattern for context overrides — avoids passing context through every call
 - Retry utility uses exponential backoff with jitter by default — set jitter: false and low initialDelayMs for tests
@@ -127,4 +130,28 @@ Started: Mon Feb 16 14:23:49 CST 2026
   - Directories need execute bit for traversal — use 0700 not 0600 for restricted dirs
   - initGlobalConfig is idempotent via recursive: true on mkdirSync — safe on every startup
   - Adding optional override params (globalConfigDir) keeps tests isolated from the real filesystem
+---
+
+## 2026-02-16 17:40 - Story 1.6
+- What was implemented:
+  - Created test/unit/, test/integration/, test/fixtures/ directory structure
+  - Created test/unit/smoke.test.ts — 7 tests verifying imports from all key src/ modules (version, shared utilities, CLI, channels, pipeline state, orchestrator, config)
+  - Created test/unit/path-alias.test.ts — 2 tests verifying #boop/* path alias resolves correctly
+  - Created tsconfig.test.json — extends base tsconfig, adds #boop/* path alias, includes test files
+  - Updated vitest.config.ts — added resolve.alias for #boop/* mapping to src/
+  - Added .gitkeep files to test/integration/ and test/fixtures/ to preserve empty dirs in git
+  - Total: 91 tests passing (82 existing + 9 new)
+- Files changed:
+  - test/unit/smoke.test.ts — new (7 tests, imports from all key modules)
+  - test/unit/path-alias.test.ts — new (2 tests, #boop/* alias verification)
+  - test/integration/.gitkeep — new (placeholder)
+  - test/fixtures/.gitkeep — new (placeholder)
+  - tsconfig.test.json — new (test-specific TypeScript config with path aliases)
+  - vitest.config.ts — updated (added resolve.alias for #boop/*)
+  - scripts/ralph/prd.json — marked 1.6 as passes: true
+- **Learnings for future iterations:**
+  - vitest resolve.alias and tsconfig paths must be configured separately — vitest doesn't read tsconfig paths by default
+  - import.meta.dirname works in vitest.config.ts for resolve.alias paths (no need for __dirname polyfill)
+  - PipelineOrchestrator constructor requires a real projectDir string (not a PipelineState object) — needs temp dir in tests
+  - Channel registry exports listChannels/isValidChannel/getChannelMeta, not getChannelRegistry
 ---
