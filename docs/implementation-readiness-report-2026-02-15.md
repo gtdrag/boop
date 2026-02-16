@@ -146,20 +146,17 @@ _Should be addressed to reduce implementation risk_
 
 _Consider addressing for smoother implementation_
 
-**M1: No SCAFFOLDING state in the pipeline state machine**
-- Pipeline: IDLE → PLANNING → BRIDGING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE
-- Story 6.1 says scaffolding runs "after planning, before build" but there's no SCAFFOLDING state.
-- If Boop crashes during scaffolding, it can't resume correctly.
-- **Suggestion:** Add SCAFFOLDING state between BRIDGING and BUILDING. Or document that scaffolding is the initialization substep of BUILDING.
+**M1: No SCAFFOLDING state in the pipeline state machine** — **RESOLVED**
+- Added SCAFFOLDING state between BRIDGING and BUILDING.
+- Pipeline is now: IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE
+- SCAFFOLDING runs once per project (first epic only).
 
-**M2: Two prompt directories in architecture tree**
-- `src/planning/prompts/` (viability/, prd/, architecture/, stories/) AND `prompts/` (personas/, templates/, checklists/)
-- Story 3.6 references `prompts/` top-level. Unclear which directory gets what.
-- **Suggestion:** Clarify in architecture that `prompts/` is the single location for all BMAD-extracted content. Remove `src/planning/prompts/` from the tree or repurpose it as runtime-only (not extracted files).
+**M2: Two prompt directories in architecture tree** — **RESOLVED**
+- Removed `src/planning/prompts/` from architecture tree.
+- `prompts/` is now the single source for all BMAD-extracted content (phase instructions, personas, templates, checklists).
 
-**M3: `--resume` command has no UX story**
-- Command exists in Story 1.2's CLI spec. State persistence in Story 1.4. But no story describes resume UX: what does the user see? How is context communicated?
-- **Suggestion:** Add acceptance criteria to Story 1.4: "Given a project has saved state, When user runs `npx boop --resume`, Then Boop displays: current phase, epic, story in progress, last completed step, and asks to confirm before continuing."
+**M3: `--resume` command has no UX story** — **RESOLVED**
+- Added resume UX acceptance criteria to Story 1.4: displays current phase, epic, story in progress, last completed step, and confirms before continuing.
 
 ### 🟢 Low Priority Notes
 

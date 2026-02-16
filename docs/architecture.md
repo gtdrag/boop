@@ -79,12 +79,7 @@ boop/
 │   │   ├── viability.ts            # Idea viability assessment
 │   │   ├── prd.ts                  # PRD generation
 │   │   ├── architecture.ts         # Architecture generation
-│   │   ├── stories.ts              # Epic/story breakdown
-│   │   └── prompts/                # Extracted BMAD instruction files
-│   │       ├── viability/
-│   │       ├── prd/
-│   │       ├── architecture/
-│   │       └── stories/
+│   │   └── stories.ts              # Epic/story breakdown
 │   │
 │   ├── bridge/                      # BMAD → Ralph format converter
 │   │   ├── parser.ts               # Parse BMAD story markdown
@@ -114,7 +109,11 @@ boop/
 │       ├── retry.ts                # Auto-retry with configurable limits
 │       └── types.ts                # Shared TypeScript types
 │
-├── prompts/                         # BMAD planning prompt library
+├── prompts/                         # BMAD planning prompt library (single source for all extracted content)
+│   ├── viability/                   # Viability assessment instructions
+│   ├── prd/                         # PRD generation instructions
+│   ├── architecture/                # Architecture generation instructions
+│   ├── stories/                     # Epic/story breakdown instructions
 │   ├── personas/                    # PM, architect, dev personas
 │   ├── templates/                   # PRD template, story template, etc.
 │   └── checklists/                  # Validation checklists
@@ -168,10 +167,10 @@ boop/
 Every project moves through a fixed state sequence. No skipping.
 
 ```
-IDLE → PLANNING → BRIDGING → BUILDING → REVIEWING → SIGN_OFF → (next epic or COMPLETE)
+IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → (next epic or COMPLETE)
 ```
 
-State transitions are atomic — written to `.boop/state.yaml` before and after each transition. If Boop crashes, it resumes from the last committed state.
+State transitions are atomic — written to `.boop/state.yaml` before and after each transition. If Boop crashes, it resumes from the last committed state. SCAFFOLDING runs once per project (first epic only) — subsequent epics skip directly from BRIDGING to BUILDING.
 
 ### Planning Prompt Chain
 

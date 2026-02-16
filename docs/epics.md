@@ -90,11 +90,13 @@ So that Boop can track progress and resume after interruption.
 - **Given** a project directory with `.boop/`
 - **When** the pipeline transitions between states
 - **Then** state is written atomically to `.boop/state.yaml` before and after each transition
-- **And** states follow the sequence: IDLE → PLANNING → BRIDGING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE
+- **And** states follow the sequence: IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE
+- **And** SCAFFOLDING runs once per project (first epic only) — subsequent epics skip to BUILDING
 - **And** `npx boop --status` reads and displays the current state
+- **And** `npx boop --resume` displays: current phase, epic number, story in progress, last completed step, and asks the user to confirm before continuing
 
 **Prerequisites:** 1.2, 1.3
-**Technical Notes:** `src/pipeline/orchestrator.ts`, `src/pipeline/state.ts`
+**Technical Notes:** `src/pipeline/orchestrator.ts`, `src/pipeline/state.ts`. Resume reads last committed state from `.boop/state.yaml` and presents context before continuing.
 
 ---
 
