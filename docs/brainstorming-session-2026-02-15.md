@@ -90,6 +90,8 @@
 - **Test hardening agent** — fills coverage gaps, adds integration tests spanning stories, writes edge case tests that individual stories missed
 - **Notifications flow upward** — story loop is silent, epic loop pings George, project loop gets attention for major gates
 - **The builder vs. the QA engineer** — two different mindsets applied in sequence
+- **Boop is a character** — fixed name, fixed voice (state-of-the-art TTS), fixed personality. Not configurable. Opinionated down to the identity level.
+- **Best practices are defaults, not features** — SEO (meta tags, OG, structured data, sitemaps, robots.txt, semantic HTML, Core Web Vitals), analytics (wired to your preferred provider), accessibility, security headers, error tracking. Every project ships with these automatically. The developer profile defines *which* analytics provider, but the fact that analytics exists is non-negotiable.
 
 **Gaps Between Fantasy and Reality:**
 
