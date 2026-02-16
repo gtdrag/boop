@@ -98,6 +98,7 @@ boop/
 │   │   ├── gap-analyst.ts          # Acceptance criteria vs reality verification
 │   │   ├── refactoring-agent.ts    # Active refactoring
 │   │   ├── test-hardener.ts        # Test coverage gaps + integration tests
+│   │   ├── security-scanner.ts    # SAST + dependency audit runner
 │   │   └── fix-runner.ts           # Applies fixes from review findings
 │   │
 │   ├── scaffolding/                 # Project scaffolding from profile
@@ -215,8 +216,9 @@ After all stories in an epic complete:
 5. Refactoring Agent → takes combined findings, applies fixes
 6. Test Hardener agent → identifies coverage gaps, writes missing tests
 7. Fix Runner → runs full test suite, confirms everything green
-8. If failures or unresolved gaps → retry fixes (up to configured limit)
-9. Generate epic summary (including gap analysis results) → notify user for sign-off
+8. Security Scanner → runs SAST (Semgrep) + dependency audit (npm audit) against generated code
+9. If failures, unresolved gaps, or critical/high vulnerabilities → retry fixes (up to configured limit)
+10. Generate epic summary (including gap analysis + security scan results) → notify user for sign-off
 ```
 
 ## Consistency Rules

@@ -174,7 +174,8 @@ npx boop --autonomous       # Run without sign-off gates
 - FR-5.6: Gap analysis — for every acceptance criterion in every story in this epic, verify it's actually working with real data. Cross-reference PRD/stories vs what's actually wired up. Flag any mock data, seed data, placeholder values, or stub implementations still present in production code paths. This is a blocking check — epic cannot advance until all gaps are resolved or explicitly deferred with documented justification.
 - FR-5.7: Fix all identified issues before advancing
 - FR-5.8: Run full test suite after all fixes — everything must be green
-- FR-5.9: Generate epic summary: what was built, what was reviewed, what was fixed, gap analysis results, test status
+- FR-5.9: Automated security scan — run SAST tools (Semgrep or equivalent) and dependency audit (npm audit) against the generated project code. Flag vulnerabilities by severity. Critical and high vulnerabilities are blocking — epic cannot advance until resolved. Medium/low are included in the epic summary for awareness.
+- FR-5.10: Generate epic summary: what was built, what was reviewed, what was fixed, gap analysis results, security scan results, test status
 
 ### FR-6: Epic Sign-off Gate
 

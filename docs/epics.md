@@ -8,7 +8,7 @@
 
 ## Overview
 
-6 epics, 33 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
+6 epics, 34 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
 | Epic | Stories | FR Coverage |
 |------|---------|-------------|
@@ -16,9 +16,9 @@
 | 2: Developer Profile | 4 | FR-1 |
 | 3: Planning Pipeline | 6 | FR-2 |
 | 4: Bridge & Build | 5 | FR-3, FR-4 |
-| 5: Review & Epic Loop | 7 | FR-5, FR-6 |
+| 5: Review & Epic Loop | 8 | FR-5, FR-6 |
 | 6: Scaffolding, Defaults & Security | 5 | FR-7, FR-8 |
-| **Total** | **33** | **All FRs covered** |
+| **Total** | **34** | **All FRs covered** |
 
 ---
 
@@ -450,7 +450,8 @@ So that code review, tech debt, refactoring, and test hardening happen systemati
 - **And** refactoring agent runs after all three complete
 - **And** test hardener runs after refactoring
 - **And** full test suite runs after all fixes
-- **And** unresolved gaps block epic advancement
+- **And** security scanner (SAST + dependency audit) runs after tests are green
+- **And** unresolved gaps or critical/high vulnerabilities block epic advancement
 
 **Prerequisites:** 4.3, 1.4
 **Technical Notes:** `src/review/team-orchestrator.ts`. Use Claude Code team capabilities.
@@ -532,7 +533,28 @@ So that the test suite is comprehensive before moving on.
 
 ---
 
-### Story 5.6: Epic summary and sign-off gate
+### Story 5.6: Automated security scanning
+
+As a developer,
+I want SAST and dependency audits run against the generated project code after each epic,
+So that security vulnerabilities are caught before sign-off.
+
+**Acceptance Criteria:**
+- **Given** all fixes are applied and the test suite is green
+- **When** the security scanner runs
+- **Then** a SAST tool (Semgrep or equivalent) scans all source code for vulnerability patterns (injection, XSS, insecure crypto, hardcoded secrets, path traversal)
+- **And** `npm audit` (or equivalent) checks all dependencies for known vulnerabilities
+- **And** results are categorized by severity: critical, high, medium, low
+- **And** critical and high vulnerabilities are blocking — the epic cannot advance until they are resolved
+- **And** medium and low findings are included in the epic summary for awareness
+- **And** the security report is saved to `.boop/reviews/epic-N/security-scan.md`
+
+**Prerequisites:** 5.5
+**Technical Notes:** `src/review/security-scanner.ts`. Runs after test hardener confirms tests green. Uses Semgrep (open source, no account needed) for SAST and npm audit for dependencies. If critical/high findings exist, route back to refactoring agent for fixes, then re-scan.
+
+---
+
+### Story 5.7: Epic summary and sign-off gate
 
 As a user,
 I want a summary of what was built, reviewed, and fixed after each epic,
@@ -541,19 +563,19 @@ So that I can sign off before the next epic starts.
 **Acceptance Criteria:**
 - **Given** review phase is complete
 - **When** the sign-off gate triggers
-- **Then** an epic summary is generated: stories built, review findings, gap analysis results, fixes applied, test status
+- **Then** an epic summary is generated: stories built, review findings, gap analysis results, security scan results, fixes applied, test status
 - **And** the summary is saved to `.boop/reviews/epic-N/summary.md`
 - **And** Boop pauses and waits for user approval via `npx boop --review`
 - **And** if `--autonomous` is active, sign-off is skipped and next epic starts
 - **And** if user flags issues during sign-off, feedback is routed to the refactoring agent → fixes applied → test suite re-run → summary regenerated → user re-prompted for approval
 - **And** the rejection/fix cycle repeats until the user approves or explicitly defers issues
 
-**Prerequisites:** 5.5
-**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis results in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context.
+**Prerequisites:** 5.6
+**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis and security scan results in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context.
 
 ---
 
-### Story 5.7: Bidirectional messaging integration
+### Story 5.8: Bidirectional messaging integration
 
 As a user,
 I want Boop to notify me via phone AND ask me questions when it needs input,
@@ -569,7 +591,7 @@ So that I can steer things from my phone without sitting at a terminal.
 - **And** credential requests are never sent as plaintext over messaging — Boop instructs the user to provide credentials via a secure local method (e.g., `npx boop --credential <name>` or environment variable)
 - **And** if no reply is received within a configurable timeout, Boop pauses and saves state for later resume
 
-**Prerequisites:** 5.6, 1.1 (channel adapters kept from OpenClaw)
+**Prerequisites:** 5.7, 1.1 (channel adapters kept from OpenClaw)
 **Technical Notes:** Use OpenClaw's existing WhatsApp/Telegram adapter code. Configure in `~/.boop/profile.yaml`. Bidirectional messaging uses OpenClaw's gateway for both inbound and outbound. Credential handling must be secure — never transmit secrets over messaging channels.
 
 ---
