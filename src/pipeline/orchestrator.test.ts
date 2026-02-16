@@ -1,9 +1,33 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DeveloperProfile } from "../shared/types.js";
-import { PipelineOrchestrator } from "./orchestrator.js";
+import { PipelineOrchestrator, PlanningPhaseError } from "./orchestrator.js";
+import type { PlanningProgressCallback } from "./orchestrator.js";
+
+// Use vi.hoisted for mock fns that need to survive mockReset
+const { mockAssessViability, mockGeneratePrd, mockGenerateArchitecture, mockGenerateStories } =
+  vi.hoisted(() => ({
+    mockAssessViability: vi.fn(),
+    mockGeneratePrd: vi.fn(),
+    mockGenerateArchitecture: vi.fn(),
+    mockGenerateStories: vi.fn(),
+  }));
+
+// Mock all planning modules
+vi.mock("../planning/viability.js", () => ({
+  assessViability: mockAssessViability,
+}));
+vi.mock("../planning/prd.js", () => ({
+  generatePrd: mockGeneratePrd,
+}));
+vi.mock("../planning/architecture.js", () => ({
+  generateArchitecture: mockGenerateArchitecture,
+}));
+vi.mock("../planning/stories.js", () => ({
+  generateStories: mockGenerateStories,
+}));
 
 const TEST_PROFILE: DeveloperProfile = {
   name: "Test Dev",
@@ -321,6 +345,237 @@ describe("PipelineOrchestrator", () => {
       expect(orch.getProfile()?.linter).toBe("oxlint");
       orch.transition("COMPLETE");
       expect(orch.getProfile()).toEqual(TEST_PROFILE);
+    });
+  });
+
+  describe("runPlanning", () => {
+    const VIABILITY_RESULT = {
+      idea: "test app",
+      assessment: "## Viability\n**PROCEED**",
+      recommendation: "PROCEED" as const,
+      usage: { inputTokens: 10, outputTokens: 20 },
+    };
+
+    const PRD_RESULT = {
+      prd: "# PRD\nTest PRD content",
+      usage: { inputTokens: 100, outputTokens: 200 },
+    };
+
+    const ARCHITECTURE_RESULT = {
+      architecture: "# Architecture\nTest architecture",
+      usage: { inputTokens: 300, outputTokens: 400 },
+    };
+
+    const STORIES_RESULT = {
+      stories: "# Stories\nTest stories",
+      usage: { inputTokens: 500, outputTokens: 600 },
+    };
+
+    beforeEach(() => {
+      mockAssessViability.mockReset();
+      mockGeneratePrd.mockReset();
+      mockGenerateArchitecture.mockReset();
+      mockGenerateStories.mockReset();
+
+      mockAssessViability.mockResolvedValue(VIABILITY_RESULT);
+      mockGeneratePrd.mockResolvedValue(PRD_RESULT);
+      mockGenerateArchitecture.mockResolvedValue(ARCHITECTURE_RESULT);
+      mockGenerateStories.mockResolvedValue(STORIES_RESULT);
+    });
+
+    it("chains all 4 planning phases in sequence", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      const result = await orch.runPlanning("test app");
+
+      expect(result.viability).toEqual(VIABILITY_RESULT);
+      expect(result.prd).toEqual(PRD_RESULT);
+      expect(result.architecture).toEqual(ARCHITECTURE_RESULT);
+      expect(result.stories).toEqual(STORIES_RESULT);
+    });
+
+    it("transitions to PLANNING phase", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      expect(orch.getState().phase).toBe("IDLE");
+
+      await orch.runPlanning("test app");
+      expect(orch.getState().phase).toBe("PLANNING");
+    });
+
+    it("updates lastCompletedStep after each sub-phase", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app");
+      expect(orch.getState().lastCompletedStep).toBe("stories");
+    });
+
+    it("passes idea and profile to assessViability", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("my great idea");
+
+      expect(mockAssessViability).toHaveBeenCalledWith("my great idea", TEST_PROFILE, {
+        projectDir: tmpDir,
+      });
+    });
+
+    it("passes viability assessment to generatePrd", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app");
+
+      expect(mockGeneratePrd).toHaveBeenCalledWith(
+        "test app",
+        TEST_PROFILE,
+        VIABILITY_RESULT.assessment,
+        { projectDir: tmpDir },
+      );
+    });
+
+    it("passes PRD to generateArchitecture", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app");
+
+      expect(mockGenerateArchitecture).toHaveBeenCalledWith(
+        "test app",
+        TEST_PROFILE,
+        PRD_RESULT.prd,
+        { projectDir: tmpDir },
+      );
+    });
+
+    it("passes PRD and architecture to generateStories", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app");
+
+      expect(mockGenerateStories).toHaveBeenCalledWith(
+        "test app",
+        TEST_PROFILE,
+        PRD_RESULT.prd,
+        ARCHITECTURE_RESULT.architecture,
+        { projectDir: tmpDir },
+      );
+    });
+
+    it("calls phases in order (viability before prd, etc.)", async () => {
+      const callOrder: string[] = [];
+      mockAssessViability.mockImplementation(async () => {
+        callOrder.push("viability");
+        return VIABILITY_RESULT;
+      });
+      mockGeneratePrd.mockImplementation(async () => {
+        callOrder.push("prd");
+        return PRD_RESULT;
+      });
+      mockGenerateArchitecture.mockImplementation(async () => {
+        callOrder.push("architecture");
+        return ARCHITECTURE_RESULT;
+      });
+      mockGenerateStories.mockImplementation(async () => {
+        callOrder.push("stories");
+        return STORIES_RESULT;
+      });
+
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app");
+
+      expect(callOrder).toEqual(["viability", "prd", "architecture", "stories"]);
+    });
+
+    it("throws PlanningPhaseError when viability recommendation is RECONSIDER", async () => {
+      mockAssessViability.mockResolvedValue({
+        ...VIABILITY_RESULT,
+        recommendation: "RECONSIDER",
+      });
+
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await expect(orch.runPlanning("test app")).rejects.toThrow(PlanningPhaseError);
+      await expect(orch.runPlanning("test app")).rejects.toThrow("RECONSIDER");
+
+      // Should not call subsequent phases
+      expect(mockGeneratePrd).not.toHaveBeenCalled();
+    });
+
+    it("throws PlanningPhaseError when a phase fails after retry", async () => {
+      mockGeneratePrd.mockRejectedValue(new Error("API timeout"));
+
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await expect(orch.runPlanning("test app")).rejects.toThrow(PlanningPhaseError);
+      await expect(orch.runPlanning("test app")).rejects.toThrow("prd");
+
+      // Viability should have completed
+      expect(orch.getState().lastCompletedStep).toBe("viability");
+    });
+
+    it("does not call subsequent phases when an earlier phase fails", async () => {
+      mockGenerateArchitecture.mockRejectedValue(new Error("fail"));
+
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await expect(orch.runPlanning("test app")).rejects.toThrow(PlanningPhaseError);
+
+      // Stories should not have been called
+      expect(mockGenerateStories).not.toHaveBeenCalled();
+    });
+
+    it("throws when no profile is loaded", async () => {
+      const orch = new PipelineOrchestrator(tmpDir);
+      await expect(orch.runPlanning("test app")).rejects.toThrow("No developer profile found");
+    });
+
+    it("throws when pipeline is not in IDLE or PLANNING phase", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      orch.transition("PLANNING");
+      orch.transition("BRIDGING");
+
+      await expect(orch.runPlanning("test app")).rejects.toThrow(
+        "Cannot run planning: pipeline is in BRIDGING phase",
+      );
+    });
+
+    it("works when already in PLANNING phase", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      orch.transition("PLANNING");
+
+      const result = await orch.runPlanning("test app");
+      expect(result.viability).toEqual(VIABILITY_RESULT);
+    });
+
+    it("calls onProgress callback for each sub-phase", async () => {
+      const events: Array<{ phase: string; status: string }> = [];
+      const onProgress: PlanningProgressCallback = (phase, status) => {
+        events.push({ phase, status });
+      };
+
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app", { onProgress });
+
+      expect(events).toContainEqual({ phase: "viability", status: "starting" });
+      expect(events).toContainEqual({ phase: "viability", status: "completed" });
+      expect(events).toContainEqual({ phase: "prd", status: "starting" });
+      expect(events).toContainEqual({ phase: "prd", status: "completed" });
+      expect(events).toContainEqual({ phase: "architecture", status: "starting" });
+      expect(events).toContainEqual({ phase: "architecture", status: "completed" });
+      expect(events).toContainEqual({ phase: "stories", status: "starting" });
+      expect(events).toContainEqual({ phase: "stories", status: "completed" });
+    });
+
+    it("calls onProgress with 'failed' when a phase fails", async () => {
+      const events: Array<{ phase: string; status: string }> = [];
+      const onProgress: PlanningProgressCallback = (phase, status) => {
+        events.push({ phase, status });
+      };
+      mockGeneratePrd.mockRejectedValue(new Error("fail"));
+
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await expect(orch.runPlanning("test app", { onProgress })).rejects.toThrow();
+
+      expect(events).toContainEqual({ phase: "prd", status: "failed" });
+    });
+
+    it("persists state to disk after each sub-phase", async () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      await orch.runPlanning("test app");
+
+      // Verify state file exists and has the last completed step
+      const orch2 = new PipelineOrchestrator(tmpDir);
+      expect(orch2.getState().phase).toBe("PLANNING");
+      expect(orch2.getState().lastCompletedStep).toBe("stories");
     });
   });
 });

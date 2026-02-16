@@ -6,7 +6,7 @@
  */
 import { Command } from "commander";
 import { VERSION } from "../version.js";
-import { PipelineOrchestrator } from "../pipeline/orchestrator.js";
+import { PipelineOrchestrator, PlanningPhaseError } from "../pipeline/orchestrator.js";
 import {
   editProfile,
   initGlobalConfig,
@@ -14,14 +14,6 @@ import {
   runOnboarding,
 } from "../config/index.js";
 import type { DeveloperProfile } from "../shared/types.js";
-import { assessViability } from "../planning/viability.js";
-import type { ViabilityResult } from "../planning/viability.js";
-import { generatePrd } from "../planning/prd.js";
-import type { PrdResult } from "../planning/prd.js";
-import { generateArchitecture } from "../planning/architecture.js";
-import type { ArchitectureResult } from "../planning/architecture.js";
-import { generateStories } from "../planning/stories.js";
-import type { StoriesResult } from "../planning/stories.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -144,7 +136,7 @@ async function enterInteractiveMode(opts: CliOptions): Promise<void> {
 }
 
 /**
- * Start the pipeline: run viability assessment, then ask user to confirm.
+ * Start the pipeline: run the planning chain (viability → PRD → architecture → stories).
  */
 async function startPipeline(
   idea: string,
@@ -157,11 +149,40 @@ async function startPipeline(
     console.log("[boop] Running in autonomous mode.");
   }
 
+  const orch = new PipelineOrchestrator(projectDir, profile);
+
+  if (autonomous) {
+    // Run the full planning chain without user interaction
+    try {
+      const result = await orch.runPlanning(idea, {
+        onProgress: (phase, status) => {
+          if (status === "starting") console.log(`[boop] Running ${phase}...`);
+          if (status === "completed") console.log(`[boop] ${phase} completed.`);
+          if (status === "retrying") console.log(`[boop] Retrying ${phase}...`);
+        },
+      });
+
+      console.log();
+      console.log(`[boop] Recommendation: ${result.viability.recommendation}`);
+      console.log("[boop] Planning complete. All outputs saved to .boop/planning/");
+    } catch (error: unknown) {
+      if (error instanceof PlanningPhaseError) {
+        console.error(`[boop] Planning failed at "${error.phase}": ${error.message}`);
+      } else {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`[boop] Planning failed: ${msg}`);
+      }
+    }
+    return;
+  }
+
+  // Interactive mode: run viability first, then ask user
+  const { assessViability } = await import("../planning/viability.js");
   console.log("[boop] Running viability assessment...");
 
-  let result: ViabilityResult;
+  let viabilityResult: Awaited<ReturnType<typeof assessViability>>;
   try {
-    result = await assessViability(idea, profile, { projectDir });
+    viabilityResult = await assessViability(idea, profile, { projectDir });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`[boop] Viability assessment failed: ${msg}`);
@@ -169,20 +190,10 @@ async function startPipeline(
   }
 
   console.log();
-  console.log(result.assessment);
+  console.log(viabilityResult.assessment);
   console.log();
-  console.log(`[boop] Recommendation: ${result.recommendation}`);
+  console.log(`[boop] Recommendation: ${viabilityResult.recommendation}`);
   console.log(`[boop] Assessment saved to .boop/planning/viability.md`);
-
-  if (autonomous) {
-    if (result.recommendation === "RECONSIDER") {
-      console.log("[boop] Recommendation is RECONSIDER — stopping pipeline.");
-      return;
-    }
-    console.log("[boop] Proceeding to PRD generation...");
-    await runPrdPhase(idea, profile, projectDir, result.assessment);
-    return;
-  }
 
   // Ask user to confirm, revise, or stop
   const { select, text, isCancel } = await import("@clack/prompts");
@@ -222,94 +233,37 @@ async function startPipeline(
     return;
   }
 
-  // action === "proceed"
-  console.log("[boop] Proceeding to PRD generation...");
-  await runPrdPhase(idea, profile, projectDir, result.assessment);
-}
-
-/**
- * Run the PRD generation phase.
- */
-async function runPrdPhase(
-  idea: string,
-  profile: DeveloperProfile,
-  projectDir: string,
-  viabilityAssessment: string,
-): Promise<void> {
-  console.log("[boop] Generating PRD...");
-
-  let result: PrdResult;
+  // action === "proceed" — run remaining planning phases via orchestrator
   try {
-    result = await generatePrd(idea, profile, viabilityAssessment, { projectDir });
+    // Transition to PLANNING and set viability as completed
+    if (orch.getState().phase === "IDLE") {
+      orch.transition("PLANNING");
+    }
+    orch.setLastCompletedStep("viability");
+
+    // Run remaining phases (PRD → architecture → stories)
+    const { generatePrd } = await import("../planning/prd.js");
+    const { generateArchitecture } = await import("../planning/architecture.js");
+    const { generateStories } = await import("../planning/stories.js");
+
+    console.log("[boop] Generating PRD...");
+    const prdResult = await generatePrd(idea, profile, viabilityResult.assessment, { projectDir });
+    orch.setLastCompletedStep("prd");
+    console.log("[boop] PRD saved to .boop/planning/prd.md");
+
+    console.log("[boop] Generating architecture...");
+    const archResult = await generateArchitecture(idea, profile, prdResult.prd, { projectDir });
+    orch.setLastCompletedStep("architecture");
+    console.log("[boop] Architecture saved to .boop/planning/architecture.md");
+
+    console.log("[boop] Generating epics & stories...");
+    await generateStories(idea, profile, prdResult.prd, archResult.architecture, { projectDir });
+    orch.setLastCompletedStep("stories");
+    console.log("[boop] Epics & stories saved to .boop/planning/epics.md");
+
+    console.log("[boop] Planning complete. All outputs saved to .boop/planning/");
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[boop] PRD generation failed: ${msg}`);
-    return;
+    console.error(`[boop] Planning failed: ${msg}`);
   }
-
-  console.log();
-  console.log(result.prd);
-  console.log();
-  console.log("[boop] PRD saved to .boop/planning/prd.md");
-
-  // Chain to architecture generation
-  console.log("[boop] Proceeding to architecture generation...");
-  await runArchitecturePhase(idea, profile, projectDir, result.prd);
-}
-
-/**
- * Run the architecture generation phase.
- */
-async function runArchitecturePhase(
-  idea: string,
-  profile: DeveloperProfile,
-  projectDir: string,
-  prd: string,
-): Promise<void> {
-  console.log("[boop] Generating architecture...");
-
-  let result: ArchitectureResult;
-  try {
-    result = await generateArchitecture(idea, profile, prd, { projectDir });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[boop] Architecture generation failed: ${msg}`);
-    return;
-  }
-
-  console.log();
-  console.log(result.architecture);
-  console.log();
-  console.log("[boop] Architecture saved to .boop/planning/architecture.md");
-
-  // Chain to story breakdown
-  console.log("[boop] Proceeding to epic & story breakdown...");
-  await runStoriesPhase(idea, profile, projectDir, prd, result.architecture);
-}
-
-/**
- * Run the epic & story breakdown phase.
- */
-async function runStoriesPhase(
-  idea: string,
-  profile: DeveloperProfile,
-  projectDir: string,
-  prd: string,
-  architecture: string,
-): Promise<void> {
-  console.log("[boop] Generating epics & stories...");
-
-  let result: StoriesResult;
-  try {
-    result = await generateStories(idea, profile, prd, architecture, { projectDir });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[boop] Story breakdown failed: ${msg}`);
-    return;
-  }
-
-  console.log();
-  console.log(result.stories);
-  console.log();
-  console.log("[boop] Epics & stories saved to .boop/planning/epics.md");
 }

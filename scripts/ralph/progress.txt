@@ -7,6 +7,8 @@ Started: Mon Feb 16 16:38:33 CST 2026
 - Anthropic SDK `APIError` constructor requires a `Headers` object (use `new Headers()`) — plain `{}` causes `headers?.get is not a function`
 - Mock `@clack/prompts` in CLI tests when testing code paths that call interactive prompts (select, confirm, text) to avoid hanging tests
 - `import.meta.dirname` works in vitest for resolving paths relative to the source file
+- Planning chain orchestration: `PipelineOrchestrator.runPlanning()` chains all 4 phases, updates `lastCompletedStep` after each, and wraps failures in `PlanningPhaseError`
+- `PlanningSubPhase` type (`viability | prd | architecture | stories`) tracks sub-phase progression within the PLANNING phase
 ---
 
 ## 2026-02-16 - Story 3.1: Viability assessment
@@ -95,4 +97,30 @@ Started: Mon Feb 16 16:38:33 CST 2026
   - `loadArchitecture()` helper reads from `.boop/planning/architecture.md` for cross-session chaining
   - CLI pipeline chain is now complete for all 4 planning phases: viability → PRD → architecture → stories
   - The `runArchitecturePhase` passes both PRD and architecture results to `runStoriesPhase` — each phase function must thread through all accumulated context
+---
+
+## 2026-02-16 - Story 3.5: Planning prompt chain orchestration
+- What was implemented:
+  - Added `PlanningSubPhase` type to `src/shared/types.ts` — defines sub-phases within PLANNING: `viability | prd | architecture | stories`
+  - Added `runPlanning()` method to `PipelineOrchestrator` in `src/pipeline/orchestrator.ts` — chains all 4 planning phases automatically, updates state after each sub-phase, wraps errors in `PlanningPhaseError`
+  - Added `PlanningPhaseError` class — captures which phase failed and the underlying error
+  - Added `PlanningProgressCallback` type — allows callers to receive progress updates (starting/completed/retrying/failed)
+  - Each sub-phase uses `retry()` with `isRetryableApiError` for 1 retry on transient API errors
+  - Refactored `src/cli/program.ts` — autonomous mode now uses `orch.runPlanning(idea)` instead of manually chaining phases; interactive mode still runs viability separately then chains remaining phases with state updates
+  - Updated `src/pipeline/orchestrator.test.ts` — added 15 new tests for `runPlanning`: full chain, phase ordering, state updates, error handling, RECONSIDER halting, progress callbacks, state persistence
+  - Updated `src/cli/program.test.ts` — added 2 new tests for autonomous mode planning chain and failure reporting
+- Files changed:
+  - MODIFIED: `src/shared/types.ts` (PlanningSubPhase, PLANNING_SUB_PHASES)
+  - MODIFIED: `src/shared/index.ts` (re-exports new types)
+  - MODIFIED: `src/pipeline/orchestrator.ts` (runPlanning, PlanningPhaseError, PlanningProgressCallback)
+  - MODIFIED: `src/pipeline/orchestrator.test.ts` (15 new runPlanning tests)
+  - MODIFIED: `src/cli/program.ts` (refactored to use runPlanning for autonomous mode)
+  - MODIFIED: `src/cli/program.test.ts` (2 new autonomous mode tests)
+  - MODIFIED: `scripts/ralph/prd.json` (3.5 passes: true)
+- **Learnings for future iterations:**
+  - The orchestrator is the right place for chain orchestration — it owns the state machine and can update lastCompletedStep atomically after each sub-phase
+  - `PlanningPhaseError` wrapping is valuable — callers (CLI) can inspect `error.phase` to report exactly which phase failed
+  - Autonomous vs interactive mode diverges at viability: autonomous runs the full chain via `runPlanning()`, interactive runs viability first then asks the user before continuing
+  - The retry in `runPlanning` is layered: each planning function already has its own `retry()` call (maxRetries: 1), and `runPlanningSubPhase` wraps that with another `retry()` using `isRetryableApiError` — this gives 2 total attempts per phase
+  - Mock planning modules at test file level so both orchestrator tests and CLI tests share the same mock strategy
 ---

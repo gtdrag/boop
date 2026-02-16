@@ -82,7 +82,7 @@
         "All tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Wire the planning functions together in src/pipeline/orchestrator.ts. Each phase is a function, chained. Use the retry utility from shared/retry.ts. Update pipeline state machine to transition through PLANNING sub-phases. Depends on 3.1-3.4 being complete."
     },
     {

@@ -243,4 +243,40 @@ describe("handleCli", () => {
     expect(spy).toHaveBeenCalledWith('[boop] Starting pipeline with idea: "my app"');
     spy.mockRestore();
   });
+
+  it("runs full planning chain in autonomous mode", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { loadProfileFromDisk } = await import("../config/index.js");
+    (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "Alice" });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await handleCli("build a todo app", { autonomous: true }, undefined, configDir);
+
+    // All 4 planning functions should have been called via orchestrator.runPlanning
+    expect(mockAssessViability).toHaveBeenCalled();
+    expect(mockGeneratePrd).toHaveBeenCalled();
+    expect(mockGenerateArchitecture).toHaveBeenCalled();
+    expect(mockGenerateStories).toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledWith(
+      "[boop] Planning complete. All outputs saved to .boop/planning/",
+    );
+    spy.mockRestore();
+  });
+
+  it("reports planning failure in autonomous mode", async () => {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
+    const { loadProfileFromDisk } = await import("../config/index.js");
+    (loadProfileFromDisk as ReturnType<typeof vi.fn>).mockReturnValue({ name: "Alice" });
+    mockGeneratePrd.mockRejectedValue(new Error("API down"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await handleCli("build a todo app", { autonomous: true }, undefined, configDir);
+
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Planning failed at "prd"'));
+    errSpy.mockRestore();
+    logSpy.mockRestore();
+  });
 });

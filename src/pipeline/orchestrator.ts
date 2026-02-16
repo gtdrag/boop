@@ -6,9 +6,52 @@
  *
  * SCAFFOLDING runs once per project (first epic only) — subsequent epics skip to BUILDING.
  */
-import type { DeveloperProfile, PipelinePhase, PipelineState } from "../shared/types.js";
+import type {
+  DeveloperProfile,
+  PipelinePhase,
+  PipelineState,
+  PlanningSubPhase,
+} from "../shared/types.js";
 import { PIPELINE_PHASES } from "../shared/types.js";
 import { loadState, saveState, defaultState } from "./state.js";
+import { assessViability } from "../planning/viability.js";
+import type { ViabilityResult } from "../planning/viability.js";
+import { generatePrd } from "../planning/prd.js";
+import type { PrdResult } from "../planning/prd.js";
+import { generateArchitecture } from "../planning/architecture.js";
+import type { ArchitectureResult } from "../planning/architecture.js";
+import { generateStories } from "../planning/stories.js";
+import type { StoriesResult } from "../planning/stories.js";
+import { retry } from "../shared/retry.js";
+import { isRetryableApiError } from "../shared/claude-client.js";
+
+/** Result of the full planning chain. */
+export interface PlanningResult {
+  viability: ViabilityResult;
+  prd: PrdResult;
+  architecture: ArchitectureResult;
+  stories: StoriesResult;
+}
+
+/** Error from a failed planning sub-phase. */
+export class PlanningPhaseError extends Error {
+  readonly phase: PlanningSubPhase;
+  readonly cause: unknown;
+
+  constructor(phase: PlanningSubPhase, cause: unknown) {
+    const msg = cause instanceof Error ? cause.message : String(cause);
+    super(`Planning phase "${phase}" failed: ${msg}`);
+    this.name = "PlanningPhaseError";
+    this.phase = phase;
+    this.cause = cause;
+  }
+}
+
+/** Callback for reporting progress during the planning chain. */
+export type PlanningProgressCallback = (
+  phase: PlanningSubPhase,
+  status: "starting" | "completed" | "failed" | "retrying",
+) => void;
 
 /**
  * Valid transitions: each phase maps to the set of phases it can move to.
@@ -169,6 +212,102 @@ export class PipelineOrchestrator {
   reset(): void {
     this.state = defaultState();
     saveState(this.projectDir, this.state);
+  }
+
+  /**
+   * Run the full planning chain: viability → PRD → architecture → stories.
+   *
+   * Each phase receives the output of the previous phase as context.
+   * State is updated after each sub-phase completes.
+   * If a phase fails, it retries once (via the retry utility), then
+   * throws a PlanningPhaseError so the caller can report.
+   */
+  async runPlanning(
+    idea: string,
+    options?: { onProgress?: PlanningProgressCallback },
+  ): Promise<PlanningResult> {
+    const profile = this.requireProfile();
+    const onProgress = options?.onProgress;
+
+    // Ensure we're in PLANNING phase
+    if (this.state.phase === "IDLE") {
+      this.transition("PLANNING");
+    }
+    if (this.state.phase !== "PLANNING") {
+      throw new Error(
+        `Cannot run planning: pipeline is in ${this.state.phase} phase, expected IDLE or PLANNING.`,
+      );
+    }
+
+    // --- Viability ---
+    const viability = await this.runPlanningSubPhase<ViabilityResult>(
+      "viability",
+      () => assessViability(idea, profile, { projectDir: this.projectDir }),
+      onProgress,
+    );
+
+    // If RECONSIDER, throw to halt the chain
+    if (viability.recommendation === "RECONSIDER") {
+      throw new PlanningPhaseError(
+        "viability",
+        new Error(`Recommendation is RECONSIDER — stopping pipeline.`),
+      );
+    }
+
+    // --- PRD ---
+    const prd = await this.runPlanningSubPhase<PrdResult>(
+      "prd",
+      () => generatePrd(idea, profile, viability.assessment, { projectDir: this.projectDir }),
+      onProgress,
+    );
+
+    // --- Architecture ---
+    const architecture = await this.runPlanningSubPhase<ArchitectureResult>(
+      "architecture",
+      () => generateArchitecture(idea, profile, prd.prd, { projectDir: this.projectDir }),
+      onProgress,
+    );
+
+    // --- Stories ---
+    const stories = await this.runPlanningSubPhase<StoriesResult>(
+      "stories",
+      () =>
+        generateStories(idea, profile, prd.prd, architecture.architecture, {
+          projectDir: this.projectDir,
+        }),
+      onProgress,
+    );
+
+    return { viability, prd, architecture, stories };
+  }
+
+  /**
+   * Run a single planning sub-phase with retry (1 retry = 2 total attempts).
+   * Updates lastCompletedStep on success.
+   */
+  private async runPlanningSubPhase<T>(
+    phase: PlanningSubPhase,
+    fn: () => Promise<T>,
+    onProgress?: PlanningProgressCallback,
+  ): Promise<T> {
+    onProgress?.(phase, "starting");
+
+    try {
+      const result = await retry(fn, {
+        maxRetries: 1,
+        isRetryable: isRetryableApiError,
+        onRetry: () => {
+          onProgress?.(phase, "retrying");
+        },
+      });
+
+      this.setLastCompletedStep(phase);
+      onProgress?.(phase, "completed");
+      return result;
+    } catch (error: unknown) {
+      onProgress?.(phase, "failed");
+      throw new PlanningPhaseError(phase, error);
+    }
   }
 
   /** Format state as a human-readable status string. */
