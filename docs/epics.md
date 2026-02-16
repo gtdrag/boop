@@ -8,17 +8,17 @@
 
 ## Overview
 
-6 epics, 32 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
+6 epics, 33 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
 | Epic | Stories | FR Coverage |
 |------|---------|-------------|
-| 1: Foundation & OpenClaw Fork | 5 | FR-8 (partial), infrastructure |
+| 1: Foundation & OpenClaw Fork | 6 | FR-8 (partial), infrastructure |
 | 2: Developer Profile | 4 | FR-1 |
 | 3: Planning Pipeline | 6 | FR-2 |
 | 4: Bridge & Build | 5 | FR-3, FR-4 |
 | 5: Review & Epic Loop | 7 | FR-5, FR-6 |
 | 6: Scaffolding, Defaults & Security | 5 | FR-7, FR-8 |
-| **Total** | **32** | **All FRs covered** |
+| **Total** | **33** | **All FRs covered** |
 
 ---
 
@@ -113,6 +113,26 @@ So that profile, logs, and credentials have a home.
 
 **Prerequisites:** 1.2
 **Technical Notes:** Check for existing config on startup. Create directory structure. Trigger onboarding if no profile.
+
+---
+
+### Story 1.6: Test infrastructure setup
+
+As a developer,
+I want the test framework, runner config, and fixture directory established,
+So that quality gates can run tests from the very first story that needs them.
+
+**Acceptance Criteria:**
+- **Given** the stripped OpenClaw fork is set up
+- **When** the test infrastructure is configured
+- **Then** a test runner (vitest or jest) is installed and configured in `package.json`
+- **And** `test/unit/`, `test/integration/`, and `test/fixtures/` directories exist
+- **And** a smoke test exists that imports from `src/` and passes
+- **And** `pnpm test` runs the test suite and reports results
+- **And** TypeScript path aliases work in test files
+
+**Prerequisites:** 1.1
+**Technical Notes:** Choose vitest (faster, native ESM/TS support) or jest (OpenClaw may already use it). Configure in `vitest.config.ts` or `jest.config.ts`. Smoke test proves the pipeline works before real tests are written.
 
 ---
 
@@ -487,8 +507,8 @@ So that the codebase stays clean as it grows.
 - **And** all changes pass typecheck and tests after refactoring
 - **And** refactoring commits use the review commit format
 
-**Prerequisites:** 5.2
-**Technical Notes:** `src/review/tech-debt-auditor.ts`, `src/review/refactoring-agent.ts`. Run sequentially: audit then fix.
+**Prerequisites:** 5.2, 5.3
+**Technical Notes:** `src/review/tech-debt-auditor.ts`, `src/review/refactoring-agent.ts`. Refactoring agent uses combined findings from code reviewer (5.2), gap analyst (5.3), and tech debt auditor. Run sequentially: audit then fix.
 
 ---
 
@@ -505,8 +525,8 @@ So that the test suite is comprehensive before moving on.
 - **And** writes new unit tests and integration tests spanning the epic's stories
 - **And** full test suite passes after new tests are added
 
-**Prerequisites:** 5.3
-**Technical Notes:** `src/review/test-hardener.ts`. Analyzes coverage, writes tests, validates.
+**Prerequisites:** 5.4
+**Technical Notes:** `src/review/test-hardener.ts`. Runs after refactoring is complete. Analyzes coverage, writes tests, validates.
 
 ---
 
@@ -523,26 +543,32 @@ So that I can sign off before the next epic starts.
 - **And** the summary is saved to `.boop/reviews/epic-N/summary.md`
 - **And** Boop pauses and waits for user approval via `npx boop --review`
 - **And** if `--autonomous` is active, sign-off is skipped and next epic starts
+- **And** if user flags issues during sign-off, feedback is routed to the refactoring agent → fixes applied → test suite re-run → summary regenerated → user re-prompted for approval
+- **And** the rejection/fix cycle repeats until the user approves or explicitly defers issues
 
 **Prerequisites:** 5.5
-**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis results in summary.
+**Technical Notes:** `src/pipeline/epic-loop.ts`. Summary generation + pause logic. Include gap analysis results in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context.
 
 ---
 
-### Story 5.7: Notification integration
+### Story 5.7: Bidirectional messaging integration
 
 As a user,
-I want to receive phone notifications when an epic is ready for sign-off,
-So that I don't have to keep checking the terminal.
+I want Boop to notify me via phone AND ask me questions when it needs input,
+So that I can steer things from my phone without sitting at a terminal.
 
 **Acceptance Criteria:**
 - **Given** WhatsApp or Telegram is configured in Boop
 - **When** an epic sign-off is ready
 - **Then** a notification is sent via the configured channel with the epic summary
 - **And** status updates are also sent for: planning complete, build started, build complete, review complete
+- **And** when Boop needs user input during autonomous execution (design decisions, ambiguous requirements, errors it can't resolve), it sends a question via the configured channel and waits for a reply
+- **And** the user's reply is parsed and routed back to the pipeline to continue
+- **And** credential requests are never sent as plaintext over messaging — Boop instructs the user to provide credentials via a secure local method (e.g., `npx boop --credential <name>` or environment variable)
+- **And** if no reply is received within a configurable timeout, Boop pauses and saves state for later resume
 
 **Prerequisites:** 5.6, 1.1 (channel adapters kept from OpenClaw)
-**Technical Notes:** Use OpenClaw's existing WhatsApp/Telegram adapter code. Configure in `~/.boop/profile.yaml`.
+**Technical Notes:** Use OpenClaw's existing WhatsApp/Telegram adapter code. Configure in `~/.boop/profile.yaml`. Bidirectional messaging uses OpenClaw's gateway for both inbound and outbound. Credential handling must be secure — never transmit secrets over messaging channels.
 
 ---
 
