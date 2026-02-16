@@ -10,6 +10,10 @@ Started: Mon Feb 16 15:52:58 CST 2026
 - Onboarding flow in src/profile/onboarding.ts — runOnboarding() for new, loadProfile() to read existing
 - config/index.ts exports runOnboarding() and editProfile() that delegate to profile/onboarding.ts
 - CLI --profile flag: calls runOnboarding (no profile) or editProfile (profile exists)
+- PipelineOrchestrator accepts optional DeveloperProfile — getProfile()/requireProfile() for access
+- loadProfileFromDisk() in config/index.ts reads ~/.boop/profile.yaml synchronously (uses yaml package)
+- Pipeline refuses to start (IDLE → PLANNING) without a loaded profile — requireProfile() guard
+- CLI loads profile after onboarding via loadProfileFromDisk() and passes to all orchestrator instances
 - Prompt messages show "(current)" when editing existing values, "(recommended)" for new onboarding
 - @clack/prompts mocking pattern: mock text/multiselect/confirm with response queues, use symbol for cancel
 
@@ -94,4 +98,33 @@ Started: Mon Feb 16 15:52:58 CST 2026
   - Story 2.2 built the editing infrastructure proactively via existingProfile option — Story 2.3 mostly needed UX polish and dedicated test coverage
   - When mock response queues are empty, the mock falls through to defaultValue — useful for "accept all defaults" test scenarios
   - Distinguishing "current" vs "recommended" in prompts prevents confusing users during edit mode
+---
+
+## 2026-02-16 16:13 - Story 2.4
+- What was implemented:
+  - Added DeveloperProfile integration to PipelineOrchestrator — constructor accepts optional profile, stored as private field
+  - Added getProfile() (returns profile or null) and requireProfile() (throws if missing) methods
+  - Added profile guard on transition(): IDLE → any non-IDLE phase requires a loaded profile
+  - Updated formatStatus() — includes "Profile: name" line when profile is loaded
+  - Updated formatResumeContext() — includes "Profile: name" line when profile is loaded
+  - Added loadProfileFromDisk() to src/config/index.ts — synchronous YAML profile reader using `yaml` package
+  - Updated src/cli/program.ts — loads profile via loadProfileFromDisk() after onboarding, passes to PipelineOrchestrator instances
+  - Added profile-required guard in CLI: if no profile loaded when idea is provided, prints error and returns
+  - Updated 14 existing orchestrator tests to pass TEST_PROFILE (profile now required for transitions)
+  - Added 13 new profile integration tests in orchestrator.test.ts (getProfile, requireProfile, transition guard, advance guard, formatStatus/formatResumeContext with/without profile, full phase traversal)
+  - Added 3 new loadProfileFromDisk tests in config.test.ts (missing file, valid YAML, non-existent dir)
+  - Added 2 new CLI tests (refuses without profile, starts with profile) and updated mock pattern
+  - All 141 tests passing, typecheck clean, 0 lint errors
+- Files changed:
+  - src/pipeline/orchestrator.ts — updated (profile field, getProfile, requireProfile, transition guard, formatStatus, formatResumeContext)
+  - src/pipeline/orchestrator.test.ts — updated (TEST_PROFILE fixture, 14 existing tests updated, 13 new profile integration tests)
+  - src/config/index.ts — updated (new loadProfileFromDisk export, yaml import)
+  - src/config/config.test.ts — updated (3 new loadProfileFromDisk tests)
+  - src/cli/program.ts — updated (loadProfileFromDisk import, profile loading, profile guard on idea, profile passed to orchestrators)
+  - src/cli/program.test.ts — updated (loadProfileFromDisk mock, beforeEach reset, 2 new tests, mock pattern fix)
+- **Learnings for future iterations:**
+  - vi.clearAllMocks() does NOT reset mockReturnValue — use vi.resetAllMocks() and re-set defaults in beforeEach
+  - When adding a required param to a constructor, all existing tests that call that constructor need updating — batch this early
+  - loadProfileFromDisk uses synchronous yaml.parse — fine for CLI startup, avoids async complexity in constructors
+  - Profile guard is at the orchestrator level (requireProfile on transition) AND CLI level (guard before starting pipeline) — defense in depth
 ---
