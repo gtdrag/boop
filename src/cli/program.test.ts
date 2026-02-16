@@ -6,10 +6,11 @@ import { buildProgram, handleCli } from "./program.js";
 import type { CliOptions } from "./program.js";
 
 // Use vi.hoisted for mock fns that need to survive resetAllMocks
-const { mockAssessViability, mockGeneratePrd, mockGenerateArchitecture } = vi.hoisted(() => ({
+const { mockAssessViability, mockGeneratePrd, mockGenerateArchitecture, mockGenerateStories } = vi.hoisted(() => ({
   mockAssessViability: vi.fn(),
   mockGeneratePrd: vi.fn(),
   mockGenerateArchitecture: vi.fn(),
+  mockGenerateStories: vi.fn(),
 }));
 
 // Mock the config module to avoid real interactive prompts
@@ -36,6 +37,11 @@ vi.mock("../planning/prd.js", () => ({
 // Mock the architecture module to avoid real API calls
 vi.mock("../planning/architecture.js", () => ({
   generateArchitecture: mockGenerateArchitecture,
+}));
+
+// Mock the stories module to avoid real API calls
+vi.mock("../planning/stories.js", () => ({
+  generateStories: mockGenerateStories,
 }));
 
 // Mock @clack/prompts to avoid interactive prompts hanging tests
@@ -106,6 +112,13 @@ describe("handleCli", () => {
     mockGenerateArchitecture.mockResolvedValue({
       architecture: "# Architecture Document\n\nTest architecture content",
       usage: { inputTokens: 300, outputTokens: 400 },
+    });
+
+    // Reset stories mock with default return value
+    mockGenerateStories.mockReset();
+    mockGenerateStories.mockResolvedValue({
+      stories: "# Epic & Story Breakdown\n\nTest stories content",
+      usage: { inputTokens: 500, outputTokens: 600 },
     });
   });
 

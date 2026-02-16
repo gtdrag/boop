@@ -20,6 +20,8 @@ import { generatePrd } from "../planning/prd.js";
 import type { PrdResult } from "../planning/prd.js";
 import { generateArchitecture } from "../planning/architecture.js";
 import type { ArchitectureResult } from "../planning/architecture.js";
+import { generateStories } from "../planning/stories.js";
+import type { StoriesResult } from "../planning/stories.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -279,4 +281,35 @@ async function runArchitecturePhase(
   console.log(result.architecture);
   console.log();
   console.log("[boop] Architecture saved to .boop/planning/architecture.md");
+
+  // Chain to story breakdown
+  console.log("[boop] Proceeding to epic & story breakdown...");
+  await runStoriesPhase(idea, profile, projectDir, prd, result.architecture);
+}
+
+/**
+ * Run the epic & story breakdown phase.
+ */
+async function runStoriesPhase(
+  idea: string,
+  profile: DeveloperProfile,
+  projectDir: string,
+  prd: string,
+  architecture: string,
+): Promise<void> {
+  console.log("[boop] Generating epics & stories...");
+
+  let result: StoriesResult;
+  try {
+    result = await generateStories(idea, profile, prd, architecture, { projectDir });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[boop] Story breakdown failed: ${msg}`);
+    return;
+  }
+
+  console.log();
+  console.log(result.stories);
+  console.log();
+  console.log("[boop] Epics & stories saved to .boop/planning/epics.md");
 }

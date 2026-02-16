@@ -75,3 +75,24 @@ Started: Mon Feb 16 16:38:33 CST 2026
   - `loadPrd()` helper reads from `.boop/planning/prd.md` — mirrors `loadViabilityAssessment()` for cross-session chaining
   - CLI pipeline chain: viability → PRD → architecture. Each `run*Phase` function calls the next at the end.
 ---
+
+## 2026-02-16 - Story 3.4: Epic and story breakdown
+- What was implemented:
+  - Created `prompts/stories/system.md` — BMAD-style prompt template for epic/story breakdown (story sizing rules, ordering rules, BDD acceptance criteria, technical notes guidelines). Key design: sequential ordering with no forward dependencies, stories sized for single dev agent sessions.
+  - Created `src/planning/stories.ts` — story breakdown module with `generateStories()`, `buildUserMessage()`, `loadSystemPrompt()`, `saveStories()`, `loadArchitecture()`. Chains PRD + architecture as input context. Uses 8192 maxTokens. Saves to `.boop/planning/epics.md`.
+  - Created `src/planning/stories.test.ts` — 17 tests covering prompt loading, user message building (profile + idea + PRD + architecture), file saving, architecture loading, and mocked API calls
+  - Updated `src/cli/program.ts` — after architecture generation completes, now calls `runStoriesPhase()` which generates and saves the epics/stories document. Added import for `generateStories` and `StoriesResult`.
+  - Updated `src/cli/program.test.ts` — added `mockGenerateStories` mock to prevent real API calls during CLI tests
+- Files changed:
+  - NEW: `prompts/stories/system.md`
+  - NEW: `src/planning/stories.ts`, `src/planning/stories.test.ts`
+  - MODIFIED: `src/cli/program.ts` (stories phase integration after architecture)
+  - MODIFIED: `src/cli/program.test.ts` (stories mock setup)
+  - MODIFIED: `scripts/ralph/prd.json` (3.4 passes: true)
+- **Learnings for future iterations:**
+  - Stories phase takes 4 inputs (idea, profile, PRD, architecture) vs architecture's 3 — each phase accumulates more context from prior phases
+  - The `buildUserMessage` pattern now includes all prior phase outputs: profile + idea + PRD + architecture
+  - `loadArchitecture()` helper reads from `.boop/planning/architecture.md` for cross-session chaining
+  - CLI pipeline chain is now complete for all 4 planning phases: viability → PRD → architecture → stories
+  - The `runArchitecturePhase` passes both PRD and architecture results to `runStoriesPhase` — each phase function must thread through all accumulated context
+---
