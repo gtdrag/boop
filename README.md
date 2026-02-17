@@ -1,4 +1,4 @@
-# Boop
+# BOOP
 
 An opinionated, idea-to-software pipeline. Give Boop an idea. He plans it, architects it, builds it, tests it, reviews it, and hardens it. You steer the vision; he does the work.
 
