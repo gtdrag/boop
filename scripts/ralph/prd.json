@@ -30,7 +30,7 @@
         "All tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/scaffolding/defaults/seo.ts and src/scaffolding/defaults/analytics.ts. Only applies to web-type projects (check profile.projectType or PRD analysis). Generate template files: meta tag helpers, OG tag component/partial, JSON-LD structured data template, sitemap generator config, robots.txt. Analytics: support Google Analytics, Plausible, PostHog based on profile.analyticsProvider. CWV: add web-vitals package and reporting hook. Prerequisites: 6.1."
     },
     {
@@ -45,7 +45,7 @@
         "All tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/scaffolding/defaults/accessibility.ts and src/scaffolding/defaults/security-headers.ts. A11y: generate skip-nav component, ARIA landmark templates, focus-trap utility, color contrast checker config. Security headers: generate middleware/config for CSP, HSTS, X-Frame-Options, X-Content-Type-Options (framework-specific: Express middleware, Next.js headers config, etc.). Error tracking: support Sentry, Bugsnag based on profile.errorTracker. Prerequisites: 6.1."
     },
     {

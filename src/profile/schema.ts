@@ -72,6 +72,9 @@ export type AnalyticsProvider =
   | "none"
   | string;
 
+/** Error tracking provider. */
+export type ErrorTracker = "sentry" | "bugsnag" | "none" | string;
+
 /** CI/CD provider. */
 export type CiCdProvider = "github-actions" | "gitlab-ci" | "circleci" | "none" | string;
 
@@ -139,6 +142,9 @@ export interface DeveloperProfile {
 
   /** Project structure preference. */
   projectStructure: ProjectStructure;
+
+  /** Error tracking provider. */
+  errorTracker: ErrorTracker;
 
   /** AI model preference. */
   aiModel: string;

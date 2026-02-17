@@ -27,6 +27,7 @@ export const DEFAULT_PROFILE: DeveloperProfile = {
   testRunner: "vitest",
   linter: "oxlint",
   projectStructure: "monorepo",
+  errorTracker: "sentry",
   aiModel: "claude-opus-4-6",
   autonomousByDefault: false,
 };
@@ -123,6 +124,12 @@ export const PROFILE_CATEGORIES: ProfileCategory[] = [
     label: "Project structure",
     recommended: "monorepo",
     alternatives: ["single-repo"],
+  },
+  {
+    key: "errorTracker",
+    label: "Error tracking",
+    recommended: "sentry",
+    alternatives: ["bugsnag", "none"],
   },
   {
     key: "aiModel",

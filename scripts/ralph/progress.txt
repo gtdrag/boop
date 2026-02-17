@@ -24,3 +24,56 @@ Started: Mon Feb 16 20:30:55 CST 2026
   - execFileSync with env override for GIT_AUTHOR_NAME/GIT_COMMITTER_NAME works well for attribution
   - Frontend framework list for JSX detection: next, remix, vite-react, angular
 ---
+
+## 2026-02-16 20:45 CST - Story 6.2
+- Implemented SEO and analytics defaults for web projects
+- Created `src/scaffolding/defaults/seo.ts` — SEO template generators (meta tags, OG tags, JSON-LD structured data, sitemap config, robots.txt)
+- Created `src/scaffolding/defaults/analytics.ts` — Analytics provider wiring (Google Analytics, Plausible, PostHog, Mixpanel) + Core Web Vitals reporting
+- Created `src/scaffolding/defaults/seo.test.ts` — 19 unit tests
+- Created `src/scaffolding/defaults/analytics.test.ts` — 25 unit tests
+- **What was implemented:**
+  - `isWebProject()` helper checks frontendFramework !== "none"
+  - React-based frameworks (next, remix, vite-react) get .tsx components; others get .ts helpers
+  - Next.js-specific: app/sitemap.ts using MetadataRoute, built-in CWV support (no web-vitals dep)
+  - All frameworks with public/ dir get robots.txt in public/
+  - JSON-LD structured data helpers: WebSite and Organization schemas
+  - Analytics: per-provider files with env-var-based configuration
+  - `getAnalyticsDeps()` returns npm packages needed (posthog-js, mixpanel-browser, web-vitals)
+  - GA and Plausible use script tags — no npm deps needed
+- **Learnings for future iterations:**
+  - seo.ts exports `isWebProject()` — reused by analytics.ts to avoid duplication
+  - React frameworks share a component pattern (.tsx); non-React get utility modules (.ts)
+  - Next.js has built-in sitemap and CWV support — different templates needed
+  - Analytics providers that use script injection (GA, Plausible) don't need npm packages
+  - PostHog and Mixpanel need npm packages (posthog-js, mixpanel-browser)
+  - `generateSeoDefaults()` always returns exactly 5 files for web projects
+  - `generateAnalyticsDefaults()` returns 2 files (provider + CWV) or 1 (CWV only when analytics=none)
+---
+
+## 2026-02-16 20:50 CST - Story 6.3
+- Implemented accessibility and security header defaults for web projects
+- Added `errorTracker` field to DeveloperProfile schema (type ErrorTracker: "sentry" | "bugsnag" | "none")
+- Added errorTracker to DEFAULT_PROFILE (default: "sentry") and PROFILE_CATEGORIES
+- Created `src/scaffolding/defaults/accessibility.ts` — accessibility template generators (skip-nav, ARIA landmarks, focus trap, color contrast checker)
+- Created `src/scaffolding/defaults/security-headers.ts` — security header configs (CSP, HSTS, X-Frame-Options, X-Content-Type-Options) + error tracking setup (Sentry, Bugsnag)
+- Created `src/scaffolding/defaults/accessibility.test.ts` — 16 unit tests
+- Created `src/scaffolding/defaults/security-headers.test.ts` — 24 unit tests
+- Updated `src/profile/schema.ts` — added ErrorTracker type and errorTracker field to DeveloperProfile
+- Updated `src/profile/defaults.ts` — added errorTracker default and PROFILE_CATEGORIES entry
+- **What was implemented:**
+  - Skip-nav: React component (.tsx) for React frameworks, HTML builder (.ts) for others
+  - ARIA landmarks: React layout component for React frameworks, HTML template builder for others
+  - Focus trap: React hook (useFocusTrap) for React frameworks, utility (createFocusTrap) for others
+  - Color contrast: WCAG 2.1 contrast ratio calculator with AA/AAA level checking (framework-independent)
+  - Security headers: Next.js headers config, Express middleware, or generic headers map based on framework/backend
+  - Error tracking: Sentry (@sentry/nextjs for Next, @sentry/node for others) and Bugsnag (@bugsnag/js)
+  - `getSecurityDeps()` returns npm packages needed for error tracking provider
+  - All security header variants include CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- **Learnings for future iterations:**
+  - Profile schema needed `errorTracker` field — added as a new type + field + default + category
+  - React frameworks share component patterns (.tsx), non-React get utility modules (.ts) — same as SEO/analytics
+  - Security headers config is determined by framework hierarchy: Next.js first, then Express, then generic
+  - Color contrast checker is framework-independent — same implementation for all web projects
+  - `generateAccessibilityDefaults()` always returns exactly 4 files for web projects
+  - `generateSecurityHeaderDefaults()` returns 2 files (headers + tracker) or 1 (headers only when errorTracker=none)
+---
