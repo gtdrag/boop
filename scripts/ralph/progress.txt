@@ -18,3 +18,42 @@ Started: Mon Feb 16 18:45:10 CST 2026
   - The `---` horizontal rule is a story separator, not content
   - Story 4.2 (converter) depends on these parsed types — ParsedStory maps directly to Story type in shared/types.ts
 ---
+
+## 2026-02-16 18:51 - Story 4.2: Ralph prd.json converter
+- Implemented src/bridge/converter.ts — converts ParsedBreakdown to Ralph's Prd format
+- Exported: convertToPrd(), savePrd(), ProjectMetadata, ConvertOptions types
+- convertToPrd maps ParsedStory → Story: id, title, userStory→description, criteria with required gates, computed priority, notes from technicalNotes + prerequisites
+- Priority computed as epicIndex*100 + storyIndex + 1 — leaves room between epics
+- Always appends "Typecheck passes" and "All tests pass" (case-insensitive dedup)
+- savePrd writes to .boop/prd.json, creates directory if needed
+- Optional epicNumber filter for single-epic conversion
+- 18 tests: field mapping, required criteria dedup, priority ordering, notes building, epic filtering, savePrd file I/O, end-to-end parse→convert→save
+- Files changed: src/bridge/converter.ts (new), src/bridge/converter.test.ts (new)
+- **Learnings for future iterations:**
+  - ParsedStory.userStory maps to Story.description — naming differs between parser and Ralph formats
+  - Priority spacing (epicIndex*100) allows inserting stories later without renumbering
+  - ensureRequiredCriteria uses lowercase Set for case-insensitive dedup
+  - buildNotes joins technicalNotes with ". " and appends dependency note
+  - savePrd uses fs.mkdirSync with recursive:true — safe to call when dir exists
+  - Story 4.3 (Ralph loop) will consume the Prd type from converter output
+---
+
+## 2026-02-16 18:57 - Story 4.3: Ralph story execution loop
+- Implemented three modules for the Ralph build loop:
+  - src/build/reality-check.ts — scans source files for mock data, placeholders, stubs, TODO/FIXME markers
+  - src/build/story-runner.ts — assembles prompt (CLAUDE.md + progress.txt + PRD + story details), sends to Claude via Anthropic SDK, returns response
+  - src/build/ralph-loop.ts — orchestrator that loads PRD, picks next story, runs it, executes quality checks (typecheck + test + reality check), handles retries, marks story done
+- reality-check: pattern-based scanner with VIOLATION_PATTERNS array, skips test files/node_modules/dist, reports file:line:kind:text
+- story-runner: buildSystemPrompt() injects CLAUDE.md + progress.txt + PRD context, buildStoryPrompt() formats story with numbered criteria, runStory() uses retry() + sendMessage() from shared modules
+- ralph-loop: loadPrd/savePrdFile for I/O, pickNextStory sorts by priority ascending, runLoopIteration does attempt loop with maxRetries (default 1), quality checks run in order: typecheck → test → reality check
+- 55 tests across 3 test files (22 reality-check, 16 story-runner, 17 ralph-loop)
+- Files changed: src/build/reality-check.ts (new), src/build/story-runner.ts (new), src/build/ralph-loop.ts (new), src/build/reality-check.test.ts (new), src/build/story-runner.test.ts (new), src/build/ralph-loop.test.ts (new)
+- **Learnings for future iterations:**
+  - vi.mock() with vi.hoisted() pattern continues to work well for mocking claude-client.ts
+  - Object spread order matters: `{ default, ...overrides }` lets callers override defaults; `{ ...overrides, default }` forces defaults — story-runner uses the former so clientOptions can override maxTokens
+  - RetryError wraps the original error — test for "All N attempts failed" not the original message
+  - execSync with stdio: ["pipe", "pipe", "pipe"] captures both stdout and stderr for quality check reporting
+  - Reality check patterns use first-match-per-line to avoid duplicate violations on the same line
+  - Story 4.4 (progress tracking) builds on the progress.txt append pattern already used here
+  - Story 4.5 (git branch management) will use the execSync pattern from runQualityChecks for git operations
+---

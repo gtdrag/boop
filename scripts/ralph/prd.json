@@ -30,7 +30,7 @@
         "All tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/bridge/converter.ts. Takes parsed BMAD stories + project metadata, outputs Ralph-format JSON. Priority maps from epic ordering (epic 1 stories = priority 1-N, etc.). Always appends 'Typecheck passes' and 'All tests pass' to acceptanceCriteria. Depends on 4.1 being complete."
     },
     {
@@ -49,7 +49,7 @@
         "All tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/build/ralph-loop.ts, src/build/story-runner.ts, src/build/reality-check.ts. IMPORTANT: Use the Anthropic SDK directly (src/shared/claude-client.ts) to invoke Claude for each story — do NOT shell out to 'claude --print' or any CLI tool. The SDK gives proper timeout control, streaming, and error handling without the process-hanging issues of the CLI's --print mode. Each story gets a fresh API conversation. The story runner assembles the prompt (story details + progress.txt + CLAUDE.md context), sends it via the SDK, and processes the response. Reality check runs after typecheck + tests pass but before commit. Depends on 4.2 and 1.4 being complete."
     },
     {
