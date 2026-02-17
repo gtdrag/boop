@@ -8,17 +8,19 @@
 
 ## Overview
 
-6 epics, 35 stories. Covers all PRD functional requirements (FR-1 through FR-8). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
+8 epics, 46 stories. Covers all PRD functional requirements (FR-1 through FR-9). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
-| Epic                                | Stories | FR Coverage                    |
-| ----------------------------------- | ------- | ------------------------------ |
-| 1: Foundation & OpenClaw Fork       | 6       | FR-8 (partial), infrastructure |
-| 2: Developer Profile                | 4       | FR-1                           |
-| 3: Planning Pipeline                | 6       | FR-2                           |
-| 4: Bridge & Build                   | 5       | FR-3, FR-4                     |
-| 5: Review & Epic Loop               | 9       | FR-5, FR-6                     |
-| 6: Scaffolding, Defaults & Security | 6       | FR-7, FR-8, FR-9               |
-| **Total**                           | **36**  | **All FRs covered**            |
+| Epic                                       | Stories | FR Coverage                    |
+| ------------------------------------------ | ------- | ------------------------------ |
+| 1: Foundation & OpenClaw Fork              | 6       | FR-8 (partial), infrastructure |
+| 2: Developer Profile                       | 4       | FR-1                           |
+| 3: Planning Pipeline                       | 6       | FR-2                           |
+| 4: Bridge & Build                          | 5       | FR-3, FR-4                     |
+| 5: Review & Epic Loop                      | 9       | FR-5, FR-6                     |
+| 6: Scaffolding, Defaults & Security        | 6       | FR-7, FR-8, FR-9               |
+| 7: Adversarial Review Loop                 | 6       | FR-5 (hardening)               |
+| 8: Context Rotation & Structured Handoffs  | 4       | FR-4 (hardening), reliability  |
+| **Total**                                  | **46**  | **All FRs covered**            |
 
 ---
 
@@ -769,6 +771,248 @@ So that each project makes Boop smarter for the next one.
 
 ---
 
+## Epic 7: Adversarial Review Loop
+
+Replace the single-pass review phase with an iterative adversarial review cycle. Multiple specialized agents review in parallel, a verifier confirms findings against real code, an auto-fixer resolves confirmed issues, and the cycle repeats until clean — or until a max iteration cap. Accuracy over speed. The goal is a self-correcting pipeline that catches its own mistakes.
+
+### Story 7.0: Structural invariant tests and agent-legible documentation
+
+As a pipeline,
+I want mechanical enforcement of architectural patterns via structural tests, plus agent-oriented codebase documentation,
+So that invariants are enforced before review (not just caught after the fact) and every agent session has a machine-readable map of the codebase.
+
+**Acceptance Criteria:**
+
+- **Given** the boop codebase
+- **When** `pnpm test` runs
+- **Then** structural tests verify architectural invariants:
+  - Every file in `src/review/` exports a `create*` factory function
+  - All deployment providers are covered in `providers.test.ts`
+  - No direct `fs.writeFileSync` calls outside `src/scaffolding/` and `src/pipeline/`
+  - All prompt templates in `prompts/` are valid (parseable, no broken references)
+  - Every new module has a corresponding test file
+- **And** a `CODEBASE_MAP.md` exists at the repo root with: module boundaries, dependency graph (text-based), naming conventions, file location guide, and pattern descriptions
+- **And** a `CONVENTIONS.md` exists documenting: review agent factory pattern, `GeneratedFile` return type, scaffolding defaults location, snapshot schema, commit message format
+- **And** both docs are structured with headings and bullet points optimized for LLM parsing (not prose paragraphs)
+- **And** structural tests are fast (<5 seconds total) since they're just file/AST checks
+
+**Prerequisites:** 1.6 (test infrastructure)
+**Technical Notes:** `test/structural/` directory. Structural tests use `fs` + `glob` + simple AST parsing (TypeScript compiler API or regex) to verify patterns. Inspired by OpenAI's "harness engineering" approach: mechanical enforcement catches drift before the adversarial loop even runs. `CODEBASE_MAP.md` and `CONVENTIONS.md` are for agent consumption — written for machines first, humans second.
+
+---
+
+### Story 7.1: Parallel adversarial review agents
+
+As a pipeline,
+I want to spawn three specialized review agents in parallel — code quality, test coverage, and security — each with a distinct lens and scoped to the current epic's changed files,
+So that the review phase catches a wider range of issues than any single reviewer could.
+
+**Acceptance Criteria:**
+
+- **Given** the REVIEWING phase begins for an epic
+- **When** the adversarial review step runs
+- **Then** three agents are spawned concurrently:
+  - Code quality agent: antipatterns, duplication, naming, error handling, edge cases
+  - Test coverage agent: untested paths, missing assertions, boundary conditions, integration gaps
+  - Security agent: injection vectors, credential leaks, dependency vulnerabilities, sandbox escapes
+- **And** each agent receives only the files changed in the current epic (scoped via git diff against the pre-epic branch point)
+- **And** each agent returns structured findings with severity (CRITICAL / HIGH / MEDIUM / LOW), file path, line range, and description
+- **And** all three agents complete before proceeding (parallel execution, joined at completion)
+- **And** combined wall-clock time for the parallel review is under 5 minutes for a typical epic
+
+**Prerequisites:** 5.1 (review infrastructure exists)
+**Technical Notes:** `src/review/adversarial/runner.ts`. Spawn via Claude CLI `--print` with system prompts per agent type (stored in `prompts/review/`). Use the same spawn pattern as `story-runner.ts`. Scope files with `git diff --name-only <base>..HEAD`. Output as JSON for structured parsing.
+
+---
+
+### Story 7.2: Finding verifier agent
+
+As a pipeline,
+I want a verification step that confirms every finding from the adversarial agents against the actual codebase before acting on it,
+So that hallucinated findings (fabricated file paths, phantom code references) are filtered out and only real issues proceed to auto-fix.
+
+**Acceptance Criteria:**
+
+- **Given** the three adversarial agents return their combined findings
+- **When** the verifier step runs
+- **Then** for each finding, the verifier checks:
+  - The file path exists (Glob)
+  - The referenced line range contains code matching the finding's description (Read + pattern match)
+  - The severity is plausible given the actual code
+- **And** findings that reference non-existent files are discarded with a log entry
+- **And** findings where the referenced code doesn't match the description are downgraded to LOW or discarded
+- **And** the verifier outputs a `verified-findings.json` with only confirmed issues
+- **And** at least 90% of verified findings are real issues (measured by spot-check sampling in tests)
+- **And** the verification step itself takes under 60 seconds
+
+**Prerequisites:** 7.1
+**Technical Notes:** `src/review/adversarial/verifier.ts`. This is NOT an LLM call — it's deterministic file/code validation. Use Glob to check paths, Read to check line content, regex to match described patterns. The 50% hallucination rate we observed in audit agents makes this step non-negotiable. Log discarded findings to `.boop/reviews/epic-N/discarded-findings.json` for retrospective analysis.
+
+---
+
+### Story 7.3: Auto-fix with regression guard
+
+As a pipeline,
+I want confirmed CRITICAL and HIGH findings to be automatically fixed by a dedicated fix agent, with the full test suite run after each fix batch,
+So that issues are resolved without human intervention and fixes don't introduce regressions.
+
+**Acceptance Criteria:**
+
+- **Given** the verifier has produced a list of confirmed findings at any severity
+- **When** the auto-fix step runs
+- **Then** a fix agent receives the verified findings and applies corrections
+- **And** after all fixes are applied, the full test suite runs
+- **And** if tests pass, the fixes are committed with a structured commit message referencing the finding IDs
+- **And** if tests fail, the fix agent receives the test failures and attempts a correction (up to 3 attempts per finding)
+- **And** if a fix cannot be applied without breaking tests after 3 attempts, the finding is escalated to the review summary as "unable to auto-fix" with the error context
+- **And** all severity levels are auto-fixed — the goal is zero findings
+- **And** each fix is a separate commit so individual fixes can be reverted if needed
+
+**Prerequisites:** 7.2
+**Technical Notes:** `src/review/adversarial/fixer.ts`. Reuse the existing `fix-runner.ts` pattern. The fix agent gets the verified finding + surrounding code context (50 lines). Run tests via the same test runner used in the build phase. Separate commits per finding enable surgical reverts. The "3 attempts" limit prevents infinite loops on genuinely hard problems.
+
+---
+
+### Story 7.4: Iterative review loop with convergence
+
+As a pipeline,
+I want the adversarial review cycle (review → verify → fix → test) to repeat until no CRITICAL or HIGH findings remain, up to a configurable maximum number of iterations,
+So that the pipeline self-corrects and each iteration catches issues introduced by the previous round's fixes.
+
+**Acceptance Criteria:**
+
+- **Given** an auto-fix round completes
+- **When** the iteration check runs
+- **Then** if zero findings at any severity were found in this iteration, the loop exits and proceeds to SIGN_OFF
+- **And** if any findings remain and iterations < max (default: 3), the full cycle repeats: adversarial agents → verifier → auto-fix → test
+- **And** if max iterations reached with issues remaining, the loop exits with all unresolved findings included in the review summary (clearly marked as "unresolved after N iterations")
+- **And** each iteration's findings are saved to `.boop/reviews/epic-N/iteration-{i}.json` for retrospective analysis
+- **And** the iteration count and convergence status are reported in the epic summary
+- **And** diminishing returns detection: if two consecutive iterations find the same findings, the loop exits early (the fix agent is stuck)
+- **And** the max iterations setting is configurable via developer profile (`reviewMaxIterations`, default: 3)
+
+**Prerequisites:** 7.3
+**Technical Notes:** `src/review/adversarial/loop.ts`. The outer loop wraps stories 7.1–7.3. Track finding IDs across iterations to detect "stuck" patterns (same finding reappearing = the fixer couldn't resolve it). Save per-iteration artifacts for the retrospective (Story 6.6) to analyze convergence patterns across projects. Default of 3 iterations balances thoroughness with time cost.
+
+---
+
+### Story 7.5: Review summary consolidation and sign-off integration
+
+As a user,
+I want the adversarial review results consolidated into a single, clear summary that feeds into the existing sign-off flow,
+So that I can see exactly what was found, what was fixed, what remains, and make an informed approve/reject decision.
+
+**Acceptance Criteria:**
+
+- **Given** the adversarial review loop has completed (converged or max iterations reached)
+- **When** the review summary is generated
+- **Then** the summary includes:
+  - Total findings by severity across all iterations
+  - Findings auto-fixed (with commit references)
+  - Findings unable to auto-fix (with error context and the code in question)
+  - Findings discarded by verifier (count only, details in log)
+  - Iteration count and convergence status
+  - Test suite status (all green / failures remaining)
+- **And** the summary is formatted as markdown, suitable for both terminal display and messaging notification
+- **And** the summary replaces the existing review summary in the SIGN_OFF phase (not additive — this IS the review)
+- **And** if messaging is enabled, the summary is sent via the configured channel with a sign-off prompt
+- **And** the summary is saved to `.boop/reviews/epic-N/adversarial-summary.md`
+
+**Prerequisites:** 7.4, 5.8 (sign-off flow)
+**Technical Notes:** `src/review/adversarial/summary.ts`. Integrates with the existing `sendSummary()` and `createSignOffPrompt()` in the messaging dispatcher. This story effectively replaces the single-pass review with the adversarial loop — the old review agents (code-reviewer, tech-debt-auditor, etc.) are subsumed by the adversarial agents which cover the same ground with iteration and verification.
+
+---
+
+## Epic 8: Context Rotation & Structured Handoffs
+
+Replace lossy, ad-hoc context management with structured state snapshots that let agent sessions rotate cleanly. Each Claude session starts fresh but has perfect machine-readable memory of everything that came before. No drift, no prose summaries, no lost context.
+
+### Story 8.1: Context snapshot schema and utilities
+
+As a developer,
+I want a structured snapshot format that captures all meaningful state from an agent session — files touched, decisions made, test results, blockers resolved — in machine-readable JSON,
+So that the next session can reconstruct the full picture without relying on lossy prose summaries.
+
+**Acceptance Criteria:**
+
+- **Given** a session has completed work
+- **When** a snapshot is generated
+- **Then** the snapshot is a JSON object with: session ID, timestamp, phase (BUILDING/REVIEWING/etc.), epic number, story ID (if applicable), files created/modified (paths only), test results (pass/fail counts + failing test names), decisions made (key-value pairs), blockers hit and resolutions, current code architecture understanding (module map), and a freeform `notes` string for anything that doesn't fit structured fields
+- **And** the schema is defined as a TypeScript interface with JSDoc
+- **And** read/write utilities handle serialization to `.boop/snapshots/`
+- **And** snapshots are append-only — each session writes a new file (`snapshot-{sessionId}.json`), never overwrites previous snapshots
+- **And** a `readLatestSnapshot()` utility returns the most recent snapshot for a given phase/epic
+
+**Prerequisites:** 1.3 (shared types)
+**Technical Notes:** `src/shared/context-snapshot.ts`. The snapshot replaces `progress.txt` as the primary handoff mechanism. Keep `progress.txt` for backward compatibility with vanilla Ralph, but snapshots are the authoritative source. Schema should be strict enough to parse programmatically but flexible enough to capture unexpected learnings via the `notes` field.
+
+---
+
+### Story 8.2: Build loop context rotation
+
+As a pipeline,
+I want each Ralph build iteration to write a structured snapshot on exit and inject the previous snapshot on start,
+So that knowledge compounds across story iterations without context window pressure.
+
+**Acceptance Criteria:**
+
+- **Given** a story iteration completes (pass or fail)
+- **When** the iteration exits
+- **Then** a snapshot is written with: story ID, files changed, test results, decisions made during implementation, any patterns discovered (e.g., "this project uses barrel exports"), and blockers hit
+- **And** the next iteration's prompt includes the previous snapshot as structured context (JSON block in the system prompt, not pasted prose)
+- **And** `progress.txt` continues to be appended for backward compatibility, but the snapshot is the primary handoff
+- **And** if no previous snapshot exists (first iteration), the prompt includes only `prd.json` and `CLAUDE.md` as before
+- **And** snapshot injection adds no more than ~2000 tokens to the prompt (snapshots are concise, not verbose)
+
+**Prerequisites:** 8.1, 4.3 (Ralph loop)
+**Technical Notes:** Modify `src/build/ralph-loop.ts` and `src/build/story-runner.ts`. The snapshot is injected as a `<context-snapshot>` XML block in the system prompt — structured so the agent can parse it, not just read it. Token budget: the snapshot should be concise. Strip file contents, keep only paths. Strip full test output, keep only counts + failing names.
+
+---
+
+### Story 8.3: Review pipeline context rotation
+
+As a pipeline,
+I want the adversarial review loop to write snapshots between fix/review cycles,
+So that each review iteration knows exactly what was fixed, what was attempted, and what's still open — without re-reading the entire codebase.
+
+**Acceptance Criteria:**
+
+- **Given** an adversarial review iteration completes (review → verify → fix → test)
+- **When** the iteration exits
+- **Then** a snapshot is written with: iteration number, findings by severity, findings fixed (with commit SHAs), findings unable to fix (with error context), findings discarded by verifier, test suite status, and files modified during fixes
+- **And** the next iteration's review agents receive the previous snapshot, so they know what was already fixed and can focus on new/remaining issues
+- **And** the fix agent receives the snapshot so it doesn't re-attempt fixes that already failed
+- **And** stuck detection uses snapshot comparison: if two consecutive snapshots have identical unresolved finding IDs, the loop exits early
+
+**Prerequisites:** 8.1, 7.4 (adversarial loop)
+**Technical Notes:** Modify `src/review/adversarial/loop.ts`. The snapshot replaces the current ad-hoc tracking of "what was found last iteration." Stuck detection becomes trivial: `JSON.stringify(prev.unresolvedIds) === JSON.stringify(curr.unresolvedIds)`.
+
+---
+
+### Story 8.4: Proactive context budget tracking
+
+As a pipeline,
+I want each agent session to estimate its context usage and trigger a snapshot rotation before hitting the limit,
+So that sessions never silently degrade from context overflow — they rotate cleanly instead.
+
+**Acceptance Criteria:**
+
+- **Given** an agent session is running (build or review)
+- **When** the estimated token count exceeds 70% of the context window
+- **Then** a snapshot is written immediately with current progress
+- **And** the current session is terminated gracefully
+- **And** a new session is spawned with the snapshot injected
+- **And** the new session resumes from where the previous one left off (same story, same phase)
+- **And** the rotation is logged: "Context rotation triggered at ~{N}k tokens. Resuming in fresh session."
+- **And** the rotation is invisible to the pipeline orchestrator — it sees one continuous build/review step, not two sessions
+- **And** token estimation uses a simple heuristic: count characters in the prompt + accumulated output, divide by 4 (rough char-to-token ratio). Precision isn't critical — 70% threshold gives plenty of margin.
+
+**Prerequisites:** 8.2, 8.3
+**Technical Notes:** `src/shared/context-budget.ts`. The 70% threshold is conservative — Claude's context window is 200k tokens, so rotation triggers around 140k. The heuristic doesn't need to be exact; it just needs to prevent the cliff. The pipeline orchestrator doesn't need to know about rotation — the build/review functions handle it internally. This is the hardest story in the epic because it requires the session to cleanly pause, snapshot, and resume without losing work.
+
+---
+
 _Generated by BMAD Epic & Story Workflow v1.0_
 _Date: 2026-02-15_
+_Updated: 2026-02-17 — Added Epic 7 (Adversarial Review Loop), Epic 8 (Context Rotation & Structured Handoffs)_
 _For: George_
