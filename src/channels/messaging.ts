@@ -165,6 +165,39 @@ export class MessagingDispatcher {
     this.adapter = adapter;
   }
 
+  /**
+   * Initialize the real channel adapter based on config.
+   *
+   * Dynamically imports the appropriate adapter and its real dependencies
+   * (Baileys for WhatsApp, grammy for Telegram). No-op if channel is "none"
+   * or required credentials are missing.
+   *
+   * Call this before .start() to wire real messaging.
+   */
+  async initAdapter(): Promise<void> {
+    if (this.adapter) return; // Already set (e.g. via constructor or setAdapter)
+
+    if (this.config.channel === "whatsapp" && this.config.phoneNumber) {
+      const { createWhatsAppAdapter } = await import("./whatsapp/index.js");
+      const { createBaileysAdapterDeps } = await import("./whatsapp/baileys.js");
+      this.adapter = createWhatsAppAdapter(
+        { enabled: true, phoneNumber: this.config.phoneNumber },
+        createBaileysAdapterDeps(),
+      );
+    } else if (
+      this.config.channel === "telegram" &&
+      this.config.telegramBotToken &&
+      this.config.telegramChatId
+    ) {
+      const { createTelegramAdapter } = await import("./telegram/index.js");
+      const { createGrammyAdapterDeps } = await import("./telegram/grammy-adapter.js");
+      this.adapter = createTelegramAdapter(
+        { enabled: true, token: this.config.telegramBotToken, chatId: this.config.telegramChatId },
+        createGrammyAdapterDeps(),
+      );
+    }
+  }
+
   /** Start the messaging adapter. */
   async start(): Promise<void> {
     if (!this.enabled || !this.adapter || this.started) return;
@@ -294,7 +327,9 @@ export class MessagingDispatcher {
 
 /**
  * Create a MessagingDispatcher from config.
- * Does NOT start the adapter — caller must call .start().
+ *
+ * Returns a dispatcher without an adapter attached. To wire real
+ * WhatsApp/Telegram adapters, call `dispatcher.initAdapter()` after creation.
  */
 export function createMessagingDispatcher(config: MessagingConfig): MessagingDispatcher {
   return new MessagingDispatcher(config);

@@ -102,6 +102,13 @@ export class PipelineOrchestrator {
   }
 
   /**
+   * Get the messaging dispatcher for lifecycle management (init, start, stop).
+   */
+  getMessaging(): MessagingDispatcher {
+    return this.messaging;
+  }
+
+  /**
    * Send a pipeline event notification via the messaging system.
    * No-op if messaging is disabled.
    */

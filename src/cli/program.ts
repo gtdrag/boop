@@ -28,6 +28,7 @@ export function buildProgram(): Command {
     .option("--review", "run the review phase on the current project")
     .option("--resume", "resume an interrupted pipeline")
     .option("--autonomous", "run in fully autonomous mode (no prompts)")
+    .option("--sandbox", "run build agents inside Docker containers for isolation")
     .action(async (idea: string | undefined, opts: CliOptions) => {
       await handleCli(idea, opts);
     });
@@ -41,6 +42,7 @@ export interface CliOptions {
   review?: boolean;
   resume?: boolean;
   autonomous?: boolean;
+  sandbox?: boolean;
 }
 
 export async function handleCli(
@@ -85,25 +87,43 @@ export async function handleCli(
       return;
     }
 
-    const { runReviewPipeline } = await import("../review/team-orchestrator.js");
-    const { generateEpicSummary, runEpicSignOff } = await import("../pipeline/epic-loop.js");
+    const { runAdversarialLoop } = await import("../review/adversarial/loop.js");
+    const { generateAdversarialSummary, toReviewPhaseResult } = await import(
+      "../review/adversarial/summary.js"
+    );
+    const { runEpicSignOff } = await import("../pipeline/epic-loop.js");
+    const { execSync } = await import("node:child_process");
 
-    console.log(`[boop] Running review pipeline for Epic ${state.epicNumber}...`);
+    console.log(`[boop] Running adversarial review for Epic ${state.epicNumber}...`);
 
-    const reviewResult = await runReviewPipeline({
+    const testSuiteRunner = async () => {
+      try {
+        const output = execSync("pnpm test", {
+          cwd: dir,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"],
+          timeout: 300_000,
+        });
+        return { passed: true, output };
+      } catch (error: unknown) {
+        const execError = error as { stdout?: string; stderr?: string };
+        const output = [execError.stdout ?? "", execError.stderr ?? ""]
+          .filter(Boolean)
+          .join("\n");
+        return { passed: false, output };
+      }
+    };
+
+    const loopResult = await runAdversarialLoop({
       projectDir: dir,
       epicNumber: state.epicNumber,
-      codeReviewer: async () => ({ agent: "code-review", success: true, report: "", findings: [], blockingIssues: [] }),
-      gapAnalyst: async () => ({ agent: "gap-analysis", success: true, report: "", findings: [], blockingIssues: [] }),
-      techDebtAuditor: async () => ({ agent: "tech-debt", success: true, report: "", findings: [], blockingIssues: [] }),
-      refactoringAgent: async () => ({ agent: "refactoring", success: true, report: "", findings: [], blockingIssues: [] }),
-      testHardener: async () => ({ agent: "test-hardening", success: true, report: "", findings: [], blockingIssues: [] }),
-      testSuiteRunner: async () => ({ passed: true, output: "" }),
-      securityScanner: async () => ({ agent: "security-scan", success: true, report: "", findings: [], blockingIssues: [] }),
-      qaSmokeTester: async () => ({ agent: "qa-smoke-test", success: true, report: "", findings: [], blockingIssues: [] }),
+      testSuiteRunner,
+      onProgress: (iter, phase, msg) =>
+        console.log(`[boop] [iter ${iter}] ${phase}: ${msg}`),
     });
 
-    const summary = generateEpicSummary(dir, state.epicNumber, reviewResult);
+    const summary = generateAdversarialSummary(dir, state.epicNumber, loopResult);
+    const reviewResult = toReviewPhaseResult(state.epicNumber, loopResult);
 
     const signOffResult = await runEpicSignOff({
       projectDir: dir,
@@ -145,7 +165,7 @@ export async function handleCli(
       console.log("[boop] No developer profile found. Please run onboarding first.");
       return;
     }
-    await startPipeline(idea, profile, projectDir ?? process.cwd(), opts.autonomous);
+    await startPipeline(idea, profile, projectDir ?? process.cwd(), opts.autonomous, opts.sandbox);
     return;
   }
 
@@ -184,6 +204,7 @@ async function startPipeline(
   profile: DeveloperProfile,
   projectDir: string,
   autonomous?: boolean,
+  sandboxed?: boolean,
 ): Promise<void> {
   console.log(`[boop] Starting pipeline with idea: "${idea}"`);
   if (autonomous) {
@@ -215,6 +236,7 @@ async function startPipeline(
         profile,
         storiesMarkdown: result.stories.stories,
         autonomous: true,
+        sandboxed,
         onProgress: (phase, msg) => console.log(`[boop] [${phase}] ${msg}`),
       });
     } catch (error: unknown) {
@@ -281,7 +303,7 @@ async function startPipeline(
     }
 
     // Recurse with revised idea
-    await startPipeline(revised as string, profile, projectDir, autonomous);
+    await startPipeline(revised as string, profile, projectDir, autonomous, sandboxed);
     return;
   }
 
@@ -323,6 +345,7 @@ async function startPipeline(
       profile,
       storiesMarkdown: storiesResult.stories,
       autonomous: false,
+      sandboxed,
       onProgress: (phase, msg) => console.log(`[boop] [${phase}] ${msg}`),
     });
   } catch (error: unknown) {

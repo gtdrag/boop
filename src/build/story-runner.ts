@@ -12,9 +12,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import type { Story, Prd } from "../shared/types.js";
 import { readLatestSnapshot, formatSnapshotForPrompt } from "../shared/context-snapshot.js";
+import { isDockerAvailable } from "../sandbox/docker-runner.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,6 +33,10 @@ export interface StoryRunnerOptions {
   timeout?: number;
   /** Epic number (used to load previous context snapshot). */
   epicNumber?: number;
+  /** Run Claude CLI inside a Docker container for isolation. */
+  sandboxed?: boolean;
+  /** Docker image for sandbox (must have Node.js). Defaults to "node:22-slim". */
+  sandboxImage?: string;
 }
 
 export interface StoryRunResult {
@@ -153,12 +159,58 @@ const DEFAULT_TIMEOUT = 600_000; // 10 minutes
 const MAX_BUFFER = 10 * 1024 * 1024; // 10 MB
 
 /**
+ * Build Docker run arguments for sandboxed Claude CLI execution.
+ *
+ * Unlike the sandbox module's buildDockerArgs (designed for single commands),
+ * this builds a container for a full agent session — more memory, writable
+ * home directory (for npx cache), and ANTHROPIC_API_KEY forwarded.
+ */
+function buildSandboxDockerArgs(
+  projectDir: string,
+  claudeArgs: string[],
+  image: string,
+): string[] {
+  const resolved = path.resolve(projectDir);
+  return [
+    "run",
+    "--rm",
+    "--name",
+    `boop-build-${randomUUID()}`,
+    "--memory",
+    "4g",
+    "--cpus",
+    "2",
+    "--pids-limit",
+    "512",
+    "--tmpfs",
+    "/tmp:rw,size=1g",
+    "--tmpfs",
+    "/root:rw,size=512m",
+    "-v",
+    `${resolved}:/workspace:rw`,
+    "-w",
+    "/workspace",
+    "--no-new-privileges",
+    "-e",
+    `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ?? ""}`,
+    image,
+    "npx",
+    "-y",
+    "@anthropic-ai/claude-code",
+    ...claudeArgs,
+  ];
+}
+
+/**
  * Run a single story by spawning a Claude CLI agent.
  *
  * The agent runs in the project directory with full agentic capabilities
  * (file editing, bash execution, etc.) and implements the story end-to-end.
  * It can create files, install packages, run tests, and fix issues — the
  * loop then independently verifies quality before committing.
+ *
+ * When `sandboxed` is true, the agent runs inside a Docker container with
+ * resource limits and process isolation. Requires Docker to be available.
  *
  * @param story - The story to implement.
  * @param prd - The full PRD for project context.
@@ -178,29 +230,57 @@ export async function runStory(
   // so project context is doubly reinforced.
   const fullPrompt = systemPrompt + "\n\n---\n\n" + userMessage;
 
-  const args: string[] = ["--print", "--dangerously-skip-permissions", "--no-session-persistence"];
+  const claudeArgs: string[] = [
+    "--print",
+    "--dangerously-skip-permissions",
+    "--no-session-persistence",
+  ];
 
   if (options.model) {
-    args.push("--model", options.model);
+    claudeArgs.push("--model", options.model);
   }
 
   const timeout = options.timeout ?? DEFAULT_TIMEOUT;
 
-  const result = spawnSync("claude", args, {
+  // Determine whether to run in Docker sandbox or directly
+  let cmd: string;
+  let args: string[];
+  let cwd: string | undefined;
+
+  if (options.sandboxed) {
+    if (!isDockerAvailable()) {
+      throw new Error(
+        "Docker is required for sandboxed execution but is not available. " +
+          "Install Docker or set sandboxed: false.",
+      );
+    }
+    const image = options.sandboxImage ?? "node:22-slim";
+    cmd = "docker";
+    args = buildSandboxDockerArgs(options.projectDir, claudeArgs, image);
+    cwd = undefined; // Docker container sets its own working directory
+  } else {
+    cmd = "claude";
+    args = claudeArgs;
+    cwd = options.projectDir;
+  }
+
+  const result = spawnSync(cmd, args, {
     input: fullPrompt,
-    cwd: options.projectDir,
+    cwd,
     encoding: "utf-8",
     timeout,
     maxBuffer: MAX_BUFFER,
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  // Handle spawn errors (claude not found, timeout, etc.)
+  // Handle spawn errors (claude/docker not found, timeout, etc.)
   if (result.error) {
     const msg = result.error.message;
     if (msg.includes("ENOENT")) {
       throw new Error(
-        "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code",
+        options.sandboxed
+          ? "Docker not found. Install Docker Desktop to use sandboxed execution."
+          : "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code",
       );
     }
     if (msg.includes("ETIMEDOUT") || msg.includes("SIGTERM")) {

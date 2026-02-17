@@ -38,6 +38,8 @@ export interface RalphLoopOptions {
   maxRetries?: number;
   /** Epic number (used for context snapshot handoffs). */
   epicNumber?: number;
+  /** Run Claude CLI inside a Docker container for isolation. */
+  sandboxed?: boolean;
 }
 
 export type StoryOutcome = "passed" | "failed" | "no-stories";
@@ -309,6 +311,7 @@ export async function runLoopIteration(options: RalphLoopOptions): Promise<LoopR
         projectDir: options.projectDir,
         model: options.model,
         epicNumber: options.epicNumber,
+        sandboxed: options.sandboxed,
       });
       responseText = result.output;
     } catch (error: unknown) {

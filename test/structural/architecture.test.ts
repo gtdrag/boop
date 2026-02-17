@@ -215,6 +215,8 @@ describe("test co-location", () => {
     /\.d\.ts$/, // type declarations
     /types\.ts$/, // pure type files
     /shared\.ts$/, // shared utility modules (tested transitively)
+    /baileys\.ts$/, // WhatsApp Baileys integration (requires real connection)
+    /grammy-adapter\.ts$/, // Telegram grammy integration (requires real connection)
   ];
 
   /** Boop's own business logic directories (exclude OpenClaw/vendor dirs). */

@@ -57,6 +57,8 @@ export interface PipelineRunnerOptions {
   storiesMarkdown: string;
   /** Run without user prompts. */
   autonomous?: boolean;
+  /** Run build agents inside Docker containers for isolation. */
+  sandboxed?: boolean;
   /** Progress callback for each phase transition. */
   onProgress?: (phase: string, message: string) => void;
 }
@@ -187,9 +189,16 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
     profile,
     storiesMarkdown,
     autonomous = false,
+    sandboxed = false,
     onProgress,
   } = options;
 
+  // Initialize and start messaging adapter (WhatsApp/Telegram)
+  const messaging = orch.getMessaging();
+  await messaging.initAdapter();
+  await messaging.start();
+
+  try {
   const breakdown = parseStoryMarkdown(storiesMarkdown);
   const projectName = path.basename(projectDir);
 
@@ -238,6 +247,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
         prdPath,
         model: profile.aiModel || undefined,
         epicNumber,
+        sandboxed,
       });
 
       if (result.allComplete) {
@@ -299,7 +309,11 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
         epicNumber,
         reviewResult,
         autonomous,
-        signOffPrompt: autonomous ? undefined : createInteractiveSignOff(),
+        signOffPrompt: autonomous
+          ? undefined
+          : (messaging.enabled
+              ? messaging.createSignOffPrompt() ?? createInteractiveSignOff()
+              : createInteractiveSignOff()),
         fixCycleAgents: {
           refactoringAgent: createRefactoringAgent(),
           testHardener: createTestHardener(),
@@ -404,4 +418,9 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
 
   orch.transition("COMPLETE");
   onProgress?.("COMPLETE", "Pipeline finished");
+
+  } finally {
+    // Always stop messaging adapter on pipeline exit
+    await messaging.stop();
+  }
 }
