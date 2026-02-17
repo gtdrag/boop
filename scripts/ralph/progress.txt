@@ -77,3 +77,58 @@ Started: Mon Feb 16 20:30:55 CST 2026
   - `generateAccessibilityDefaults()` always returns exactly 4 files for web projects
   - `generateSecurityHeaderDefaults()` returns 2 files (headers + tracker) or 1 (headers only when errorTracker=none)
 ---
+
+## 2026-02-16 20:55 CST - Story 6.4
+- Implemented agent sandboxing enforcement with Docker container isolation + policy engine
+- Created `src/sandbox/policy.ts` — sandbox policy engine with command validation
+- Created `src/sandbox/docker-runner.ts` — Docker-based sandbox runner with local fallback
+- Created `src/sandbox/policy.test.ts` — 33 unit tests for policy engine
+- Created `src/sandbox/docker-runner.test.ts` — 29 unit tests for Docker runner
+- **What was implemented:**
+  - Policy engine: evaluateCommand() validates commands against blocked commands, blocked git ops, destructive patterns, and path restrictions
+  - Blocked commands: shutdown, reboot, halt, poweroff, init, mkfs, fdisk, dd, mount, umount, systemctl
+  - Blocked git ops: push --force/-f, reset --hard, clean -f, branch -D
+  - Destructive patterns: rm -rf on absolute paths, writes to block devices, chmod 000/777 on root
+  - Path enforcement: isPathAllowed() restricts access to project dir + ~/.boop, prevents prefix-match escapes
+  - Command parsing: extractBaseCommand() handles env vars, sudo (with -u flag args), pipes
+  - Docker runner: SandboxRunner class with Docker isolation or local fallback, both enforce policy
+  - Docker args: --rm, --read-only, --no-new-privileges, --pids-limit 256, memory/CPU limits, project dir bind mount
+  - Network restrictions: buildNetworkRestrictionScript() generates iptables rules allowing only Claude API
+  - SandboxPolicyViolation error class for denied commands
+  - createPolicy() and createSandboxRunner() factory functions with sensible defaults
+- **Learnings for future iterations:**
+  - Policy engine runs BEFORE execution — denied commands never reach the shell/Docker
+  - extractBaseCommand() must handle sudo flags that take arguments (-u user) — implemented with a Set of known flags
+  - rm -rf pattern only blocks absolute paths (rm -rf /...) — relative paths like `rm -rf node_modules` are safe
+  - Docker fallback mode still enforces the full policy engine — isolation is layered
+  - isPathAllowed() uses `resolved.startsWith(normalizedProject + path.sep)` to prevent prefix-match escapes (e.g. /project-secrets matching /project)
+  - vi.mock("node:child_process") with vi.hoisted() works well for mocking Docker availability
+  - DEFAULT_ALLOWED_HOSTS only includes api.anthropic.com — expand for future API integrations
+---
+
+## 2026-02-16 20:56 CST - Story 6.5
+- Implemented credential management and security audit checklist
+- Created `src/security/credentials.ts` — credential store with file permissions (0600) and env var priority
+- Created `src/security/audit-checklist.ts` — 7 programmatic security checks across 5 categories
+- Created `src/security/credentials.test.ts` — 26 unit tests for credential store
+- Created `src/security/audit-checklist.test.ts` — 19 unit tests for audit checklist
+- Updated `src/security/index.ts` — re-exports from both new modules
+- Updated `.gitignore` — added `.boop/` and `*.key` patterns for credential protection
+- **What was implemented:**
+  - CredentialStore interface: load, save, delete, exists, verifyPermissions
+  - Load priority: env var (ANTHROPIC_API_KEY) > credential file (~/.boop/credentials/anthropic.key)
+  - Save: creates directory with 0700, writes file with 0600 + explicit chmod
+  - Leak detection: containsCredential() and scanFileForCredentials() for pattern matching
+  - Audit categories: sandbox, credentials, logging, git-safety, leak-detection
+  - Audit checks: sandbox policy exists, docker runner exists, credential permissions, credentials dir permissions, logger sanitization, .gitignore patterns, no credential leaks in source
+  - formatAuditReport() generates human-readable report grouped by category
+  - .gitignore updated to cover .boop/ and *.key patterns
+- **Learnings for future iterations:**
+  - Credential file permissions are set with both writeFileSync mode + explicit chmodSync — umask can override the mode flag alone
+  - Credentials directory gets 0700 (owner-only access); files get 0600 (owner-read/write)
+  - Audit checklist checks for file existence with fs.existsSync — simple and reliable
+  - Audit leak scanner uses a recursive walkDir with configurable skip dirs (node_modules, .git, dist, etc.)
+  - containsCredential() requires 20+ chars after sk-ant- prefix to avoid false positives on test code
+  - When credential file doesn't exist, audit passes (env var fallback is a valid configuration)
+  - Logger sanitization check looks for both "export function sanitize(" and usage of "sanitize(" — both must exist
+---

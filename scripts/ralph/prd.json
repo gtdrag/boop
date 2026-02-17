@@ -61,7 +61,7 @@
         "All tests pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/sandbox/docker-runner.ts and src/sandbox/policy.ts. Docker runner: spawn containers with --volume for project dir (read-write), --network for Claude API only (use iptables rules or Docker network policy). Policy engine: define allowed/denied commands, blocked file paths (outside project), blocked git operations (force push, reset --hard on main). Wrap execFileSync calls through the policy engine. For testing, use a mock Docker interface. Prerequisites: 1.1 (OpenClaw sandbox patterns), 4.3 (build agents)."
     },
     {
@@ -76,7 +76,7 @@
         "All tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/security/credentials.ts and src/security/audit-checklist.ts. Credentials: store API keys in ~/.boop/credentials/anthropic.key with fs.chmodSync(path, 0o600). Load via environment variable first (ANTHROPIC_API_KEY), fall back to credential file. Never log or write keys to project files (reuse the sanitize() function from logger.ts). Audit checklist: programmatic checks that verify sandbox config exists, credentials have correct permissions, logger has credential filtering, git hooks prevent secret commits. Prerequisites: 6.4."
     },
     {

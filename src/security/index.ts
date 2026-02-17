@@ -1,11 +1,25 @@
 /**
  * Security module for Boop.
  *
- * Derived from OpenClaw's security module (MIT license).
- * Will be implemented when security audit features are needed.
+ * Provides credential management and security audit capabilities.
  */
 
-export interface SecurityAuditResult {
-  passed: boolean;
-  issues: string[];
-}
+export {
+  createCredentialStore,
+  containsCredential,
+  scanFileForCredentials,
+  getEnvVarName,
+  getDefaultCredentialsDir,
+  type CredentialStore,
+  type CredentialKey,
+  type CredentialPermissionResult,
+} from "./credentials.js";
+
+export {
+  runSecurityAudit,
+  formatAuditReport,
+  type AuditCheck,
+  type AuditCategory,
+  type AuditReport,
+  type AuditOptions,
+} from "./audit-checklist.js";
