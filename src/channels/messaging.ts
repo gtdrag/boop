@@ -73,6 +73,7 @@ export type PipelineEvent =
   | "build-complete"
   | "review-complete"
   | "sign-off-ready"
+  | "retrospective-complete"
   | "epic-complete"
   | "error";
 
@@ -122,6 +123,8 @@ const EVENT_MESSAGES: Record<PipelineEvent, (ctx: { epic?: number; detail?: stri
     `Review complete for Epic ${ctx.epic ?? "?"}. ${ctx.detail ?? "Ready for sign-off."}`,
   "sign-off-ready": (ctx) =>
     `Epic ${ctx.epic ?? "?"} is ready for sign-off.\n\n${ctx.detail ?? "Reply 'approve' or provide feedback to reject."}`,
+  "retrospective-complete": (ctx) =>
+    `Retrospective complete for Epic ${ctx.epic ?? "?"}. Project insights saved.`,
   "epic-complete": (ctx) => `Epic ${ctx.epic ?? "?"} approved and complete!`,
   error: (ctx) => `Error in pipeline: ${ctx.detail ?? "Unknown error"}`,
 };

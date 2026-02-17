@@ -17,6 +17,7 @@ export const PIPELINE_PHASES = [
   "BUILDING",
   "REVIEWING",
   "SIGN_OFF",
+  "RETROSPECTIVE",
   "COMPLETE",
 ] as const;
 

@@ -2,7 +2,7 @@
  * Pipeline state machine orchestrator.
  *
  * Manages phase transitions following the sequence:
- * IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE
+ * IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → RETROSPECTIVE → COMPLETE
  *
  * SCAFFOLDING runs once per project (first epic only) — subsequent epics skip to BUILDING.
  */
@@ -69,7 +69,8 @@ const TRANSITIONS: Record<PipelinePhase, PipelinePhase[]> = {
   SCAFFOLDING: ["BUILDING"],
   BUILDING: ["REVIEWING"],
   REVIEWING: ["SIGN_OFF"],
-  SIGN_OFF: ["COMPLETE"],
+  SIGN_OFF: ["RETROSPECTIVE"],
+  RETROSPECTIVE: ["COMPLETE"],
   COMPLETE: ["IDLE"],
 };
 
@@ -157,6 +158,8 @@ export class PipelineOrchestrator {
       void this.messaging.notify("build-complete", { epic });
     } else if (targetPhase === "SIGN_OFF") {
       void this.messaging.notify("review-complete", { epic });
+    } else if (targetPhase === "COMPLETE") {
+      void this.messaging.notify("retrospective-complete", { epic });
     }
   }
 

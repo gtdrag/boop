@@ -93,6 +93,7 @@ describe("PipelineOrchestrator", () => {
       orch.transition("BUILDING");
       orch.transition("REVIEWING");
       orch.transition("SIGN_OFF");
+      orch.transition("RETROSPECTIVE");
       orch.transition("COMPLETE");
       expect(orch.getState().phase).toBe("COMPLETE");
     });
@@ -156,6 +157,7 @@ describe("PipelineOrchestrator", () => {
       orch.transition("BUILDING");
       orch.transition("REVIEWING");
       orch.transition("SIGN_OFF");
+      orch.transition("RETROSPECTIVE");
       orch.transition("COMPLETE");
       expect(() => orch.advance()).toThrow("already COMPLETE");
     });
@@ -343,6 +345,8 @@ describe("PipelineOrchestrator", () => {
       expect(orch.getProfile()?.testRunner).toBe("vitest");
       orch.transition("SIGN_OFF");
       expect(orch.getProfile()?.linter).toBe("oxlint");
+      orch.transition("RETROSPECTIVE");
+      expect(orch.getProfile()?.aiModel).toBe("claude-opus-4-6");
       orch.transition("COMPLETE");
       expect(orch.getProfile()).toEqual(TEST_PROFILE);
     });
