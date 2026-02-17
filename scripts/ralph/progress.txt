@@ -1,97 +1,64 @@
 # Ralph Progress Log
-Started: Mon Feb 16 18:45:10 CST 2026
+Started: Mon Feb 16 19:15:19 CST 2026
 ---
 
-## 2026-02-16 18:48 - Story 4.1: BMAD story markdown parser
-- Implemented src/bridge/parser.ts — parses BMAD story markdown into typed ParsedBreakdown objects
-- Exported types: ParsedStory, ParsedEpic, ParsedBreakdown
-- Parser extracts: story ID, title, user story text, acceptance criteria, prerequisites, technical notes
-- Handles bold markers (**Given**/**When**/**Then**), multi-line user stories, optional sections
-- Created test fixtures: test/fixtures/stories-normal.md, test/fixtures/stories-edge-cases.md
-- 21 tests covering normal parsing, edge cases, real-world format (docs/epics.md), error handling, type checks
-- Files changed: src/bridge/parser.ts (new), src/bridge/parser.test.ts (new), test/fixtures/stories-normal.md (new), test/fixtures/stories-edge-cases.md (new)
-- **Learnings for future iterations:**
-  - BMAD markdown uses `## Epic N:` and `### Story N.M:` headings — regex patterns must match these exactly
-  - Bold markers in acceptance criteria (**Given**) need stripping for clean output
-  - Multi-line user stories (As a…\nI want…\nso that…) need joining into single string
-  - Prerequisites can be "None" or comma/space separated IDs like "1.1, 1.2"
-  - The `---` horizontal rule is a story separator, not content
-  - Story 4.2 (converter) depends on these parsed types — ParsedStory maps directly to Story type in shared/types.ts
+## Codebase Patterns
+
+### Review Agent Pattern
+- Each review agent is a function: `(context: ReviewContext) => Promise<AgentResult>`
+- Refactoring agent has extra param: `(context, findings) => Promise<AgentResult>`
+- AgentResult includes: agent name, success flag, markdown report, findings array, blockingIssues array
+- FindingSeverity: critical | high | medium | low | info
+- critical/high findings block epic advancement
+- Review artifacts saved to `.boop/reviews/epic-N/` with specific filenames per agent
+- QA smoke test results go in a subdirectory: `.boop/reviews/epic-N/qa-smoke-test/`
+
+### Code Review Agent Pattern
+- Factory function: `createCodeReviewer(options)` returns `ReviewAgentFn`
+- Uses git diff to find changed files, reads diffs + content
+- Batches files (50k chars max) for API calls
+- Claude outputs structured JSON finding lines, parsed by `parseFindings()`
+- Source files use relative imports (`../shared/`), NOT `#boop/` alias
+
+### Review Pipeline Sequence
+1. Parallel: code-reviewer + gap-analyst + tech-debt-auditor (Promise.all)
+2. refactoring-agent (receives combined findings from step 1)
+3. test-hardener
+4. test-suite run (if fails, pipeline stops — skips security + QA)
+5. security-scanner
+6. qa-smoke-test
+
 ---
 
-## 2026-02-16 18:51 - Story 4.2: Ralph prd.json converter
-- Implemented src/bridge/converter.ts — converts ParsedBreakdown to Ralph's Prd format
-- Exported: convertToPrd(), savePrd(), ProjectMetadata, ConvertOptions types
-- convertToPrd maps ParsedStory → Story: id, title, userStory→description, criteria with required gates, computed priority, notes from technicalNotes + prerequisites
-- Priority computed as epicIndex*100 + storyIndex + 1 — leaves room between epics
-- Always appends "Typecheck passes" and "All tests pass" (case-insensitive dedup)
-- savePrd writes to .boop/prd.json, creates directory if needed
-- Optional epicNumber filter for single-epic conversion
-- 18 tests: field mapping, required criteria dedup, priority ordering, notes building, epic filtering, savePrd file I/O, end-to-end parse→convert→save
-- Files changed: src/bridge/converter.ts (new), src/bridge/converter.test.ts (new)
+## 2026-02-16 19:20 - Story 5.1
+- Implemented review team orchestrator at src/review/team-orchestrator.ts
+- Files created:
+  - src/review/team-orchestrator.ts (orchestrator + types + error class)
+  - src/review/team-orchestrator.test.ts (35 tests)
 - **Learnings for future iterations:**
-  - ParsedStory.userStory maps to Story.description — naming differs between parser and Ralph formats
-  - Priority spacing (epicIndex*100) allows inserting stories later without renumbering
-  - ensureRequiredCriteria uses lowercase Set for case-insensitive dedup
-  - buildNotes joins technicalNotes with ". " and appends dependency note
-  - savePrd uses fs.mkdirSync with recursive:true — safe to call when dir exists
-  - Story 4.3 (Ralph loop) will consume the Prd type from converter output
+  - Agent functions are injected via options for testability — no vi.mock needed
+  - ReviewPhaseError follows same pattern as PlanningPhaseError
+  - Test suite failure is an early-exit condition — stops before security/QA
+  - Blocking conditions: unresolved gaps, critical/high vulns, QA crashes, test failures
+  - vi.fn<FnType>() typing works well for typed mock agents
 ---
 
-## 2026-02-16 18:57 - Story 4.3: Ralph story execution loop
-- Implemented three modules for the Ralph build loop:
-  - src/build/reality-check.ts — scans source files for mock data, placeholders, stubs, TODO/FIXME markers
-  - src/build/story-runner.ts — assembles prompt (CLAUDE.md + progress.txt + PRD + story details), sends to Claude via Anthropic SDK, returns response
-  - src/build/ralph-loop.ts — orchestrator that loads PRD, picks next story, runs it, executes quality checks (typecheck + test + reality check), handles retries, marks story done
-- reality-check: pattern-based scanner with VIOLATION_PATTERNS array, skips test files/node_modules/dist, reports file:line:kind:text
-- story-runner: buildSystemPrompt() injects CLAUDE.md + progress.txt + PRD context, buildStoryPrompt() formats story with numbered criteria, runStory() uses retry() + sendMessage() from shared modules
-- ralph-loop: loadPrd/savePrdFile for I/O, pickNextStory sorts by priority ascending, runLoopIteration does attempt loop with maxRetries (default 1), quality checks run in order: typecheck → test → reality check
-- 55 tests across 3 test files (22 reality-check, 16 story-runner, 17 ralph-loop)
-- Files changed: src/build/reality-check.ts (new), src/build/story-runner.ts (new), src/build/ralph-loop.ts (new), src/build/reality-check.test.ts (new), src/build/story-runner.test.ts (new), src/build/ralph-loop.test.ts (new)
+## 2026-02-16 19:25 - Story 5.2
+- Implemented code review agent at src/review/code-reviewer.ts
+- Files created:
+  - src/review/code-reviewer.ts (code reviewer agent with git diff + Claude review)
+  - src/review/code-reviewer.test.ts (26 tests)
+- **Architecture:**
+  - `createCodeReviewer(options)` factory returns a `ReviewAgentFn`
+  - Uses `git diff --name-only --diff-filter=ACMR` to find changed files
+  - Batches files by size (50k chars) for API calls to avoid token limits
+  - Sends diffs + content to Claude with structured JSON output format
+  - `parseFindings()` parses JSON lines from response
+  - critical/high findings become blockingIssues
+  - Falls back to `git ls-files` if diff against base branch fails
 - **Learnings for future iterations:**
-  - vi.mock() with vi.hoisted() pattern continues to work well for mocking claude-client.ts
-  - Object spread order matters: `{ default, ...overrides }` lets callers override defaults; `{ ...overrides, default }` forces defaults — story-runner uses the former so clientOptions can override maxTokens
-  - RetryError wraps the original error — test for "All N attempts failed" not the original message
-  - execSync with stdio: ["pipe", "pipe", "pipe"] captures both stdout and stderr for quality check reporting
-  - Reality check patterns use first-match-per-line to avoid duplicate violations on the same line
-  - Story 4.4 (progress tracking) builds on the progress.txt append pattern already used here
-  - Story 4.5 (git branch management) will use the execSync pattern from runQualityChecks for git operations
----
-
-## 2026-02-16 19:01 - Story 4.4: Progress and pattern tracking
-- Implemented src/build/progress.ts — manages append-only progress log and CLAUDE.md pattern updates
-- Exported: readProgress, formatProgressEntry, appendProgress, extractPatternsSection, addPattern, extractClaudeMdUpdates, appendToClaudeMd, buildProgressEntry
-- appendProgress: creates file/dirs if needed, formats entry in Ralph progress log format, appends without replacing
-- extractPatternsSection: parses the ## Codebase Patterns block from progress.txt content
-- addPattern: inserts new bullet into patterns section (creates section if missing)
-- extractClaudeMdUpdates: two strategies — marker-delimited blocks (<!-- CLAUDE_MD_UPDATE -->) and heading-based (## CLAUDE.md Updates)
-- appendToClaudeMd: appends extracted patterns to ## Codebase Patterns section in CLAUDE.md
-- buildProgressEntry: convenience function that creates a ProgressEntry from story + summary data with auto-generated date
-- Integrated into ralph-loop.ts: after quality checks pass, loop calls appendProgress and optionally extractClaudeMdUpdates + appendToClaudeMd
-- 25 tests covering: readProgress (existing/missing), formatProgressEntry (all fields/empty sections), appendProgress (create/append/no-double-newline), extractPatternsSection, addPattern (create/append/empty), extractClaudeMdUpdates (markers/heading/null), appendToClaudeMd (create/append/new-file), buildProgressEntry
-- Files changed: src/build/progress.ts (new), src/build/progress.test.ts (new), src/build/ralph-loop.ts (modified)
-- **Learnings for future iterations:**
-  - fs.appendFileSync is simpler than read+write for append-only files
-  - Pattern section parsing uses indexOf + search(/^## /m) to find section boundaries
-  - Two extraction strategies for CLAUDE.md updates cover both structured (markers) and freeform (heading) agent responses
-  - ralph-loop integration captures runStory result text to extract CLAUDE.md updates
-  - Story 4.5 (git branch management) is the last story — will add branch create/checkout to the build phase
----
-
-## 2026-02-16 19:04 - Story 4.5: Git branch management
-- Implemented src/build/git.ts — git branch management utilities for the Ralph build loop
-- Exported: runGit, getCurrentBranch, branchExists, ensureBranch, buildStoryCommitMessage, buildReviewCommitMessage, stageAndCommit, commitStory, commitReview
-- ensureBranch: checks current branch, checks out existing branch, or creates new branch from main (falls back to HEAD)
-- buildStoryCommitMessage: enforces `feat: [Story ID] - [Story Title]` format
-- buildReviewCommitMessage: enforces `refactor: Epic N review - [description]` format
-- stageAndCommit: stages all changes with `git add -A`, detects empty staging, commits with message
-- Integrated into ralph-loop.ts: ensureBranch called at loop start (ensures correct branch from prd.branchName), commitStory called after quality checks pass
-- 22 tests covering: runGit (valid/invalid/bad-dir), getCurrentBranch (main/feature/no-repo), branchExists (exists/not-exists/new), ensureBranch (already-on/checkout-existing/create-from-main/create-from-HEAD), buildStoryCommitMessage, buildReviewCommitMessage, stageAndCommit (changes/nothing/quotes), commitStory, commitReview
-- Files changed: src/build/git.ts (new), src/build/git.test.ts (new), src/build/ralph-loop.ts (modified)
-- **Learnings for future iterations:**
-  - execSync with `git rev-parse --verify refs/heads/<branch>` is reliable for checking local branch existence
-  - `git diff --cached --quiet` returns exit code 0 when no staged changes (useful for detecting empty commits)
-  - Double quotes in commit messages need escaping when passed via shell — use `message.replace(/"/g, '\\"')`
-  - Tests create real git repos in tmpDir with `git init` — need initial commit so branches can be created
-  - `git branch -M main` ensures consistent branch naming in test repos
+  - Source files must use relative imports (`../shared/`), NOT `#boop/` alias — alias only works in vitest
+  - When mocking `node:child_process.execFile` with promisify, must also mock `node:util.promisify`
+  - Git diff args include `--diff-filter=ACMR` at index 2, so matching by branch name needs `args.includes()` not positional check
+  - Truncation helper needed for large files to stay within API token limits
 ---
