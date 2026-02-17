@@ -6,7 +6,6 @@
  * Receives their combined findings and produces fix suggestions.
  * Commits use format: 'refactor: Epic N review - [description]'.
  */
-import fs from "node:fs";
 import path from "node:path";
 
 import { sendMessage, isRetryableApiError } from "../shared/claude-client.js";
@@ -17,23 +16,22 @@ import type {
   AgentResult,
   ReviewContext,
   ReviewFinding,
-  FindingSeverity,
 } from "./team-orchestrator.js";
+import {
+  truncate,
+  parseFindings,
+  extractSummary,
+  readFileContent,
+} from "./shared.js";
+
+// Re-export shared utilities so existing imports from this module continue to work.
+export { parseFindings, extractSummary };
 
 // ---------------------------------------------------------------------------
 // File reading helpers
 // ---------------------------------------------------------------------------
 
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
-
-function readFileContent(projectDir: string, filePath: string): string {
-  const fullPath = path.join(projectDir, filePath);
-  try {
-    return fs.readFileSync(fullPath, "utf-8");
-  } catch {
-    return "";
-  }
-}
 
 /**
  * Extract unique file paths from findings.
@@ -77,11 +75,6 @@ Rules:
 - Each finding must be a single JSON line (no multi-line JSON)
 - Do not introduce new bugs or break existing functionality`;
 
-function truncate(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n... (truncated)";
-}
-
 function buildRefactoringMessage(
   findings: ReviewFinding[],
   fileContents: Array<{ path: string; content: string }>,
@@ -122,55 +115,6 @@ function buildRefactoringMessage(
   }
 
   return parts.join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// Response parsing
-// ---------------------------------------------------------------------------
-
-const VALID_SEVERITIES = new Set<string>(["critical", "high", "medium", "low", "info"]);
-
-/**
- * Parse Claude's response into structured findings.
- */
-export function parseFindings(responseText: string): ReviewFinding[] {
-  const findings: ReviewFinding[] = [];
-  const lines = responseText.split("\n");
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{")) continue;
-
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-      if (
-        typeof parsed.title === "string" &&
-        typeof parsed.severity === "string" &&
-        typeof parsed.description === "string" &&
-        VALID_SEVERITIES.has(parsed.severity)
-      ) {
-        findings.push({
-          title: parsed.title,
-          severity: parsed.severity as FindingSeverity,
-          file: typeof parsed.file === "string" ? parsed.file : undefined,
-          description: parsed.description,
-        });
-      }
-    } catch {
-      // Not valid JSON — skip
-    }
-  }
-
-  return findings;
-}
-
-/**
- * Extract the summary section from Claude's response.
- */
-export function extractSummary(responseText: string): string {
-  const summaryIndex = responseText.indexOf("## Summary");
-  if (summaryIndex === -1) return responseText;
-  return responseText.slice(summaryIndex);
 }
 
 // ---------------------------------------------------------------------------

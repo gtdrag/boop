@@ -18,6 +18,7 @@ import type {
   ReviewFinding,
   FindingSeverity,
 } from "./team-orchestrator.js";
+import { truncate, collectSourceFiles } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // PRD types (minimal — just what we need to read stories)
@@ -54,11 +55,8 @@ const PLACEHOLDER_PATTERNS = [
   /throw new Error\(["']not implemented/i,
 ];
 
-// File extensions to scan
-const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
-
-// Directories to skip
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "coverage", "test", ".boop"]);
+// Re-export shared collectSourceFiles so existing imports from this module continue to work.
+export { collectSourceFiles } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,34 +74,6 @@ export function readPrdStories(projectDir: string): PrdStory[] {
   } catch {
     return [];
   }
-}
-
-/**
- * Recursively collect source files from a directory.
- */
-export function collectSourceFiles(dir: string, baseDir: string): string[] {
-  const files: string[] = [];
-
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return files;
-  }
-
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      files.push(...collectSourceFiles(fullPath, baseDir));
-    } else if (entry.isFile() && SCAN_EXTENSIONS.has(path.extname(entry.name))) {
-      files.push(path.relative(baseDir, fullPath));
-    }
-  }
-
-  return files;
 }
 
 /**
@@ -203,11 +173,6 @@ function buildGapAnalysisMessage(
   }
 
   return parts.join("\n");
-}
-
-function truncate(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n... (truncated)";
 }
 
 // ---------------------------------------------------------------------------

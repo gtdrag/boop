@@ -49,16 +49,29 @@ export function loadState(projectDir: string): PipelineState | null {
  */
 export function saveState(projectDir: string, state: PipelineState): void {
   const dirPath = path.join(projectDir, BOOP_DIR);
-  fs.mkdirSync(dirPath, { recursive: true });
-
   const filePath = stateFilePath(projectDir);
   const tmpPath = filePath + ".tmp";
 
-  const updated: PipelineState = {
-    ...state,
-    updatedAt: new Date().toISOString(),
-  };
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
 
-  fs.writeFileSync(tmpPath, stringify(updated), "utf-8");
-  fs.renameSync(tmpPath, filePath);
+    const updated: PipelineState = {
+      ...state,
+      updatedAt: new Date().toISOString(),
+    };
+
+    fs.writeFileSync(tmpPath, stringify(updated), "utf-8");
+    fs.renameSync(tmpPath, filePath);
+  } catch (error: unknown) {
+    // Attempt to clean up the temp file if it exists
+    try {
+      if (fs.existsSync(tmpPath)) {
+        fs.unlinkSync(tmpPath);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to save pipeline state: ${msg}`);
+  }
 }

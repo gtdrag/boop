@@ -16,42 +16,36 @@ import type {
   AgentResult,
   ReviewContext,
   ReviewFinding,
-  FindingSeverity,
 } from "./team-orchestrator.js";
+import {
+  truncate,
+  parseFindings,
+  extractSummary,
+  collectSourceFiles,
+} from "./shared.js";
+
+// Re-export shared utilities so existing imports from this module continue to work.
+export { parseFindings, extractSummary } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // File collection
 // ---------------------------------------------------------------------------
 
-const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "coverage", ".boop"]);
+/** test-hardener needs to collect from "test/" too, so it does NOT skip "test". */
+const TEST_HARDENER_SKIP_DIRS: ReadonlySet<string> = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "coverage",
+  ".boop",
+]);
 
 /**
  * Recursively collect files from a directory.
+ * Delegates to the shared collectSourceFiles with custom skipDirs.
  */
 export function collectFiles(dir: string, baseDir: string): string[] {
-  const files: string[] = [];
-
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return files;
-  }
-
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      files.push(...collectFiles(fullPath, baseDir));
-    } else if (entry.isFile() && SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
-      files.push(path.relative(baseDir, fullPath));
-    }
-  }
-
-  return files;
+  return collectSourceFiles(dir, baseDir, { skipDirs: TEST_HARDENER_SKIP_DIRS });
 }
 
 /**
@@ -138,11 +132,6 @@ Rules:
 - Consider integration tests that span multiple modules
 - Each finding must be a single JSON line (no multi-line JSON)`;
 
-function truncate(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n... (truncated)";
-}
-
 function buildTestHardeningMessage(
   untestedFiles: string[],
   sourceContents: Array<{ path: string; content: string }>,
@@ -179,55 +168,6 @@ function buildTestHardeningMessage(
   }
 
   return parts.join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// Response parsing
-// ---------------------------------------------------------------------------
-
-const VALID_SEVERITIES = new Set<string>(["critical", "high", "medium", "low", "info"]);
-
-/**
- * Parse Claude's response into structured findings.
- */
-export function parseFindings(responseText: string): ReviewFinding[] {
-  const findings: ReviewFinding[] = [];
-  const lines = responseText.split("\n");
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{")) continue;
-
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-      if (
-        typeof parsed.title === "string" &&
-        typeof parsed.severity === "string" &&
-        typeof parsed.description === "string" &&
-        VALID_SEVERITIES.has(parsed.severity)
-      ) {
-        findings.push({
-          title: parsed.title,
-          severity: parsed.severity as FindingSeverity,
-          file: typeof parsed.file === "string" ? parsed.file : undefined,
-          description: parsed.description,
-        });
-      }
-    } catch {
-      // Not valid JSON — skip
-    }
-  }
-
-  return findings;
-}
-
-/**
- * Extract the summary section from Claude's response.
- */
-export function extractSummary(responseText: string): string {
-  const summaryIndex = responseText.indexOf("## Summary");
-  if (summaryIndex === -1) return responseText;
-  return responseText.slice(summaryIndex);
 }
 
 // ---------------------------------------------------------------------------

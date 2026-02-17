@@ -5,7 +5,7 @@
  * commit message formats for story and review commits.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,10 +24,12 @@ export interface GitResult {
 
 /**
  * Run a git command and return the result.
+ *
+ * Uses execFileSync with an argument array to prevent shell injection.
  */
-export function runGit(args: string, cwd: string): GitResult {
+export function runGit(args: string[], cwd: string): GitResult {
   try {
-    const output = execSync(`git ${args}`, {
+    const output = execFileSync("git", args, {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -48,7 +50,7 @@ export function runGit(args: string, cwd: string): GitResult {
  * Get the current branch name.
  */
 export function getCurrentBranch(cwd: string): string {
-  const result = runGit("rev-parse --abbrev-ref HEAD", cwd);
+  const result = runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
   if (!result.success) {
     throw new Error(`Failed to get current branch: ${result.output}`);
   }
@@ -60,7 +62,7 @@ export function getCurrentBranch(cwd: string): string {
  */
 export function branchExists(branchName: string, cwd: string): boolean {
   const result = runGit(
-    `rev-parse --verify refs/heads/${branchName}`,
+    ["rev-parse", "--verify", `refs/heads/${branchName}`],
     cwd,
   );
   return result.success;
@@ -69,6 +71,18 @@ export function branchExists(branchName: string, cwd: string): boolean {
 // ---------------------------------------------------------------------------
 // Branch management
 // ---------------------------------------------------------------------------
+
+/**
+ * Validate that a branch name contains only safe characters.
+ * Rejects names that could be used for injection attacks.
+ */
+export function validateBranchName(branchName: string): void {
+  if (!/^[a-zA-Z0-9._\/-]+$/.test(branchName)) {
+    throw new Error(
+      `Invalid branch name '${branchName}': must contain only alphanumeric characters, dots, underscores, hyphens, and forward slashes`,
+    );
+  }
+}
 
 /**
  * Ensure the target branch exists and is checked out.
@@ -82,6 +96,8 @@ export function branchExists(branchName: string, cwd: string): boolean {
  * @returns A description of what happened.
  */
 export function ensureBranch(branchName: string, cwd: string): string {
+  validateBranchName(branchName);
+
   const current = getCurrentBranch(cwd);
 
   if (current === branchName) {
@@ -89,7 +105,7 @@ export function ensureBranch(branchName: string, cwd: string): string {
   }
 
   if (branchExists(branchName, cwd)) {
-    const result = runGit(`checkout ${branchName}`, cwd);
+    const result = runGit(["checkout", branchName], cwd);
     if (!result.success) {
       throw new Error(
         `Failed to checkout branch '${branchName}': ${result.output}`,
@@ -100,7 +116,7 @@ export function ensureBranch(branchName: string, cwd: string): string {
 
   // Create the branch from main if it exists, otherwise from HEAD
   const base = branchExists("main", cwd) ? "main" : "HEAD";
-  const result = runGit(`checkout -b ${branchName} ${base}`, cwd);
+  const result = runGit(["checkout", "-b", branchName, base], cwd);
   if (!result.success) {
     throw new Error(
       `Failed to create branch '${branchName}': ${result.output}`,
@@ -148,20 +164,20 @@ export function buildReviewCommitMessage(
  */
 export function stageAndCommit(message: string, cwd: string): GitResult {
   // Stage all changes
-  const addResult = runGit("add -A", cwd);
+  const addResult = runGit(["add", "-A"], cwd);
   if (!addResult.success) {
     return addResult;
   }
 
   // Check if there's anything to commit
-  const statusResult = runGit("diff --cached --quiet", cwd);
+  const statusResult = runGit(["diff", "--cached", "--quiet"], cwd);
   if (statusResult.success) {
     // Exit code 0 means no staged changes
     return { success: true, output: "Nothing to commit" };
   }
 
-  // Commit (using -- to prevent message from being treated as a path)
-  return runGit(`commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
+  // Commit — execFileSync with array args prevents shell injection via message
+  return runGit(["commit", "-m", message], cwd);
 }
 
 /**

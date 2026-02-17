@@ -5,7 +5,6 @@
  * and sends them to Claude for automated code review.
  */
 import { execFile } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -17,8 +16,13 @@ import type {
   AgentResult,
   ReviewContext,
   ReviewFinding,
-  FindingSeverity,
 } from "./team-orchestrator.js";
+import {
+  truncate,
+  parseFindings,
+  extractSummary,
+  readFileContent,
+} from "./shared.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -80,17 +84,6 @@ export async function getFileDiff(
   }
 }
 
-/**
- * Read a file's content, returning empty string if it doesn't exist.
- */
-function readFileContent(projectDir: string, filePath: string): string {
-  const fullPath = path.join(projectDir, filePath);
-  try {
-    return fs.readFileSync(fullPath, "utf-8");
-  } catch {
-    return "";
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Prompt construction
@@ -146,59 +139,8 @@ function buildReviewMessage(
   return parts.join("\n");
 }
 
-function truncate(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n... (truncated)";
-}
-
-// ---------------------------------------------------------------------------
-// Response parsing
-// ---------------------------------------------------------------------------
-
-const VALID_SEVERITIES = new Set<string>(["critical", "high", "medium", "low", "info"]);
-
-/**
- * Parse Claude's response into structured findings.
- */
-export function parseFindings(responseText: string): ReviewFinding[] {
-  const findings: ReviewFinding[] = [];
-  const lines = responseText.split("\n");
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{")) continue;
-
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-      if (
-        typeof parsed.title === "string" &&
-        typeof parsed.severity === "string" &&
-        typeof parsed.description === "string" &&
-        VALID_SEVERITIES.has(parsed.severity)
-      ) {
-        findings.push({
-          title: parsed.title,
-          severity: parsed.severity as FindingSeverity,
-          file: typeof parsed.file === "string" ? parsed.file : undefined,
-          description: parsed.description,
-        });
-      }
-    } catch {
-      // Not valid JSON — skip
-    }
-  }
-
-  return findings;
-}
-
-/**
- * Extract the summary section from Claude's response.
- */
-export function extractSummary(responseText: string): string {
-  const summaryIndex = responseText.indexOf("## Summary");
-  if (summaryIndex === -1) return responseText;
-  return responseText.slice(summaryIndex);
-}
+// Re-export shared utilities so existing imports from this module continue to work.
+export { parseFindings, extractSummary } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // Report generation

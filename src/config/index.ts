@@ -17,6 +17,16 @@ const PROFILE_FILENAME = "profile.yaml";
 export function resolveHomeDir(): string {
   const override = process.env.BOOP_HOME?.trim();
   if (override) {
+    if (override.includes("..")) {
+      throw new Error(
+        `Invalid BOOP_HOME path '${override}': path must not contain '..' traversal segments`,
+      );
+    }
+    if (!override.startsWith("/") && !override.startsWith("~")) {
+      throw new Error(
+        `Invalid BOOP_HOME path '${override}': path must be absolute (start with '/' or '~')`,
+      );
+    }
     return path.resolve(override);
   }
   return os.homedir();

@@ -24,6 +24,11 @@ import { generateStories } from "../planning/stories.js";
 import type { StoriesResult } from "../planning/stories.js";
 import { retry } from "../shared/retry.js";
 import { isRetryableApiError } from "../shared/claude-client.js";
+import {
+  createMessagingDispatcher,
+  messagingConfigFromProfile,
+} from "../channels/messaging.js";
+import type { MessagingDispatcher } from "../channels/messaging.js";
 
 /** Result of the full planning chain. */
 export interface PlanningResult {
@@ -72,11 +77,17 @@ export class PipelineOrchestrator {
   private state: PipelineState;
   private readonly projectDir: string;
   private readonly profile: DeveloperProfile | null;
+  private readonly messaging: MessagingDispatcher;
 
   constructor(projectDir: string, profile?: DeveloperProfile) {
     this.projectDir = projectDir;
     this.state = loadState(projectDir) ?? defaultState();
     this.profile = profile ?? null;
+
+    const msgConfig = profile
+      ? messagingConfigFromProfile(profile)
+      : { channel: "none" as const };
+    this.messaging = createMessagingDispatcher(msgConfig);
   }
 
   /**
@@ -137,6 +148,16 @@ export class PipelineOrchestrator {
       updatedAt: new Date().toISOString(),
     };
     saveState(this.projectDir, this.state);
+
+    // Fire messaging notifications for key phase transitions
+    const epic = this.state.epicNumber;
+    if (targetPhase === "BUILDING") {
+      void this.messaging.notify("build-started", { epic });
+    } else if (targetPhase === "REVIEWING") {
+      void this.messaging.notify("build-complete", { epic });
+    } else if (targetPhase === "SIGN_OFF") {
+      void this.messaging.notify("review-complete", { epic });
+    }
   }
 
   /**
@@ -277,6 +298,8 @@ export class PipelineOrchestrator {
         }),
       onProgress,
     );
+
+    await this.messaging.notify("planning-complete", { epic: this.state.epicNumber });
 
     return { viability, prd, architecture, stories };
   }

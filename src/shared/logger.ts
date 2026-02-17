@@ -10,6 +10,20 @@ import path from "node:path";
 import os from "node:os";
 import type { LogEntry, LogLevel } from "./types.js";
 
+/**
+ * Redact sensitive values (API keys, tokens, passwords, secrets) from a string.
+ */
+export function sanitize(input: string): string {
+  // Redact key=value or key: value patterns for sensitive keys
+  let result = input.replace(
+    /(api.?key|token|password|secret|credential)[=:]\s*\S+/gi,
+    "$1=***REDACTED***",
+  );
+  // Redact Anthropic API key patterns (sk-ant-...)
+  result = result.replace(/sk-ant-[A-Za-z0-9_-]+/g, "***REDACTED***");
+  return result;
+}
+
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   fatal: 0,
   error: 1,
@@ -140,7 +154,9 @@ export class Logger {
         const date = new Date().toISOString().slice(0, 10);
         this.logFilePath = path.join(this.logDir, `boop-${date}.jsonl`);
       }
-      fs.appendFileSync(this.logFilePath, JSON.stringify(entry) + "\n");
+      // Sanitize the entry before writing to prevent credential leakage
+      const sanitized: LogEntry = { ...entry, msg: sanitize(entry.msg) };
+      fs.appendFileSync(this.logFilePath, JSON.stringify(sanitized) + "\n");
     } catch {
       // Silently drop file write errors — don't crash the pipeline over logging
     }

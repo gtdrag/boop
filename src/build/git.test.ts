@@ -8,6 +8,7 @@ import {
   getCurrentBranch,
   branchExists,
   ensureBranch,
+  validateBranchName,
   buildStoryCommitMessage,
   buildReviewCommitMessage,
   stageAndCommit,
@@ -60,19 +61,19 @@ afterEach(() => {
 
 describe("runGit", () => {
   it("returns success for a valid git command", () => {
-    const result = runGit("status", tmpDir);
+    const result = runGit(["status"], tmpDir);
     expect(result.success).toBe(true);
     expect(result.output).toContain("On branch");
   });
 
   it("returns failure for an invalid git command", () => {
-    const result = runGit("not-a-command", tmpDir);
+    const result = runGit(["not-a-command"], tmpDir);
     expect(result.success).toBe(false);
     expect(result.output.length).toBeGreaterThan(0);
   });
 
   it("returns failure for a bad directory", () => {
-    const result = runGit("status", path.join(tmpDir, "nonexistent"));
+    const result = runGit(["status"], path.join(tmpDir, "nonexistent"));
     expect(result.success).toBe(false);
   });
 });
@@ -154,6 +155,40 @@ describe("ensureBranch", () => {
     expect(result).toContain("Created and switched to new branch");
     expect(result).toContain("from HEAD");
     expect(getCurrentBranch(tmpDir)).toBe("feature/no-main");
+  });
+
+  it("rejects invalid branch names", () => {
+    expect(() => ensureBranch("branch;rm -rf /", tmpDir)).toThrow(
+      "Invalid branch name",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateBranchName
+// ---------------------------------------------------------------------------
+
+describe("validateBranchName", () => {
+  it("accepts valid branch names", () => {
+    expect(() => validateBranchName("main")).not.toThrow();
+    expect(() => validateBranchName("feature/new-thing")).not.toThrow();
+    expect(() => validateBranchName("ralph/epic-4")).not.toThrow();
+    expect(() => validateBranchName("release/1.0.0")).not.toThrow();
+    expect(() => validateBranchName("my_branch")).not.toThrow();
+  });
+
+  it("rejects branch names with spaces", () => {
+    expect(() => validateBranchName("my branch")).toThrow("Invalid branch name");
+  });
+
+  it("rejects branch names with shell metacharacters", () => {
+    expect(() => validateBranchName("branch;rm -rf /")).toThrow("Invalid branch name");
+    expect(() => validateBranchName("branch$(whoami)")).toThrow("Invalid branch name");
+    expect(() => validateBranchName("branch`id`")).toThrow("Invalid branch name");
+  });
+
+  it("rejects empty branch names", () => {
+    expect(() => validateBranchName("")).toThrow("Invalid branch name");
   });
 });
 

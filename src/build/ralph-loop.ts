@@ -66,11 +66,69 @@ export interface QualityCheckResult {
 // ---------------------------------------------------------------------------
 
 /**
+ * Validate that a parsed object conforms to the Prd schema at runtime.
+ * Throws a descriptive error if validation fails.
+ */
+function validatePrd(data: unknown): asserts data is Prd {
+  if (data === null || typeof data !== "object") {
+    throw new Error("PRD must be a JSON object");
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  if (typeof obj.project !== "string") {
+    throw new Error("PRD 'project' must be a string");
+  }
+  if (typeof obj.branchName !== "string") {
+    throw new Error("PRD 'branchName' must be a string");
+  }
+  if (typeof obj.description !== "string") {
+    throw new Error("PRD 'description' must be a string");
+  }
+
+  if (!Array.isArray(obj.userStories)) {
+    throw new Error("PRD 'userStories' must be an array");
+  }
+
+  for (let i = 0; i < obj.userStories.length; i++) {
+    const story = obj.userStories[i] as Record<string, unknown>;
+    const prefix = `PRD userStories[${i}]`;
+
+    if (typeof story.id !== "string") {
+      throw new Error(`${prefix} 'id' must be a string`);
+    }
+    if (typeof story.title !== "string") {
+      throw new Error(`${prefix} 'title' must be a string`);
+    }
+    if (typeof story.description !== "string") {
+      throw new Error(`${prefix} 'description' must be a string`);
+    }
+    if (!Array.isArray(story.acceptanceCriteria)) {
+      throw new Error(`${prefix} 'acceptanceCriteria' must be an array`);
+    }
+    if (typeof story.priority !== "number") {
+      throw new Error(`${prefix} 'priority' must be a number`);
+    }
+    if (typeof story.passes !== "boolean") {
+      throw new Error(`${prefix} 'passes' must be a boolean`);
+    }
+  }
+}
+
+/**
  * Read and parse the prd.json file.
+ * Validates the structure at runtime to catch malformed input early.
  */
 export function loadPrd(prdPath: string): Prd {
-  const raw = fs.readFileSync(prdPath, "utf-8");
-  return JSON.parse(raw) as Prd;
+  try {
+    const raw = fs.readFileSync(prdPath, "utf-8");
+    const data: unknown = JSON.parse(raw);
+    validatePrd(data);
+    return data;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to load PRD from '${prdPath}': ${msg}`);
+  }
 }
 
 /**
@@ -121,13 +179,14 @@ export function allStoriesComplete(prd: Prd): boolean {
 function runCommand(
   cmd: string,
   cwd: string,
+  timeout: number = 120_000,
 ): { success: boolean; output: string } {
   try {
     const output = execSync(cmd, {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: 120_000,
+      timeout,
     });
     return { success: true, output };
   } catch (error: unknown) {
@@ -144,9 +203,12 @@ function runCommand(
  */
 export function runQualityChecks(
   projectDir: string,
+  options?: { timeout?: number },
 ): QualityCheckResult {
+  const timeout = options?.timeout;
+
   // 1. Typecheck
-  const typecheck = runCommand("pnpm typecheck", projectDir);
+  const typecheck = runCommand("pnpm typecheck", projectDir, timeout);
   if (!typecheck.success) {
     return {
       passed: false,
@@ -155,7 +217,7 @@ export function runQualityChecks(
   }
 
   // 2. Tests
-  const tests = runCommand("pnpm test", projectDir);
+  const tests = runCommand("pnpm test", projectDir, timeout);
   if (!tests.success) {
     return {
       passed: false,

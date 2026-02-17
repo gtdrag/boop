@@ -173,12 +173,12 @@ describe("handleCli", () => {
     spy.mockRestore();
   });
 
-  it("handles --review flag", async () => {
+  it("handles --review flag with no active review", async () => {
     fs.mkdirSync(configDir, { recursive: true });
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await handleCli(undefined, { review: true }, undefined, configDir);
-    expect(spy).toHaveBeenCalledWith("[boop] Review phase — not yet implemented.");
+    await handleCli(undefined, { review: true }, "/tmp/boop-test-nonexistent", configDir);
+    expect(spy).toHaveBeenCalledWith("[boop] No active epic in REVIEWING phase. Nothing to review.");
     spy.mockRestore();
   });
 
