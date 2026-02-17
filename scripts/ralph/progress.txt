@@ -1,149 +1,20 @@
 # Ralph Progress Log
-Started: Mon Feb 16 16:38:33 CST 2026
-
-## Codebase Patterns
-- Use `vi.hoisted()` for mock functions referenced inside `vi.mock()` factory — `const` declarations at module level are NOT available inside hoisted vi.mock factories
-- Use `mockFn.mockReset()` in `beforeEach` instead of `vi.restoreAllMocks()` in afterEach — restoreAllMocks removes mock implementations from vi.mock factories
-- Anthropic SDK `APIError` constructor requires a `Headers` object (use `new Headers()`) — plain `{}` causes `headers?.get is not a function`
-- Mock `@clack/prompts` in CLI tests when testing code paths that call interactive prompts (select, confirm, text) to avoid hanging tests
-- `import.meta.dirname` works in vitest for resolving paths relative to the source file
-- Planning chain orchestration: `PipelineOrchestrator.runPlanning()` chains all 4 phases, updates `lastCompletedStep` after each, and wraps failures in `PlanningPhaseError`
-- `PlanningSubPhase` type (`viability | prd | architecture | stories`) tracks sub-phase progression within the PLANNING phase
+Started: Mon Feb 16 18:45:10 CST 2026
 ---
 
-## 2026-02-16 - Story 3.1: Viability assessment
-- What was implemented:
-  - Added `@anthropic-ai/sdk` dependency (v0.74.0) for Claude API integration
-  - Created `src/shared/claude-client.ts` — shared Claude API client with `sendMessage()`, `createAnthropicClient()`, and `isRetryableApiError()` (rate limit + server errors are retryable)
-  - Created `prompts/viability/system.md` — BMAD-style prompt template for viability assessment (feasibility, market fit, technical complexity)
-  - Created `src/planning/viability.ts` — viability assessment module with profile context formatting, recommendation extraction (PROCEED/CONCERNS/RECONSIDER), and file persistence to `.boop/planning/viability.md`
-  - Updated `src/cli/program.ts` — `boop <idea>` now runs viability assessment, displays results, and prompts user to proceed/revise/stop
-  - Created `src/shared/claude-client.test.ts` — 7 tests for API error classification
-  - Created `src/planning/viability.test.ts` — 20 tests covering prompt loading, profile formatting, recommendation extraction, file saving, and mocked API calls
-  - Updated `src/cli/program.test.ts` — added viability and @clack/prompts mocks to prevent real API calls and interactive prompt hangs
-- Files changed:
-  - NEW: `src/shared/claude-client.ts`, `src/shared/claude-client.test.ts`
-  - NEW: `src/planning/viability.ts`, `src/planning/viability.test.ts`
-  - NEW: `prompts/viability/system.md`
-  - MODIFIED: `package.json`, `pnpm-lock.yaml` (@anthropic-ai/sdk)
-  - MODIFIED: `src/shared/index.ts` (re-exports claude-client)
-  - MODIFIED: `src/cli/program.ts`, `src/cli/program.test.ts` (viability integration + mocks)
-  - FORMATTING: docs/epics.md, src/config/index.ts, src/pipeline/orchestrator.test.ts, src/profile/*.ts, src/shared/*.ts (oxfmt)
+## 2026-02-16 18:48 - Story 4.1: BMAD story markdown parser
+- Implemented src/bridge/parser.ts — parses BMAD story markdown into typed ParsedBreakdown objects
+- Exported types: ParsedStory, ParsedEpic, ParsedBreakdown
+- Parser extracts: story ID, title, user story text, acceptance criteria, prerequisites, technical notes
+- Handles bold markers (**Given**/**When**/**Then**), multi-line user stories, optional sections
+- Created test fixtures: test/fixtures/stories-normal.md, test/fixtures/stories-edge-cases.md
+- 21 tests covering normal parsing, edge cases, real-world format (docs/epics.md), error handling, type checks
+- Files changed: src/bridge/parser.ts (new), src/bridge/parser.test.ts (new), test/fixtures/stories-normal.md (new), test/fixtures/stories-edge-cases.md (new)
 - **Learnings for future iterations:**
-  - vi.mock() factories are hoisted to the top of the file — any variables referenced inside must use `vi.hoisted()` to be available
-  - vi.restoreAllMocks() removes mock implementations from vi.mock factories — use mockReset() on individual mocks instead
-  - Anthropic SDK APIError needs a Headers object, not a plain object
-  - CLI tests that trigger startPipeline need @clack/prompts mocked to avoid interactive prompt hangs
-  - The retry utility integrates cleanly with isRetryableApiError for Claude API fault tolerance
-  - prompts/ directory is not in tsconfig include — markdown files are loaded at runtime via fs.readFileSync
----
-
-## 2026-02-16 - Story 3.2: PRD generation
-- What was implemented:
-  - Created `prompts/prd/system.md` — BMAD-style prompt template for PRD generation (executive summary, functional/non-functional requirements, MVP scope, success criteria, risks)
-  - Created `src/planning/prd.ts` — PRD generation module with `generatePrd()`, `buildUserMessage()`, `loadSystemPrompt()`, `savePrd()`, `loadViabilityAssessment()`. Chains viability output as input context. Uses 8192 maxTokens (higher than viability's 4096) for longer PRD output.
-  - Created `src/planning/prd.test.ts` — 16 tests covering prompt loading, user message building (profile + idea + viability), file saving, viability loading, and mocked API calls
-  - Updated `src/cli/program.ts` — after viability proceeds (user selects "proceed" or autonomous mode), now calls `runPrdPhase()` which generates and saves the PRD
-  - Updated `src/cli/program.test.ts` — added `mockGeneratePrd` mock to prevent real API calls during CLI tests
-- Files changed:
-  - NEW: `prompts/prd/system.md`
-  - NEW: `src/planning/prd.ts`, `src/planning/prd.test.ts`
-  - MODIFIED: `src/cli/program.ts` (PRD phase integration after viability)
-  - MODIFIED: `src/cli/program.test.ts` (PRD mock setup)
-  - MODIFIED: `scripts/ralph/prd.json` (3.2 passes: true)
-- **Learnings for future iterations:**
-  - Reuse `formatProfileContext()` from viability.ts — no need to duplicate profile formatting
-  - Each planning phase chains the prior phase's output as input context (viability → PRD → architecture → stories)
-  - PRD needs higher maxTokens (8192) than viability (4096) since the output is longer
-  - The `loadViabilityAssessment()` helper reads from `.boop/planning/viability.md` — useful for chaining phases that don't run in the same session
----
-
-## 2026-02-16 - Story 3.3: Architecture generation
-- What was implemented:
-  - Created `prompts/architecture/system.md` — BMAD-style prompt template for architecture generation (tech stack, architecture decisions, escalated decisions, deployment, security). Key design: auto-decide from profile, only escalate genuinely novel choices.
-  - Created `src/planning/architecture.ts` — architecture generation module with `generateArchitecture()`, `buildUserMessage()`, `loadSystemPrompt()`, `saveArchitecture()`, `loadPrd()`. Chains PRD output as input context. Uses 8192 maxTokens (same as PRD).
-  - Created `src/planning/architecture.test.ts` — 16 tests covering prompt loading, user message building (profile + idea + PRD), file saving, PRD loading, and mocked API calls
-  - Updated `src/cli/program.ts` — after PRD generation completes, now calls `runArchitecturePhase()` which generates and saves the architecture document. Added import for `generateArchitecture`.
-  - Updated `src/cli/program.test.ts` — added `mockGenerateArchitecture` mock to prevent real API calls during CLI tests
-- Files changed:
-  - NEW: `prompts/architecture/system.md`
-  - NEW: `src/planning/architecture.ts`, `src/planning/architecture.test.ts`
-  - MODIFIED: `src/cli/program.ts` (architecture phase integration after PRD)
-  - MODIFIED: `src/cli/program.test.ts` (architecture mock setup)
-  - MODIFIED: `scripts/ralph/prd.json` (3.3 passes: true)
-- **Learnings for future iterations:**
-  - Pattern is very consistent across planning phases: loadSystemPrompt → buildUserMessage → sendMessage → save. Each new phase is a straightforward copy of the prior with different input chaining.
-  - Architecture uses same maxTokens (8192) as PRD — the output is similarly detailed
-  - `loadPrd()` helper reads from `.boop/planning/prd.md` — mirrors `loadViabilityAssessment()` for cross-session chaining
-  - CLI pipeline chain: viability → PRD → architecture. Each `run*Phase` function calls the next at the end.
----
-
-## 2026-02-16 - Story 3.4: Epic and story breakdown
-- What was implemented:
-  - Created `prompts/stories/system.md` — BMAD-style prompt template for epic/story breakdown (story sizing rules, ordering rules, BDD acceptance criteria, technical notes guidelines). Key design: sequential ordering with no forward dependencies, stories sized for single dev agent sessions.
-  - Created `src/planning/stories.ts` — story breakdown module with `generateStories()`, `buildUserMessage()`, `loadSystemPrompt()`, `saveStories()`, `loadArchitecture()`. Chains PRD + architecture as input context. Uses 8192 maxTokens. Saves to `.boop/planning/epics.md`.
-  - Created `src/planning/stories.test.ts` — 17 tests covering prompt loading, user message building (profile + idea + PRD + architecture), file saving, architecture loading, and mocked API calls
-  - Updated `src/cli/program.ts` — after architecture generation completes, now calls `runStoriesPhase()` which generates and saves the epics/stories document. Added import for `generateStories` and `StoriesResult`.
-  - Updated `src/cli/program.test.ts` — added `mockGenerateStories` mock to prevent real API calls during CLI tests
-- Files changed:
-  - NEW: `prompts/stories/system.md`
-  - NEW: `src/planning/stories.ts`, `src/planning/stories.test.ts`
-  - MODIFIED: `src/cli/program.ts` (stories phase integration after architecture)
-  - MODIFIED: `src/cli/program.test.ts` (stories mock setup)
-  - MODIFIED: `scripts/ralph/prd.json` (3.4 passes: true)
-- **Learnings for future iterations:**
-  - Stories phase takes 4 inputs (idea, profile, PRD, architecture) vs architecture's 3 — each phase accumulates more context from prior phases
-  - The `buildUserMessage` pattern now includes all prior phase outputs: profile + idea + PRD + architecture
-  - `loadArchitecture()` helper reads from `.boop/planning/architecture.md` for cross-session chaining
-  - CLI pipeline chain is now complete for all 4 planning phases: viability → PRD → architecture → stories
-  - The `runArchitecturePhase` passes both PRD and architecture results to `runStoriesPhase` — each phase function must thread through all accumulated context
----
-
-## 2026-02-16 - Story 3.5: Planning prompt chain orchestration
-- What was implemented:
-  - Added `PlanningSubPhase` type to `src/shared/types.ts` — defines sub-phases within PLANNING: `viability | prd | architecture | stories`
-  - Added `runPlanning()` method to `PipelineOrchestrator` in `src/pipeline/orchestrator.ts` — chains all 4 planning phases automatically, updates state after each sub-phase, wraps errors in `PlanningPhaseError`
-  - Added `PlanningPhaseError` class — captures which phase failed and the underlying error
-  - Added `PlanningProgressCallback` type — allows callers to receive progress updates (starting/completed/retrying/failed)
-  - Each sub-phase uses `retry()` with `isRetryableApiError` for 1 retry on transient API errors
-  - Refactored `src/cli/program.ts` — autonomous mode now uses `orch.runPlanning(idea)` instead of manually chaining phases; interactive mode still runs viability separately then chains remaining phases with state updates
-  - Updated `src/pipeline/orchestrator.test.ts` — added 15 new tests for `runPlanning`: full chain, phase ordering, state updates, error handling, RECONSIDER halting, progress callbacks, state persistence
-  - Updated `src/cli/program.test.ts` — added 2 new tests for autonomous mode planning chain and failure reporting
-- Files changed:
-  - MODIFIED: `src/shared/types.ts` (PlanningSubPhase, PLANNING_SUB_PHASES)
-  - MODIFIED: `src/shared/index.ts` (re-exports new types)
-  - MODIFIED: `src/pipeline/orchestrator.ts` (runPlanning, PlanningPhaseError, PlanningProgressCallback)
-  - MODIFIED: `src/pipeline/orchestrator.test.ts` (15 new runPlanning tests)
-  - MODIFIED: `src/cli/program.ts` (refactored to use runPlanning for autonomous mode)
-  - MODIFIED: `src/cli/program.test.ts` (2 new autonomous mode tests)
-  - MODIFIED: `scripts/ralph/prd.json` (3.5 passes: true)
-- **Learnings for future iterations:**
-  - The orchestrator is the right place for chain orchestration — it owns the state machine and can update lastCompletedStep atomically after each sub-phase
-  - `PlanningPhaseError` wrapping is valuable — callers (CLI) can inspect `error.phase` to report exactly which phase failed
-  - Autonomous vs interactive mode diverges at viability: autonomous runs the full chain via `runPlanning()`, interactive runs viability first then asks the user before continuing
-  - The retry in `runPlanning` is layered: each planning function already has its own `retry()` call (maxRetries: 1), and `runPlanningSubPhase` wraps that with another `retry()` using `isRetryableApiError` — this gives 2 total attempts per phase
-  - Mock planning modules at test file level so both orchestrator tests and CLI tests share the same mock strategy
----
-
-## 2026-02-16 - Story 3.6: BMAD prompt library extraction
-- What was implemented:
-  - Created `prompts/personas/pm.md` — Product Manager persona definition (requirements gathering, prioritization, risk assessment, communication style)
-  - Created `prompts/personas/architect.md` — Software Architect persona definition (decision-making philosophy, technology selection, architecture patterns, escalation judgment)
-  - Created `prompts/personas/developer.md` — Developer Agent persona definition (coding patterns, testing, story execution, debugging)
-  - Created `prompts/checklists/viability.md` — Validation checklist for viability assessments (feasibility, market fit, complexity, risks, recommendation)
-  - Created `prompts/checklists/prd.md` — Validation checklist for PRDs (requirements, scope, success criteria, risks)
-  - Created `prompts/checklists/architecture.md` — Validation checklist for architecture decisions (tech stack, decisions, profile alignment, escalations, security)
-  - Created `prompts/checklists/stories.md` — Validation checklist for story breakdowns (story format, sizing, ordering, PRD coverage, criteria quality)
-  - Created `src/planning/prompt-library.test.ts` — 25 tests verifying all prompt files exist, are loadable, contain expected content, and directories are complete
-- Files changed:
-  - NEW: `prompts/personas/pm.md`, `prompts/personas/architect.md`, `prompts/personas/developer.md`
-  - NEW: `prompts/checklists/viability.md`, `prompts/checklists/prd.md`, `prompts/checklists/architecture.md`, `prompts/checklists/stories.md`
-  - NEW: `src/planning/prompt-library.test.ts`
-  - MODIFIED: `scripts/ralph/prd.json` (3.6 passes: true)
-- **Learnings for future iterations:**
-  - Personas are standalone knowledge files — they describe role behavior without workflow engine code
-  - Checklists use `- [ ]` markdown checkbox format — loadable as validation templates for quality gates
-  - All prompt files are plain markdown loaded via `fs.readFileSync` — no special format or parser needed
-  - The prompt library test validates directory structure, file existence, and content quality in one test suite
-  - Personas and checklists are not yet wired into the planning phase system prompts — that can be done in a future story when composite prompt building is needed
+  - BMAD markdown uses `## Epic N:` and `### Story N.M:` headings — regex patterns must match these exactly
+  - Bold markers in acceptance criteria (**Given**) need stripping for clean output
+  - Multi-line user stories (As a…\nI want…\nso that…) need joining into single string
+  - Prerequisites can be "None" or comma/space separated IDs like "1.1, 1.2"
+  - The `---` horizontal rule is a story separator, not content
+  - Story 4.2 (converter) depends on these parsed types — ParsedStory maps directly to Story type in shared/types.ts
 ---

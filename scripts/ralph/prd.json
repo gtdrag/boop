@@ -15,7 +15,7 @@
         "All tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/bridge/parser.ts. The BMAD story markdown format uses: '### Story X.Y: Title', 'As a... I want... So that...', '**Acceptance Criteria:**' with BDD Given/When/Then bullets, '**Prerequisites:**', '**Technical Notes:**'. Test with fixtures covering normal and edge cases. Depends on 1.3 being complete."
     },
     {
