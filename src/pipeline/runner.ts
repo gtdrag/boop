@@ -27,15 +27,13 @@ import { generateSecurityHeaderDefaults } from "../scaffolding/defaults/security
 import { generateDeploymentDefaults } from "../scaffolding/defaults/deployment.js";
 import { runLoopIteration } from "../build/ralph-loop.js";
 import type { LoopResult } from "../build/ralph-loop.js";
-import { runReviewPipeline } from "../review/team-orchestrator.js";
 import type { TestSuiteResult, ReviewPhaseResult } from "../review/team-orchestrator.js";
-import { createCodeReviewer } from "../review/code-reviewer.js";
-import { createGapAnalyst } from "../review/gap-analyst.js";
-import { createTechDebtAuditor } from "../review/tech-debt-auditor.js";
 import { createRefactoringAgent } from "../review/refactoring-agent.js";
 import { createTestHardener } from "../review/test-hardener.js";
 import { createSecurityScanner } from "../review/security-scanner.js";
 import { createQaSmokeTest } from "../review/qa-smoke-test.js";
+import { runAdversarialLoop } from "../review/adversarial/loop.js";
+import { generateAdversarialSummary, toReviewPhaseResult } from "../review/adversarial/summary.js";
 import { runEpicSignOff } from "./epic-loop.js";
 import type { SignOffDecision, EpicSummary } from "./epic-loop.js";
 import { analyze } from "../retrospective/analyzer.js";
@@ -119,9 +117,7 @@ function createTestSuiteRunner(projectDir: string) {
       return { passed: true, output };
     } catch (error: unknown) {
       const execError = error as { stdout?: string; stderr?: string };
-      const output = [execError.stdout ?? "", execError.stderr ?? ""]
-        .filter(Boolean)
-        .join("\n");
+      const output = [execError.stdout ?? "", execError.stderr ?? ""].filter(Boolean).join("\n");
       return { passed: false, output };
     }
   };
@@ -165,17 +161,19 @@ function formatError(error: unknown): string {
 
 /** Redact credential-like values from deploy output before writing to disk. */
 function redactSecrets(text: string): string {
-  return text
-    // ENV_VAR style: VERCEL_TOKEN=abc, API_KEY: sk-123 (case-sensitive to avoid
-    // false positives on lowercase words like "token count" or "primary_key")
-    .replace(
-      /(\b[A-Z_]*(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)[A-Z_]*)[=:]\s*\S+/g,
-      "$1=[REDACTED]",
-    )
-    // Bearer tokens: "Bearer eyJ..." or "Authorization: Bearer ..."
-    .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
-    // URL-embedded credentials: https://user:pass@host
-    .replace(/:\/\/[^@\s]+@/g, "://[REDACTED]@");
+  return (
+    text
+      // ENV_VAR style: VERCEL_TOKEN=abc, API_KEY: sk-123 (case-sensitive to avoid
+      // false positives on lowercase words like "token count" or "primary_key")
+      .replace(
+        /(\b[A-Z_]*(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)[A-Z_]*)[=:]\s*\S+/g,
+        "$1=[REDACTED]",
+      )
+      // Bearer tokens: "Bearer eyJ..." or "Authorization: Bearer ..."
+      .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+      // URL-embedded credentials: https://user:pass@host
+      .replace(/:\/\/[^@\s]+@/g, "://[REDACTED]@")
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -248,9 +246,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
 
       if (result.outcome === "failed") {
         onProgress?.("BUILDING", `Build failed: ${result.error ?? "unknown error"}`);
-        console.error(
-          `[boop] Build failed on story ${result.story?.id ?? "?"}: ${result.error}`,
-        );
+        console.error(`[boop] Build failed on story ${result.story?.id ?? "?"}: ${result.error}`);
         console.error("[boop] Pipeline paused in BUILDING. Resume with: boop --resume");
         buildFailed = true;
         break;
@@ -266,24 +262,23 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
 
     if (buildFailed) return;
 
-    // --- 4. REVIEWING ---
+    // --- 4. REVIEWING (adversarial loop) ---
     orch.transition("REVIEWING");
-    onProgress?.("REVIEWING", `Running review pipeline for epic ${epicNumber}...`);
+    onProgress?.("REVIEWING", `Running adversarial review for epic ${epicNumber}...`);
 
     let reviewResult: ReviewPhaseResult;
     try {
-      reviewResult = await runReviewPipeline({
+      const loopResult = await runAdversarialLoop({
         projectDir,
         epicNumber,
-        codeReviewer: createCodeReviewer(),
-        gapAnalyst: createGapAnalyst(),
-        techDebtAuditor: createTechDebtAuditor(),
-        refactoringAgent: createRefactoringAgent(),
-        testHardener: createTestHardener(),
         testSuiteRunner: createTestSuiteRunner(projectDir),
-        securityScanner: createSecurityScanner(),
-        qaSmokeTester: createQaSmokeTest(),
+        model: profile.aiModel || undefined,
+        onProgress: (iter, phase, msg) =>
+          onProgress?.("REVIEWING", `[iter ${iter}] ${phase}: ${msg}`),
       });
+
+      generateAdversarialSummary(projectDir, epicNumber, loopResult);
+      reviewResult = toReviewPhaseResult(epicNumber, loopResult);
     } catch (error: unknown) {
       console.error(`[boop] Review failed for epic ${epicNumber}: ${formatError(error)}`);
       console.error("[boop] Pipeline paused in REVIEWING. Resume with: boop --resume");
@@ -373,7 +368,10 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
       onProgress?.("DEPLOYING", `Deployment error: ${msg}`);
       console.error(`[boop] Deployment error: ${msg}`);
       console.error("[boop] Pipeline continuing to retrospective despite deploy error.");
-      orch.notify("deployment-failed", { epic: breakdown.epics[breakdown.epics.length - 1]!.number, detail: msg });
+      orch.notify("deployment-failed", {
+        epic: breakdown.epics[breakdown.epics.length - 1]!.number,
+        detail: msg,
+      });
     }
   }
 

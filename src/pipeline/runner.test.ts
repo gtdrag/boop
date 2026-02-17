@@ -20,10 +20,9 @@ const {
   mockGenerateSecurityHeaderDefaults,
   mockGenerateDeploymentDefaults,
   mockRunLoopIteration,
-  mockRunReviewPipeline,
-  mockCreateCodeReviewer,
-  mockCreateGapAnalyst,
-  mockCreateTechDebtAuditor,
+  mockRunAdversarialLoop,
+  mockGenerateAdversarialSummary,
+  mockToReviewPhaseResult,
   mockCreateRefactoringAgent,
   mockCreateTestHardener,
   mockCreateSecurityScanner,
@@ -47,10 +46,9 @@ const {
   mockGenerateSecurityHeaderDefaults: vi.fn(),
   mockGenerateDeploymentDefaults: vi.fn(),
   mockRunLoopIteration: vi.fn(),
-  mockRunReviewPipeline: vi.fn(),
-  mockCreateCodeReviewer: vi.fn(),
-  mockCreateGapAnalyst: vi.fn(),
-  mockCreateTechDebtAuditor: vi.fn(),
+  mockRunAdversarialLoop: vi.fn(),
+  mockGenerateAdversarialSummary: vi.fn(),
+  mockToReviewPhaseResult: vi.fn(),
   mockCreateRefactoringAgent: vi.fn(),
   mockCreateTestHardener: vi.fn(),
   mockCreateSecurityScanner: vi.fn(),
@@ -97,17 +95,12 @@ vi.mock("../deployment/deployer.js", () => ({
 vi.mock("../build/ralph-loop.js", () => ({
   runLoopIteration: mockRunLoopIteration,
 }));
-vi.mock("../review/team-orchestrator.js", () => ({
-  runReviewPipeline: mockRunReviewPipeline,
+vi.mock("../review/adversarial/loop.js", () => ({
+  runAdversarialLoop: mockRunAdversarialLoop,
 }));
-vi.mock("../review/code-reviewer.js", () => ({
-  createCodeReviewer: mockCreateCodeReviewer,
-}));
-vi.mock("../review/gap-analyst.js", () => ({
-  createGapAnalyst: mockCreateGapAnalyst,
-}));
-vi.mock("../review/tech-debt-auditor.js", () => ({
-  createTechDebtAuditor: mockCreateTechDebtAuditor,
+vi.mock("../review/adversarial/summary.js", () => ({
+  generateAdversarialSummary: mockGenerateAdversarialSummary,
+  toReviewPhaseResult: mockToReviewPhaseResult,
 }));
 vi.mock("../review/refactoring-agent.js", () => ({
   createRefactoringAgent: mockCreateRefactoringAgent,
@@ -203,8 +196,22 @@ function singleEpicBreakdown() {
         goal: "Set up the project",
         scope: "Foundation",
         stories: [
-          { id: "1.1", title: "Init", userStory: "As a dev...", acceptanceCriteria: [], prerequisites: [], technicalNotes: [] },
-          { id: "1.2", title: "Config", userStory: "As a dev...", acceptanceCriteria: [], prerequisites: [], technicalNotes: [] },
+          {
+            id: "1.1",
+            title: "Init",
+            userStory: "As a dev...",
+            acceptanceCriteria: [],
+            prerequisites: [],
+            technicalNotes: [],
+          },
+          {
+            id: "1.2",
+            title: "Config",
+            userStory: "As a dev...",
+            acceptanceCriteria: [],
+            prerequisites: [],
+            technicalNotes: [],
+          },
         ],
       },
     ],
@@ -215,8 +222,38 @@ function singleEpicBreakdown() {
 function twoEpicBreakdown() {
   return {
     epics: [
-      { number: 1, name: "Setup", goal: "Foundation", scope: "s1", stories: [{ id: "1.1", title: "Init", userStory: "", acceptanceCriteria: [], prerequisites: [], technicalNotes: [] }] },
-      { number: 2, name: "Features", goal: "Build features", scope: "s2", stories: [{ id: "2.1", title: "Feature", userStory: "", acceptanceCriteria: [], prerequisites: [], technicalNotes: [] }] },
+      {
+        number: 1,
+        name: "Setup",
+        goal: "Foundation",
+        scope: "s1",
+        stories: [
+          {
+            id: "1.1",
+            title: "Init",
+            userStory: "",
+            acceptanceCriteria: [],
+            prerequisites: [],
+            technicalNotes: [],
+          },
+        ],
+      },
+      {
+        number: 2,
+        name: "Features",
+        goal: "Build features",
+        scope: "s2",
+        stories: [
+          {
+            id: "2.1",
+            title: "Feature",
+            userStory: "",
+            acceptanceCriteria: [],
+            prerequisites: [],
+            technicalNotes: [],
+          },
+        ],
+      },
     ],
     allStories: [],
   };
@@ -236,7 +273,12 @@ describe("runFullPipeline", () => {
 
     // Default happy-path mocks
     mockParseStoryMarkdown.mockReturnValue(singleEpicBreakdown());
-    mockConvertToPrd.mockReturnValue({ project: "test", branchName: "epic-1", description: "Setup", userStories: [] });
+    mockConvertToPrd.mockReturnValue({
+      project: "test",
+      branchName: "epic-1",
+      description: "Setup",
+      userStories: [],
+    });
     mockSavePrd.mockReturnValue(undefined);
     mockScaffoldProject.mockReturnValue({ directories: [], files: [], gitInitialized: false });
     mockGenerateSeoDefaults.mockReturnValue([]);
@@ -255,17 +297,33 @@ describe("runFullPipeline", () => {
       .mockResolvedValueOnce({ outcome: "passed", story: { id: "1.1" }, allComplete: false })
       .mockResolvedValueOnce({ outcome: "passed", story: { id: "1.2" }, allComplete: true });
 
-    mockRunReviewPipeline.mockResolvedValue(makeReviewResult());
+    mockRunAdversarialLoop.mockResolvedValue({
+      iterations: [],
+      converged: true,
+      exitReason: "converged",
+      totalFindings: 0,
+      totalFixed: 0,
+      totalDiscarded: 0,
+      unresolvedFindings: [],
+      allFixResults: [],
+    });
+    mockGenerateAdversarialSummary.mockReturnValue({
+      markdown: "# Summary",
+      allResolved: true,
+      savedPath: "/tmp/summary.md",
+    });
+    mockToReviewPhaseResult.mockReturnValue(makeReviewResult());
 
-    mockCreateCodeReviewer.mockReturnValue(vi.fn());
-    mockCreateGapAnalyst.mockReturnValue(vi.fn());
-    mockCreateTechDebtAuditor.mockReturnValue(vi.fn());
     mockCreateRefactoringAgent.mockReturnValue(vi.fn());
     mockCreateTestHardener.mockReturnValue(vi.fn());
     mockCreateSecurityScanner.mockReturnValue(vi.fn());
     mockCreateQaSmokeTest.mockReturnValue(vi.fn());
 
-    mockRunEpicSignOff.mockResolvedValue({ summary: { markdown: "" }, approved: true, rejectionCycles: 0 });
+    mockRunEpicSignOff.mockResolvedValue({
+      summary: { markdown: "" },
+      approved: true,
+      rejectionCycles: 0,
+    });
 
     mockAnalyze.mockReturnValue(makeRetroData());
     mockGenerateReport.mockReturnValue("# Retro");
@@ -309,7 +367,7 @@ describe("runFullPipeline", () => {
     expect(mockSavePrd).toHaveBeenCalled();
     expect(mockScaffoldProject).toHaveBeenCalledWith(TEST_PROFILE, tmpDir);
     expect(mockRunLoopIteration).toHaveBeenCalled();
-    expect(mockRunReviewPipeline).toHaveBeenCalled();
+    expect(mockRunAdversarialLoop).toHaveBeenCalled();
     expect(mockRunEpicSignOff).toHaveBeenCalled();
     expect(mockAnalyze).toHaveBeenCalled();
     expect(mockGenerateReport).toHaveBeenCalled();
@@ -368,7 +426,7 @@ describe("runFullPipeline", () => {
     });
 
     expect(orch.getState().phase).toBe("BUILDING");
-    expect(mockRunReviewPipeline).not.toHaveBeenCalled();
+    expect(mockRunAdversarialLoop).not.toHaveBeenCalled();
     expect(mockRunEpicSignOff).not.toHaveBeenCalled();
     expect(mockAnalyze).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Build failed"));
@@ -380,7 +438,7 @@ describe("runFullPipeline", () => {
     const { runFullPipeline } = await import("./runner.js");
     const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
 
-    mockRunReviewPipeline.mockRejectedValue(new Error("Code reviewer crashed"));
+    mockRunAdversarialLoop.mockRejectedValue(new Error("Adversarial loop crashed"));
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await runFullPipeline({
@@ -395,7 +453,7 @@ describe("runFullPipeline", () => {
     expect(mockRunEpicSignOff).not.toHaveBeenCalled();
     expect(mockAnalyze).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Review failed for epic 1: Code reviewer crashed"),
+      expect.stringContaining("Review failed for epic 1: Adversarial loop crashed"),
     );
 
     consoleSpy.mockRestore();
@@ -466,9 +524,7 @@ describe("runFullPipeline", () => {
       autonomous: true,
     });
 
-    expect(mockRunEpicSignOff).toHaveBeenCalledWith(
-      expect.objectContaining({ autonomous: true }),
-    );
+    expect(mockRunEpicSignOff).toHaveBeenCalledWith(expect.objectContaining({ autonomous: true }));
   });
 
   it("sign-off rejection in interactive mode stops before retrospective", async () => {
@@ -599,9 +655,7 @@ describe("runFullPipeline", () => {
     // Pipeline reached COMPLETE despite deploy failure
     expect(orch.getState().phase).toBe("COMPLETE");
     expect(mockAnalyze).toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Deployment failed"),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Deployment failed"));
 
     consoleSpy.mockRestore();
   });
@@ -623,9 +677,7 @@ describe("runFullPipeline", () => {
     });
 
     expect(orch.getState().phase).toBe("COMPLETE");
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Deployment error"),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Deployment error"));
 
     consoleSpy.mockRestore();
   });
@@ -665,7 +717,8 @@ describe("runFullPipeline", () => {
     mockDeploy.mockResolvedValue({
       success: true,
       url: "https://my-app.vercel.app",
-      output: "Deploying...\nVERCEL_TOKEN=sk_live_abc123\nAuthorization: Bearer eyJhbGciOi\nhttps://user:pass123@registry.example.com\nDone!",
+      output:
+        "Deploying...\nVERCEL_TOKEN=sk_live_abc123\nAuthorization: Bearer eyJhbGciOi\nhttps://user:pass123@registry.example.com\nDone!",
       provider: "Vercel",
     });
 
@@ -722,9 +775,7 @@ describe("runFullPipeline", () => {
     const blockerPath = path.join(tmpDir, "blocked");
     fs.writeFileSync(blockerPath, "I am a file, not a directory");
 
-    mockGenerateSeoDefaults.mockReturnValue([
-      { filepath: "blocked/seo.ts", content: "// seo" },
-    ]);
+    mockGenerateSeoDefaults.mockReturnValue([{ filepath: "blocked/seo.ts", content: "// seo" }]);
     mockGenerateAnalyticsDefaults.mockReturnValue([
       { filepath: "config/analytics.ts", content: "// analytics" },
     ]);
@@ -743,7 +794,9 @@ describe("runFullPipeline", () => {
     // SEO file failed — analytics file was still written
     expect(fs.existsSync(path.join(tmpDir, "blocked", "seo.ts"))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "config", "analytics.ts"))).toBe(true);
-    expect(fs.readFileSync(path.join(tmpDir, "config", "analytics.ts"), "utf-8")).toBe("// analytics");
+    expect(fs.readFileSync(path.join(tmpDir, "config", "analytics.ts"), "utf-8")).toBe(
+      "// analytics",
+    );
 
     // onProgress reported the warning
     const warnings = progress.filter(([, msg]) => msg.includes("Warning:"));
