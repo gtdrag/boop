@@ -6,6 +6,10 @@
  * the project has a frontend framework (i.e. frontendFramework !== "none").
  */
 import type { DeveloperProfile, FrontendFramework } from "../../profile/schema.js";
+import { isReactFramework, isWebProject } from "./shared.js";
+
+// Re-export so existing consumers (tests, other modules) keep working.
+export { isWebProject };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,15 +20,6 @@ export interface SeoFile {
   filepath: string;
   /** File content. */
   content: string;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Returns true when the profile describes a web project. */
-export function isWebProject(profile: DeveloperProfile): boolean {
-  return profile.frontendFramework !== "none";
 }
 
 /** Frameworks that use a `public/` directory for static assets. */
@@ -50,9 +45,7 @@ function usesPublicDir(framework: FrontendFramework): boolean {
 function buildMetaTagsHelper(framework: FrontendFramework): SeoFile {
   // For React-based frameworks, provide a React component helper.
   // For others, provide a generic HTML partial.
-  const isReact = ["next", "remix", "vite-react"].includes(framework);
-
-  if (isReact) {
+  if (isReactFramework(framework)) {
     return {
       filepath: "src/components/seo-head.tsx",
       content: `/**
@@ -119,9 +112,7 @@ export function buildMetaTags(options: MetaTagOptions): string {
 }
 
 function buildOpenGraphTemplate(framework: FrontendFramework): SeoFile {
-  const isReact = ["next", "remix", "vite-react"].includes(framework);
-
-  if (isReact) {
+  if (isReactFramework(framework)) {
     return {
       filepath: "src/components/og-tags.tsx",
       content: `/**

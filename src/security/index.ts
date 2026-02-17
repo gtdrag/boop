@@ -7,6 +7,7 @@
 export {
   createCredentialStore,
   containsCredential,
+  redactCredentials,
   scanFileForCredentials,
   getEnvVarName,
   getDefaultCredentialsDir,

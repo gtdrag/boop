@@ -85,15 +85,33 @@ const BLOCKED_GIT_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 
 /**
  * Patterns for destructive file operations.
+ *
+ * The rm patterns use a two-step approach:
+ *   1. Match `rm` with any combination of flags that include both -r and -f
+ *      (in any order, combined or separate), followed by optional extra flags/args,
+ *      followed by an absolute path (including bare `/`).
+ *   2. A separate pattern catches `rm -r[f]` targeting `/` directly.
+ *
+ * We also catch `--no-preserve-root` as an explicit escalation signal.
  */
 const DESTRUCTIVE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   {
-    pattern: /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r|--recursive\b.*--force)\s+\//,
+    // Catches: rm -rf /, rm -rf /etc, rm -fr /home, rm -r -f /, rm --recursive --force /,
+    // rm -rf --no-preserve-root /, and any flag ordering with absolute paths.
+    // The key change: allow optional extra flags (--no-preserve-root, etc.) between
+    // the rm flags and the target path.
+    pattern: /\brm\s+(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|-[a-zA-Z]*r\s+-[a-zA-Z]*f|-[a-zA-Z]*f\s+-[a-zA-Z]*r|--recursive\b[^/]*--force|--force\b[^/]*--recursive)(?:\s+--?\S+)*\s+\//,
     reason: "Recursive force delete (rm -rf) on absolute paths is blocked",
   },
   {
-    pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*\s+\/(?!\S*\/)/,
-    reason: "Deleting from root filesystem is blocked",
+    // Catches: rm -r / or rm -r /etc (recursive delete without -f on absolute paths)
+    pattern: /\brm\s+(?:-[a-zA-Z]*r[a-zA-Z]*|--recursive)(?:\s+--?\S+)*\s+\/(?:\s|$|\S)/,
+    reason: "Recursive delete (rm -r) on absolute paths is blocked",
+  },
+  {
+    // Catches explicit --no-preserve-root anywhere in an rm command — always dangerous
+    pattern: /\brm\b.*--no-preserve-root/,
+    reason: "rm --no-preserve-root is blocked — targets root filesystem",
   },
   {
     pattern: /\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*)?\s*(000|777)\s+\//,

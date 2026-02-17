@@ -6,7 +6,7 @@
  * applies when the project has a frontend framework.
  */
 import type { DeveloperProfile, FrontendFramework } from "../../profile/schema.js";
-import { isWebProject } from "./seo.js";
+import { isReactFramework, isWebProject } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,16 +17,6 @@ export interface AccessibilityFile {
   filepath: string;
   /** File content. */
   content: string;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const REACT_FRAMEWORKS: FrontendFramework[] = ["next", "remix", "vite-react"];
-
-function isReactFramework(fw: FrontendFramework): boolean {
-  return REACT_FRAMEWORKS.includes(fw);
 }
 
 // ---------------------------------------------------------------------------

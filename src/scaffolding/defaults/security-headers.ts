@@ -11,7 +11,7 @@ import type {
   BackendFramework,
   ErrorTracker,
 } from "../../profile/schema.js";
-import { isWebProject } from "./seo.js";
+import { isWebProject } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,6 +45,10 @@ function buildNextHeaders(): SecurityHeaderFile {
  *
  *   import { securityHeaders } from "./next.config.headers";
  *   export default { async headers() { return securityHeaders; } };
+ *
+ * This uses a strict CSP by default. If you need inline scripts or styles,
+ * generate a nonce per-request and add \`'nonce-<value>'\` to the relevant
+ * directive — do NOT re-add 'unsafe-inline' or 'unsafe-eval'.
  */
 
 export const securityHeaders = [
@@ -55,8 +59,8 @@ export const securityHeaders = [
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-          "style-src 'self' 'unsafe-inline'",
+          "script-src 'self'",
+          "style-src 'self'",
           "img-src 'self' data: https:",
           "font-src 'self'",
           "connect-src 'self' https:",
@@ -99,6 +103,11 @@ function buildExpressHeaders(): SecurityHeaderFile {
  * Adds CSP, HSTS, X-Frame-Options, X-Content-Type-Options,
  * Referrer-Policy, and Permissions-Policy to every response.
  *
+ * This uses a strict CSP by default. If you need inline scripts or styles,
+ * generate a nonce per-request via crypto.randomUUID() and add
+ * \\\`'nonce-\\\${nonce}'\\\` to the relevant directive — do NOT re-add
+ * 'unsafe-inline' or 'unsafe-eval'.
+ *
  * Usage:
  *   import { securityHeaders } from "./middleware/security-headers";
  *   app.use(securityHeaders);
@@ -110,8 +119,8 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self'",
+      "style-src 'self'",
       "img-src 'self' data: https:",
       "font-src 'self'",
       "connect-src 'self' https:",
@@ -137,13 +146,17 @@ function buildGenericHeaders(): SecurityHeaderFile {
  *
  * Provides a map of security headers and their values.
  * Integrate with your server framework's response pipeline.
+ *
+ * This uses a strict CSP by default. If you need inline scripts or styles,
+ * generate a nonce per-request and add \\\`'nonce-<value>'\\\` to the relevant
+ * directive — do NOT re-add 'unsafe-inline' or 'unsafe-eval'.
  */
 
 export const SECURITY_HEADERS: Record<string, string> = {
   "Content-Security-Policy": [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
+    "style-src 'self'",
     "img-src 'self' data: https:",
     "font-src 'self'",
     "connect-src 'self' https:",

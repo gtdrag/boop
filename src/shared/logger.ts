@@ -9,19 +9,16 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import type { LogEntry, LogLevel } from "./types.js";
+import { redactCredentials } from "../security/credentials.js";
 
 /**
  * Redact sensitive values (API keys, tokens, passwords, secrets) from a string.
+ *
+ * Delegates to the shared redactCredentials() in security/credentials so that
+ * detection and redaction patterns are defined in a single place.
  */
 export function sanitize(input: string): string {
-  // Redact key=value or key: value patterns for sensitive keys
-  let result = input.replace(
-    /(api.?key|token|password|secret|credential)[=:]\s*\S+/gi,
-    "$1=***REDACTED***",
-  );
-  // Redact Anthropic API key patterns (sk-ant-...)
-  result = result.replace(/sk-ant-[A-Za-z0-9_-]+/g, "***REDACTED***");
-  return result;
+  return redactCredentials(input);
 }
 
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {

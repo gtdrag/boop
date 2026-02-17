@@ -12,6 +12,7 @@
  */
 
 import { execFileSync, type ExecFileSyncOptions } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import {
   evaluateCommand,
@@ -99,7 +100,7 @@ export function buildDockerArgs(options: DockerRunnerOptions): string[] {
   const workDir = options.workDir ?? DEFAULT_WORKDIR;
   const projectDir = path.resolve(options.projectDir);
 
-  const containerName = `${CONTAINER_PREFIX}-${Date.now()}`;
+  const containerName = `${CONTAINER_PREFIX}-${randomUUID()}`;
 
   const args: string[] = [
     "run",
@@ -169,6 +170,68 @@ export function buildNetworkRestrictionScript(
 }
 
 // ---------------------------------------------------------------------------
+// Shell safety
+// ---------------------------------------------------------------------------
+
+/**
+ * Patterns that indicate shell metacharacters which could bypass policy
+ * evaluation by executing subcommands the policy engine never sees.
+ *
+ * We reject these in exec() because the policy engine evaluates the literal
+ * command string but cannot expand subshells or evaluate chained commands.
+ */
+const SHELL_INJECTION_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+  {
+    pattern: /\$\(/,
+    reason: "Subshell expansion $() is not allowed — use execSafe() for compound commands",
+  },
+  {
+    pattern: /`[^`]*`/,
+    reason: "Backtick subshell expansion is not allowed — use execSafe() for compound commands",
+  },
+];
+
+/**
+ * Split a shell command string on unquoted pipe, &&, ||, and ; operators
+ * to extract each individual sub-command for policy evaluation.
+ */
+function splitShellCommands(command: string): string[] {
+  // Split on ;, &&, ||, and | that are not inside quotes.
+  // This is a simplified splitter — it handles single/double quotes but not
+  // all edge cases (heredocs, escaped quotes in complex nesting, etc.).
+  const commands: string[] = [];
+  let current = "";
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    const next = command[i + 1];
+
+    // Track quote state
+    if (ch === "'" && !inDouble) { inSingle = !inSingle; current += ch; continue; }
+    if (ch === '"' && !inSingle) { inDouble = !inDouble; current += ch; continue; }
+
+    // Skip if inside quotes
+    if (inSingle || inDouble) { current += ch; continue; }
+
+    // Check for operators
+    if (ch === ";" || (ch === "|" && next !== "|") || (ch === "&" && next === "&") || (ch === "|" && next === "|")) {
+      if (current.trim()) commands.push(current.trim());
+      current = "";
+      // Skip the second character of && or ||
+      if ((ch === "&" && next === "&") || (ch === "|" && next === "|")) i++;
+      continue;
+    }
+
+    current += ch;
+  }
+  if (current.trim()) commands.push(current.trim());
+
+  return commands;
+}
+
+// ---------------------------------------------------------------------------
 // Sandbox Runner
 // ---------------------------------------------------------------------------
 
@@ -203,26 +266,79 @@ export class SandboxRunner {
   }
 
   /**
-   * Execute a command in the sandbox.
+   * Execute a shell command string in the sandbox.
    *
-   * 1. Validates the command against the policy engine.
-   * 2. If Docker is available, runs inside a container.
-   * 3. If Docker is unavailable, runs locally with policy enforcement only.
+   * The command is passed to `sh -c`, so shell syntax (pipes, redirects) works.
+   * However, for safety:
+   *   - Subshell expansions ($() and backticks) are rejected because the policy
+   *     engine cannot evaluate the expanded commands.
+   *   - Chained commands (via ;, &&, ||, |) are each individually validated
+   *     against the policy engine.
    *
-   * @throws Error if the command is denied by policy.
+   * For commands built from user input, prefer execSafe() which bypasses the
+   * shell entirely.
+   *
+   * @throws SandboxPolicyViolation if any (sub-)command is denied by policy.
    */
   exec(command: string): ExecResult {
-    // Step 1: Policy check — always runs, even with Docker
-    const policyResult = this.validateCommand(command);
-    if (policyResult.verdict === "deny") {
-      throw new SandboxPolicyViolation(command, policyResult.reason ?? "Denied by policy");
+    // Step 1: Reject subshell expansions that could bypass policy evaluation
+    for (const rule of SHELL_INJECTION_PATTERNS) {
+      if (rule.pattern.test(command)) {
+        throw new SandboxPolicyViolation(command, rule.reason);
+      }
     }
 
-    // Step 2: Execute
+    // Step 2: Split on shell operators and validate EACH sub-command
+    const subCommands = splitShellCommands(command);
+    for (const sub of subCommands) {
+      const policyResult = this.validateCommand(sub);
+      if (policyResult.verdict === "deny") {
+        throw new SandboxPolicyViolation(sub, policyResult.reason ?? "Denied by policy");
+      }
+    }
+
+    // Step 3: Execute
     if (this.dockerAvailable) {
       return this.execInDocker(command);
     }
     return this.execLocal(command);
+  }
+
+  /**
+   * Execute a command safely without shell interpretation.
+   *
+   * The command and arguments are passed directly to execFileSync (via Docker
+   * exec or local spawn), bypassing `sh -c` entirely. This eliminates shell
+   * injection risks but means shell features (pipes, redirects, globs) are
+   * not available.
+   *
+   * @param args - Array where args[0] is the command and the rest are arguments.
+   * @throws SandboxPolicyViolation if the command is denied by policy.
+   */
+  execSafe(args: string[]): ExecResult {
+    if (args.length === 0) {
+      throw new Error("execSafe requires at least one argument (the command)");
+    }
+
+    // Validate the reconstructed command string against the policy
+    const commandStr = args.join(" ");
+    const policyResult = this.validateCommand(commandStr);
+    if (policyResult.verdict === "deny") {
+      throw new SandboxPolicyViolation(commandStr, policyResult.reason ?? "Denied by policy");
+    }
+
+    const timeout = this.options.timeout ?? DEFAULT_TIMEOUT;
+
+    if (this.dockerAvailable) {
+      const dockerArgs = buildDockerArgs(this.options);
+      // Pass command and args directly — no sh -c wrapper
+      dockerArgs.push(...args);
+      return this.runExecFile("docker", dockerArgs, timeout);
+    }
+
+    const projectDir = path.resolve(this.options.projectDir);
+    const [cmd, ...cmdArgs] = args;
+    return this.runExecFile(cmd, cmdArgs, timeout, projectDir);
   }
 
   /**
@@ -239,7 +355,9 @@ export class SandboxRunner {
     const timeout = this.options.timeout ?? DEFAULT_TIMEOUT;
     const dockerArgs = buildDockerArgs(this.options);
 
-    // Append the shell command
+    // Pass command as a single argument to sh -c to prevent arg splitting.
+    // The command has already been validated by exec() including sub-command
+    // splitting and subshell expansion rejection.
     dockerArgs.push("sh", "-c", command);
 
     return this.runExecFile("docker", dockerArgs, timeout);

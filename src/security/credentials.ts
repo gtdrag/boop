@@ -60,12 +60,32 @@ const FILE_MAP: Record<CredentialKey, string> = {
 };
 
 /**
- * Patterns that should never appear in logs or project files.
+ * Patterns that indicate a string contains a credential.
  * Used by containsCredential() for leak detection.
+ *
+ * Note: these patterns are intentionally non-global so .test() is safe
+ * to call repeatedly without lastIndex side-effects.
  */
-const CREDENTIAL_PATTERNS: RegExp[] = [
+const CREDENTIAL_DETECTION_PATTERNS: RegExp[] = [
+  /(api.?key|token|password|secret|credential)[=:]\s*\S+/i,
   /sk-ant-[A-Za-z0-9_-]{20,}/,
 ];
+
+/**
+ * Redact credential values from a string.
+ *
+ * Replaces sensitive key=value patterns and known API key formats
+ * with ***REDACTED***. Used by both the logger (sanitize) and
+ * anywhere else that needs to strip credentials from output.
+ */
+export function redactCredentials(input: string): string {
+  let result = input.replace(
+    /(api.?key|token|password|secret|credential)[=:]\s*\S+/gi,
+    "$1=***REDACTED***",
+  );
+  result = result.replace(/sk-ant-[A-Za-z0-9_-]+/g, "***REDACTED***");
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // Credential store implementation
@@ -162,7 +182,7 @@ export function createCredentialStore(
  * Used to prevent accidental credential leakage in logs and project files.
  */
 export function containsCredential(text: string): boolean {
-  return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(text));
+  return CREDENTIAL_DETECTION_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 /**

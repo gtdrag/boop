@@ -6,7 +6,7 @@
  * a frontend framework (frontendFramework !== "none").
  */
 import type { DeveloperProfile, AnalyticsProvider, FrontendFramework } from "../../profile/schema.js";
-import { isWebProject } from "./seo.js";
+import { isWebProject } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // Types
