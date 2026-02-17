@@ -63,7 +63,7 @@ export type PlanningProgressCallback = (
  * BRIDGING can go to SCAFFOLDING (first epic) or BUILDING (subsequent epics).
  */
 const TRANSITIONS: Record<PipelinePhase, PipelinePhase[]> = {
-  IDLE: ["PLANNING"],
+  IDLE: ["PLANNING", "BRIDGING"],
   PLANNING: ["BRIDGING"],
   BRIDGING: ["SCAFFOLDING", "BUILDING"],
   SCAFFOLDING: ["BUILDING"],

@@ -206,12 +206,23 @@ async function startPipeline(
       console.log();
       console.log(`[boop] Recommendation: ${result.viability.recommendation}`);
       console.log("[boop] Planning complete. All outputs saved to .boop/planning/");
+
+      // Continue into the full pipeline
+      const { runFullPipeline } = await import("../pipeline/runner.js");
+      await runFullPipeline({
+        orchestrator: orch,
+        projectDir,
+        profile,
+        storiesMarkdown: result.stories.stories,
+        autonomous: true,
+        onProgress: (phase, msg) => console.log(`[boop] [${phase}] ${msg}`),
+      });
     } catch (error: unknown) {
       if (error instanceof PlanningPhaseError) {
         console.error(`[boop] Planning failed at "${error.phase}": ${error.message}`);
       } else {
         const msg = error instanceof Error ? error.message : String(error);
-        console.error(`[boop] Planning failed: ${msg}`);
+        console.error(`[boop] Pipeline failed: ${msg}`);
       }
     }
     return;
@@ -298,13 +309,24 @@ async function startPipeline(
     console.log("[boop] Architecture saved to .boop/planning/architecture.md");
 
     console.log("[boop] Generating epics & stories...");
-    await generateStories(idea, profile, prdResult.prd, archResult.architecture, { projectDir });
+    const storiesResult = await generateStories(idea, profile, prdResult.prd, archResult.architecture, { projectDir });
     orch.setLastCompletedStep("stories");
     console.log("[boop] Epics & stories saved to .boop/planning/epics.md");
 
     console.log("[boop] Planning complete. All outputs saved to .boop/planning/");
+
+    // Continue into the full pipeline
+    const { runFullPipeline } = await import("../pipeline/runner.js");
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir,
+      profile,
+      storiesMarkdown: storiesResult.stories,
+      autonomous: false,
+      onProgress: (phase, msg) => console.log(`[boop] [${phase}] ${msg}`),
+    });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[boop] Planning failed: ${msg}`);
+    console.error(`[boop] Pipeline failed: ${msg}`);
   }
 }
