@@ -83,7 +83,7 @@
         "All tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/review/test-hardener.ts. Runs after refactoring is complete. Analyzes coverage, writes tests, validates via Claude SDK. Depends on 5.4."
     },
     {
@@ -101,7 +101,7 @@
         "All tests pass"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/review/security-scanner.ts. Runs after test hardener confirms tests green. Uses Semgrep (open source, no account needed) for SAST and npm audit for dependencies. If critical/high findings exist, route back to refactoring agent for fixes, then re-scan. Depends on 5.5."
     },
     {
@@ -119,7 +119,7 @@
         "All tests pass"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/review/qa-smoke-test.ts. Uses Playwright (headless Chromium). Discovers routes from the project's router config (React Router, Next.js pages, Express routes, etc.) or falls back to crawling from /. Dev server started via the project's dev script. Screenshots provide visual proof for the epic summary. Depends on 5.6."
     },
     {
@@ -137,7 +137,7 @@
         "All tests pass"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/pipeline/epic-loop.ts. Summary generation + pause logic. Include gap analysis, security scan, and QA smoke test results (with screenshots) in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context. Depends on 5.7."
     },
     {
