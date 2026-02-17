@@ -6,7 +6,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 
-const DEFAULT_MODEL = "claude-opus-4-6-20250929";
+const DEFAULT_MODEL = "claude-opus-4-6";
 const DEFAULT_MAX_TOKENS = 4096;
 
 export interface ClaudeClientOptions {

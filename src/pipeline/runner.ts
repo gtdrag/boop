@@ -211,7 +211,11 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
     let buildFailed = false;
 
     for (let i = 0; i < maxIterations; i++) {
-      const result: LoopResult = await runLoopIteration({ projectDir, prdPath });
+      const result: LoopResult = await runLoopIteration({
+        projectDir,
+        prdPath,
+        clientOptions: { model: profile.aiModel || undefined },
+      });
 
       if (result.allComplete) {
         onProgress?.("BUILDING", `All stories complete for epic ${epicNumber}`);
