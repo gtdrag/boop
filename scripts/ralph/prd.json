@@ -1,86 +1,162 @@
 {
   "project": "Boop",
-  "branchName": "ralph/epic-4-bridge-and-build",
-  "description": "Epic 4: Bridge & Build. Stories convert from BMAD markdown to Ralph's prd.json format. Ralph's execution loop is ported to TypeScript — pick story, implement via Claude API, typecheck, test, reality check, commit, next.",
+  "branchName": "ralph/epic-5-review-and-epic-loop",
+  "description": "Epic 5: Review & Epic Loop. Claude Code team reviews each epic. Specialized review agents (code reviewer, gap analyst, tech debt auditor) run in parallel, then refactoring agent fixes issues, test hardener fills coverage gaps, security scanner runs SAST + dependency audit, browser QA smoke test verifies the app works, and sign-off gate pauses for user approval. Bidirectional messaging lets the user steer from their phone.",
   "userStories": [
     {
-      "id": "4.1",
-      "title": "BMAD story markdown parser",
-      "description": "As a developer, I want a parser that reads BMAD story markdown files and extracts structured data, so that stories can be converted to Ralph's format.",
+      "id": "5.1",
+      "title": "Review team orchestrator",
+      "description": "As a developer, I want the review phase to coordinate multiple specialized agents, so that code review, tech debt, refactoring, and test hardening happen systematically.",
       "acceptanceCriteria": [
-        "Given a BMAD story markdown file, the parser extracts: story ID, title, user story text, acceptance criteria (as array), tasks/subtasks, dev notes",
-        "Handles variations in markdown formatting (different heading levels, bullet styles, optional sections)",
-        "Returns a typed TypeScript object",
+        "Given all stories in an epic are complete, when the review phase triggers, then the orchestrator launches review agents in the defined sequence",
+        "Code reviewer, tech debt auditor, and gap analyst run in parallel",
+        "Refactoring agent runs after all three complete",
+        "Test hardener runs after refactoring",
+        "Full test suite runs after all fixes",
+        "Security scanner (SAST + dependency audit) runs after tests are green",
+        "Browser QA smoke test runs after security scan (starts dev server, hits routes, captures screenshots)",
+        "Unresolved gaps, critical/high vulnerabilities, or QA crashes block epic advancement",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Create src/bridge/parser.ts. The BMAD story markdown format uses: '### Story X.Y: Title', 'As a... I want... So that...', '**Acceptance Criteria:**' with BDD Given/When/Then bullets, '**Prerequisites:**', '**Technical Notes:**'. Test with fixtures covering normal and edge cases. Depends on 1.3 being complete."
+      "passes": false,
+      "notes": "Create src/review/team-orchestrator.ts. Orchestrates the review pipeline sequence: parallel phase (code-reviewer + gap-analyst + tech-debt-auditor) → refactoring-agent → test-hardener → security-scanner → qa-smoke-test → sign-off. Each agent is a function that receives context and returns findings/results. Use Promise.all for the parallel phase. Depends on 4.3 and 1.4."
     },
     {
-      "id": "4.2",
-      "title": "Ralph prd.json converter",
-      "description": "As a developer, I want the parsed stories converted to Ralph's prd.json format, so that the build loop can consume them.",
+      "id": "5.2",
+      "title": "Code review agent",
+      "description": "As a developer, I want an automated code review of all new code in the completed epic, so that issues, antipatterns, and inconsistencies are identified.",
       "acceptanceCriteria": [
-        "Given parsed story data, generates a valid prd.json with: project, branchName, description, userStories[]",
-        "Each story has: id, title, description, acceptanceCriteria[] (including 'Typecheck passes' and 'All tests pass'), priority (from epic ordering), passes (false), notes",
-        "The prd.json is saved to .boop/prd.json",
+        "Given an epic's worth of committed code, when the code review agent runs, then it produces a findings list covering: bugs, antipatterns, inconsistencies, security concerns, missing error handling",
+        "Findings are saved to .boop/reviews/epic-N/code-review.md",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Create src/bridge/converter.ts. Takes parsed BMAD stories + project metadata, outputs Ralph-format JSON. Priority maps from epic ordering (epic 1 stories = priority 1-N, etc.). Always appends 'Typecheck passes' and 'All tests pass' to acceptanceCriteria. Depends on 4.1 being complete."
+      "passes": false,
+      "notes": "Create src/review/code-reviewer.ts. Agent reads all files changed in the epic's commits (use git diff to identify changed files). Sends code to Claude for review via the Anthropic SDK (src/shared/claude-client.ts). Returns structured findings. Runs in parallel with gap-analyst and tech-debt-auditor. Depends on 5.1."
     },
     {
-      "id": "4.3",
-      "title": "Ralph story execution loop",
-      "description": "As a developer, I want Ralph's story loop integrated into Boop, so that stories are built autonomously one at a time.",
+      "id": "5.3",
+      "title": "Gap analysis agent",
+      "description": "As a user, I want every acceptance criterion cross-referenced against the actual implementation after each epic, so that nothing ships with mock data, stubs, or incomplete wiring pretending to be done.",
       "acceptanceCriteria": [
-        "Given a valid .boop/prd.json exists, the loop picks the highest-priority incomplete story",
-        "Spawns a fresh Claude context with: story details + progress.txt + CLAUDE.md",
-        "The agent implements the story, runs typecheck and tests",
-        "Reality check scans for mock/placeholder data, stub implementations, and TODO/FIXME markers in production code paths",
-        "On all pass: commits, marks story done in prd.json, appends to progress.txt",
-        "On fail (including reality check failures): retries once, then pauses and reports",
-        "Mock data in production code is treated as a failing test — not a warning",
+        "Given all stories in an epic are complete, when the gap analyst runs, then it reads every acceptance criterion from every story in the epic",
+        "Verifies each criterion is met with real data, real API calls, real database queries — not mocks or placeholders",
+        "Scans all production code paths for: hardcoded mock data, placeholder strings, stub implementations, fake API responses, seed data displayed as real data",
+        "Produces a gap report listing: criterion, status (verified / gap found), evidence",
+        "Any gap found is a blocking issue — the epic cannot advance until resolved or explicitly deferred with documented justification",
+        "Gap report is saved to .boop/reviews/epic-N/gap-analysis.md",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Create src/build/ralph-loop.ts, src/build/story-runner.ts, src/build/reality-check.ts. IMPORTANT: Use the Anthropic SDK directly (src/shared/claude-client.ts) to invoke Claude for each story — do NOT shell out to 'claude --print' or any CLI tool. The SDK gives proper timeout control, streaming, and error handling without the process-hanging issues of the CLI's --print mode. Each story gets a fresh API conversation. The story runner assembles the prompt (story details + progress.txt + CLAUDE.md context), sends it via the SDK, and processes the response. Reality check runs after typecheck + tests pass but before commit. Depends on 4.2 and 1.4 being complete."
+      "passes": false,
+      "notes": "Create src/review/gap-analyst.ts. Cross-references story acceptance criteria from .boop/prd.json against actual code. Scans for patterns: mock, fake, placeholder, TODO, FIXME, HACK, dummy, sample, hardcoded arrays/objects that look like seed data. Uses Claude via SDK for intelligent analysis. Runs in parallel with code-reviewer and tech-debt-auditor. Depends on 5.1."
     },
     {
-      "id": "4.4",
-      "title": "Progress and pattern tracking",
-      "description": "As a developer, I want progress.txt and CLAUDE.md maintained across story iterations, so that knowledge compounds between stories.",
+      "id": "5.4",
+      "title": "Tech debt auditor and refactoring agent",
+      "description": "As a developer, I want tech debt identified and actively fixed after each epic, so that the codebase stays clean as it grows.",
       "acceptanceCriteria": [
-        "Given a story completes, progress.txt is appended with: iteration number, story ID, files changed, learnings",
-        "CLAUDE.md is updated with discovered codebase patterns",
-        "Both files are injected into the next story's context",
+        "Given code review findings and the full codebase, when the tech debt auditor runs, then it identifies: duplication, naming inconsistencies, extraction opportunities, unused code",
+        "The refactoring agent takes combined findings and applies fixes",
+        "All changes pass typecheck and tests after refactoring",
+        "Refactoring commits use the review commit format",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Create src/build/progress.ts. Follow Ralph's existing format: append-only progress log with Codebase Patterns section at the top. The story runner reads progress.txt before each iteration and includes it in the Claude prompt context. CLAUDE.md updates are extracted from the agent's response. Depends on 4.3 being complete."
+      "passes": false,
+      "notes": "Create src/review/tech-debt-auditor.ts and src/review/refactoring-agent.ts. Tech debt auditor runs in parallel with code-reviewer and gap-analyst. Refactoring agent runs AFTER all three parallel agents complete — it takes combined findings from code reviewer (5.2), gap analyst (5.3), and tech debt auditor, then applies fixes via Claude SDK. Commits use format: 'refactor: Epic N review - [description]'. Depends on 5.2 and 5.3."
     },
     {
-      "id": "4.5",
-      "title": "Git branch management",
-      "description": "As a developer, I want Boop to manage git branches for each project, so that work is isolated and organized.",
+      "id": "5.5",
+      "title": "Test hardening agent",
+      "description": "As a developer, I want test coverage gaps filled and integration tests added after each epic, so that the test suite is comprehensive before moving on.",
       "acceptanceCriteria": [
-        "Given prd.json has a branchName, the branch is created or checked out when the build phase starts",
-        "Each story commit uses format: 'feat: [Story ID] - [Story Title]'",
-        "Review phase commits use format: 'refactor: Epic N review - [description]'",
+        "Given refactoring is complete, when the test hardener runs, then it identifies coverage gaps and missing edge case tests",
+        "Writes new unit tests and integration tests spanning the epic's stories",
+        "Full test suite passes after new tests are added",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Create git utilities in the build module. Use child_process or simple-git for git operations. Branch created from main if it doesn't exist, checked out if it does. Commit format enforced by the story runner. Depends on 4.3 being complete."
+      "passes": false,
+      "notes": "Create src/review/test-hardener.ts. Runs after refactoring is complete. Analyzes coverage, writes tests, validates via Claude SDK. Depends on 5.4."
+    },
+    {
+      "id": "5.6",
+      "title": "Automated security scanning",
+      "description": "As a developer, I want SAST and dependency audits run against the generated project code after each epic, so that security vulnerabilities are caught before sign-off.",
+      "acceptanceCriteria": [
+        "Given all fixes are applied and the test suite is green, when the security scanner runs, then a SAST tool (Semgrep or equivalent) scans all source code for vulnerability patterns",
+        "npm audit (or equivalent) checks all dependencies for known vulnerabilities",
+        "Results are categorized by severity: critical, high, medium, low",
+        "Critical and high vulnerabilities are blocking — the epic cannot advance until they are resolved",
+        "Medium and low findings are included in the epic summary for awareness",
+        "Security report is saved to .boop/reviews/epic-N/security-scan.md",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Create src/review/security-scanner.ts. Runs after test hardener confirms tests green. Uses Semgrep (open source, no account needed) for SAST and npm audit for dependencies. If critical/high findings exist, route back to refactoring agent for fixes, then re-scan. Depends on 5.5."
+    },
+    {
+      "id": "5.7",
+      "title": "Browser QA smoke test",
+      "description": "As a developer, I want the generated project verified in a real browser after each epic, so that the app actually starts, renders, and doesn't crash — not just passes tests.",
+      "acceptanceCriteria": [
+        "Given security scan is complete and tests are green, when the QA smoke test runs, then the generated project's dev server is started automatically",
+        "A headless Playwright browser visits every route defined in the project (detected from router config or sitemap)",
+        "Each route is checked for: HTTP 200 response, no JavaScript console errors, page renders without crash",
+        "A screenshot is captured at each route",
+        "If any route crashes, throws console errors, or returns non-200, it's flagged as a blocking failure",
+        "Screenshots and results are saved to .boop/reviews/epic-N/qa-smoke-test/",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Create src/review/qa-smoke-test.ts. Uses Playwright (headless Chromium). Discovers routes from the project's router config (React Router, Next.js pages, Express routes, etc.) or falls back to crawling from /. Dev server started via the project's dev script. Screenshots provide visual proof for the epic summary. Depends on 5.6."
+    },
+    {
+      "id": "5.8",
+      "title": "Epic summary and sign-off gate",
+      "description": "As a user, I want a summary of what was built, reviewed, and fixed after each epic, so that I can sign off before the next epic starts.",
+      "acceptanceCriteria": [
+        "Given review phase is complete, when the sign-off gate triggers, then an epic summary is generated: stories built, review findings, gap analysis results, security scan results, QA smoke test results with screenshots, fixes applied, test status",
+        "Summary is saved to .boop/reviews/epic-N/summary.md",
+        "Boop pauses and waits for user approval via npx boop --review",
+        "If --autonomous is active, sign-off is skipped and next epic starts",
+        "If user flags issues during sign-off, feedback is routed to the refactoring agent, fixes applied, test suite re-run, summary regenerated, user re-prompted for approval",
+        "The rejection/fix cycle repeats until user approves or explicitly defers issues",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Create src/pipeline/epic-loop.ts. Summary generation + pause logic. Include gap analysis, security scan, and QA smoke test results (with screenshots) in summary. Rejection flow re-enters the review pipeline at the refactoring step with user feedback as additional context. Depends on 5.7."
+    },
+    {
+      "id": "5.9",
+      "title": "Bidirectional messaging integration",
+      "description": "As a user, I want Boop to notify me via phone AND ask me questions when it needs input, so that I can steer things from my phone without sitting at a terminal.",
+      "acceptanceCriteria": [
+        "Given WhatsApp or Telegram is configured in Boop, when an epic sign-off is ready, then a notification is sent via the configured channel with the epic summary",
+        "Status updates are also sent for: planning complete, build started, build complete, review complete",
+        "When Boop needs user input during autonomous execution (design decisions, ambiguous requirements, errors it can't resolve), it sends a question via the configured channel and waits for a reply",
+        "The user's reply is parsed and routed back to the pipeline to continue",
+        "Credential requests are never sent as plaintext over messaging — Boop instructs the user to provide credentials via a secure local method",
+        "If no reply is received within a configurable timeout, Boop pauses and saves state for later resume",
+        "Typecheck passes",
+        "All tests pass"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Use OpenClaw's existing WhatsApp/Telegram adapter code (src/channels/whatsapp/, src/channels/telegram/ if they exist from Epic 1 fork, or create adapter stubs). Configure in ~/.boop/profile.yaml. Bidirectional messaging uses the gateway for both inbound and outbound. Credential handling must be secure — never transmit secrets over messaging channels. Depends on 5.8 and 1.1 (channel adapters kept from OpenClaw)."
     }
   ]
 }
