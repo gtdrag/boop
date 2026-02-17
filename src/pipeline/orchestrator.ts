@@ -2,9 +2,10 @@
  * Pipeline state machine orchestrator.
  *
  * Manages phase transitions following the sequence:
- * IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → RETROSPECTIVE → COMPLETE
+ * IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → DEPLOYING → RETROSPECTIVE → COMPLETE
  *
  * SCAFFOLDING runs once per project (first epic only) — subsequent epics skip to BUILDING.
+ * DEPLOYING runs once after all epics complete (not per-epic) and requires cloudProvider config.
  */
 import type {
   DeveloperProfile,
@@ -28,7 +29,7 @@ import {
   createMessagingDispatcher,
   messagingConfigFromProfile,
 } from "../channels/messaging.js";
-import type { MessagingDispatcher } from "../channels/messaging.js";
+import type { MessagingDispatcher, PipelineEvent } from "../channels/messaging.js";
 
 /** Result of the full planning chain. */
 export interface PlanningResult {
@@ -69,7 +70,8 @@ const TRANSITIONS: Record<PipelinePhase, PipelinePhase[]> = {
   SCAFFOLDING: ["BUILDING"],
   BUILDING: ["REVIEWING"],
   REVIEWING: ["SIGN_OFF"],
-  SIGN_OFF: ["RETROSPECTIVE"],
+  SIGN_OFF: ["DEPLOYING", "RETROSPECTIVE"],
+  DEPLOYING: ["RETROSPECTIVE"],
   RETROSPECTIVE: ["COMPLETE"],
   COMPLETE: ["IDLE"],
 };
@@ -97,6 +99,14 @@ export class PipelineOrchestrator {
    */
   getProfile(): DeveloperProfile | null {
     return this.profile;
+  }
+
+  /**
+   * Send a pipeline event notification via the messaging system.
+   * No-op if messaging is disabled.
+   */
+  notify(event: PipelineEvent, context?: { epic?: number; detail?: string }): void {
+    void this.messaging.notify(event, context);
   }
 
   /**
@@ -158,6 +168,8 @@ export class PipelineOrchestrator {
       void this.messaging.notify("build-complete", { epic });
     } else if (targetPhase === "SIGN_OFF") {
       void this.messaging.notify("review-complete", { epic });
+    } else if (targetPhase === "DEPLOYING") {
+      void this.messaging.notify("deployment-started", { epic });
     } else if (targetPhase === "COMPLETE") {
       void this.messaging.notify("retrospective-complete", { epic });
     }
@@ -177,7 +189,9 @@ export class PipelineOrchestrator {
 
     let nextPhase = PIPELINE_PHASES[nextIndex]!;
 
-    // Skip SCAFFOLDING if already done
+    // Skip SCAFFOLDING if already done.
+    // NOTE: DEPLOYING should be entered via explicit transition(), not advance(),
+    // since it depends on cloudProvider configuration set in the developer profile.
     if (nextPhase === "SCAFFOLDING" && this.state.scaffoldingComplete) {
       nextIndex++;
       if (nextIndex >= PIPELINE_PHASES.length) {

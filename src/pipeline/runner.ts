@@ -2,7 +2,11 @@
  * Pipeline runner — chains all phases end-to-end after planning completes.
  *
  * Pure glue code: for each epic, runs bridging → scaffolding → building →
- * reviewing → sign-off, then finishes with a retrospective.
+ * reviewing → sign-off, then deploys once (if configured) and finishes
+ * with a retrospective.
+ *
+ * Phase sequence per epic: 1. BRIDGING → 2. SCAFFOLDING → 3. BUILDING →
+ * 4. REVIEWING → 5. SIGN_OFF. After all epics: 6. DEPLOYING → 7. RETROSPECTIVE.
  *
  * Every phase is wrapped in error handling that reports the failure cleanly
  * and leaves the orchestrator in a resumable state.
@@ -20,6 +24,7 @@ import { generateSeoDefaults } from "../scaffolding/defaults/seo.js";
 import { generateAnalyticsDefaults } from "../scaffolding/defaults/analytics.js";
 import { generateAccessibilityDefaults } from "../scaffolding/defaults/accessibility.js";
 import { generateSecurityHeaderDefaults } from "../scaffolding/defaults/security-headers.js";
+import { generateDeploymentDefaults } from "../scaffolding/defaults/deployment.js";
 import { runLoopIteration } from "../build/ralph-loop.js";
 import type { LoopResult } from "../build/ralph-loop.js";
 import { runReviewPipeline } from "../review/team-orchestrator.js";
@@ -77,6 +82,7 @@ function applyScaffoldingDefaults(
     ...generateAnalyticsDefaults(profile),
     ...generateAccessibilityDefaults(profile),
     ...generateSecurityHeaderDefaults(profile),
+    ...generateDeploymentDefaults(profile),
   ];
 
   for (const file of allFiles) {
@@ -133,7 +139,10 @@ function createInteractiveSignOff(): (summary: EpicSummary) => Promise<SignOffDe
     console.log();
 
     const approved = await confirm({ message: "Approve this epic?" });
-    if (isCancel(approved) || approved) {
+    if (isCancel(approved)) {
+      return { action: "reject", feedback: "Sign-off cancelled by user." };
+    }
+    if (approved) {
       return { action: "approve" };
     }
 
@@ -152,6 +161,21 @@ function createInteractiveSignOff(): (summary: EpicSummary) => Promise<SignOffDe
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** Redact credential-like values from deploy output before writing to disk. */
+function redactSecrets(text: string): string {
+  return text
+    // ENV_VAR style: VERCEL_TOKEN=abc, API_KEY: sk-123 (case-sensitive to avoid
+    // false positives on lowercase words like "token count" or "primary_key")
+    .replace(
+      /(\b[A-Z_]*(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)[A-Z_]*)[=:]\s*\S+/g,
+      "$1=[REDACTED]",
+    )
+    // Bearer tokens: "Bearer eyJ..." or "Authorization: Bearer ..."
+    .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+    // URL-embedded credentials: https://user:pass@host
+    .replace(/:\/\/[^@\s]+@/g, "://[REDACTED]@");
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +326,58 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
     onProgress?.("SIGN_OFF", `Epic ${epicNumber} approved`);
   }
 
-  // --- 6. RETROSPECTIVE ---
+  // --- 6. DEPLOYING (once after all epics) ---
+  if (profile.cloudProvider && profile.cloudProvider !== "none" && breakdown.epics.length > 0) {
+    const lastEpicNumber = breakdown.epics[breakdown.epics.length - 1]!.number;
+    orch.transition("DEPLOYING");
+    onProgress?.("DEPLOYING", `Deploying project...`);
+
+    try {
+      const { deploy } = await import("../deployment/deployer.js");
+      const deployResult = await deploy({
+        projectDir,
+        cloudProvider: profile.cloudProvider,
+        projectName: path.basename(projectDir),
+        model: profile.aiModel || undefined,
+      });
+
+      const resultToSave = {
+        success: deployResult.success,
+        url: deployResult.url,
+        provider: deployResult.provider,
+        error: deployResult.error,
+        output: redactSecrets(deployResult.output.slice(0, 2000)),
+        timestamp: new Date().toISOString(),
+      };
+      const boopDir = path.join(projectDir, ".boop");
+      fs.mkdirSync(boopDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(boopDir, "deploy-result.json"),
+        JSON.stringify(resultToSave, null, 2),
+      );
+
+      if (deployResult.success) {
+        const urlMsg = deployResult.url
+          ? `Live at: ${deployResult.url}`
+          : "Build verified (no public URL)";
+        onProgress?.("DEPLOYING", urlMsg);
+        orch.notify("deployment-complete", { epic: lastEpicNumber, detail: urlMsg });
+      } else {
+        onProgress?.("DEPLOYING", `Deployment failed: ${deployResult.error ?? "unknown"}`);
+        console.error(`[boop] Deployment failed: ${deployResult.error}`);
+        console.error("[boop] Pipeline continuing to retrospective despite deploy failure.");
+        orch.notify("deployment-failed", { epic: lastEpicNumber, detail: deployResult.error });
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      onProgress?.("DEPLOYING", `Deployment error: ${msg}`);
+      console.error(`[boop] Deployment error: ${msg}`);
+      console.error("[boop] Pipeline continuing to retrospective despite deploy error.");
+      orch.notify("deployment-failed", { epic: breakdown.epics[breakdown.epics.length - 1]!.number, detail: msg });
+    }
+  }
+
+  // --- 7. RETROSPECTIVE ---
   orch.transition("RETROSPECTIVE");
   onProgress?.("RETROSPECTIVE", "Running retrospective analysis...");
 

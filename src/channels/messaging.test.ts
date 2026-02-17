@@ -78,13 +78,23 @@ describe("sanitizeForMessaging", () => {
     expect(result).toContain("Never send passwords");
   });
 
-  it("replaces text containing 'token'", () => {
+  it("replaces text containing 'auth token'", () => {
     const result = sanitizeForMessaging("Enter your auth token");
     expect(result).toContain("Never send passwords");
   });
 
-  it("replaces text containing 'secret'", () => {
+  it("replaces text containing 'api token'", () => {
+    const result = sanitizeForMessaging("Set your API token");
+    expect(result).toContain("Never send passwords");
+  });
+
+  it("replaces text containing 'client secret'", () => {
     const result = sanitizeForMessaging("What is the client secret?");
+    expect(result).toContain("Never send passwords");
+  });
+
+  it("replaces text containing 'secret key'", () => {
+    const result = sanitizeForMessaging("Enter your secret key");
     expect(result).toContain("Never send passwords");
   });
 
@@ -101,6 +111,16 @@ describe("sanitizeForMessaging", () => {
   it("is case-insensitive", () => {
     const result = sanitizeForMessaging("Enter your PASSWORD");
     expect(result).toContain("Never send passwords");
+  });
+
+  it("does NOT flag standalone 'token' without credential context", () => {
+    const text = "Processing token count for Epic 3.";
+    expect(sanitizeForMessaging(text)).toBe(text);
+  });
+
+  it("does NOT flag standalone 'secret' without credential context", () => {
+    const text = "This is the secret sauce of the architecture.";
+    expect(sanitizeForMessaging(text)).toBe(text);
   });
 });
 
@@ -213,6 +233,35 @@ describe("MessagingDispatcher", () => {
       await dispatcher.notify("build-complete", { epic: 1 });
       expect(adapter.sentMessages).toHaveLength(0);
     });
+
+    it("sends deployment-started notification", async () => {
+      const adapter = makeMockAdapter();
+      const dispatcher = new MessagingDispatcher(makeConfig(), adapter);
+      await dispatcher.start();
+
+      await dispatcher.notify("deployment-started", { epic: 1 });
+      expect(adapter.sentMessages[0]!.text).toContain("Deploying Epic 1");
+    });
+
+    it("sends deployment-complete notification with detail", async () => {
+      const adapter = makeMockAdapter();
+      const dispatcher = new MessagingDispatcher(makeConfig(), adapter);
+      await dispatcher.start();
+
+      await dispatcher.notify("deployment-complete", { epic: 1, detail: "https://app.vercel.app" });
+      expect(adapter.sentMessages[0]!.text).toContain("Deployment complete");
+      expect(adapter.sentMessages[0]!.text).toContain("https://app.vercel.app");
+    });
+
+    it("sends deployment-failed notification with error detail", async () => {
+      const adapter = makeMockAdapter();
+      const dispatcher = new MessagingDispatcher(makeConfig(), adapter);
+      await dispatcher.start();
+
+      await dispatcher.notify("deployment-failed", { epic: 1, detail: "CLI not found" });
+      expect(adapter.sentMessages[0]!.text).toContain("Deployment failed");
+      expect(adapter.sentMessages[0]!.text).toContain("CLI not found");
+    });
   });
 
   describe("send", () => {
@@ -320,6 +369,22 @@ describe("MessagingDispatcher", () => {
       expect(adapter.sentMessages[0]!.text).toContain("Never send passwords");
     });
 
+    it("does not send blank message when question is empty", async () => {
+      const adapter = makeMockAdapter();
+      adapter.mockWaitForReply.mockResolvedValue(makeReply("yes"));
+
+      const dispatcher = new MessagingDispatcher(makeConfig(), adapter);
+      await dispatcher.start();
+
+      const result = await dispatcher.ask("");
+
+      expect(adapter.sentMessages).toHaveLength(0);
+      expect(result).toEqual({
+        replied: true,
+        message: expect.objectContaining({ text: "yes" }),
+      });
+    });
+
     it("uses configured replyTimeout", async () => {
       const adapter = makeMockAdapter();
       adapter.mockWaitForReply.mockResolvedValue(null);
@@ -402,8 +467,9 @@ describe("MessagingDispatcher", () => {
 
       // Should auto-approve and send instruction to use local review
       expect(result.action).toBe("approve");
-      // Should have sent the timeout message
+      // Should have sent the timeout message (says "continuing", not "paused")
       expect(adapter.sentMessages.some((m) => m.text.includes("No reply received"))).toBe(true);
+      expect(adapter.sentMessages.some((m) => m.text.includes("Pipeline continuing"))).toBe(true);
     });
   });
 });

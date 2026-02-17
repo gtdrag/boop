@@ -93,9 +93,47 @@ describe("PipelineOrchestrator", () => {
       orch.transition("BUILDING");
       orch.transition("REVIEWING");
       orch.transition("SIGN_OFF");
+      orch.transition("DEPLOYING");
       orch.transition("RETROSPECTIVE");
       orch.transition("COMPLETE");
       expect(orch.getState().phase).toBe("COMPLETE");
+    });
+
+    it("allows SIGN_OFF → DEPLOYING transition", () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      orch.transition("PLANNING");
+      orch.transition("BRIDGING");
+      orch.transition("SCAFFOLDING");
+      orch.transition("BUILDING");
+      orch.transition("REVIEWING");
+      orch.transition("SIGN_OFF");
+      orch.transition("DEPLOYING");
+      expect(orch.getState().phase).toBe("DEPLOYING");
+    });
+
+    it("allows SIGN_OFF → RETROSPECTIVE (skip deploy)", () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      orch.transition("PLANNING");
+      orch.transition("BRIDGING");
+      orch.transition("SCAFFOLDING");
+      orch.transition("BUILDING");
+      orch.transition("REVIEWING");
+      orch.transition("SIGN_OFF");
+      orch.transition("RETROSPECTIVE");
+      expect(orch.getState().phase).toBe("RETROSPECTIVE");
+    });
+
+    it("allows DEPLOYING → RETROSPECTIVE", () => {
+      const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+      orch.transition("PLANNING");
+      orch.transition("BRIDGING");
+      orch.transition("SCAFFOLDING");
+      orch.transition("BUILDING");
+      orch.transition("REVIEWING");
+      orch.transition("SIGN_OFF");
+      orch.transition("DEPLOYING");
+      orch.transition("RETROSPECTIVE");
+      expect(orch.getState().phase).toBe("RETROSPECTIVE");
     });
 
     it("throws on invalid transition", () => {
@@ -345,6 +383,8 @@ describe("PipelineOrchestrator", () => {
       expect(orch.getProfile()?.testRunner).toBe("vitest");
       orch.transition("SIGN_OFF");
       expect(orch.getProfile()?.linter).toBe("oxlint");
+      orch.transition("DEPLOYING");
+      expect(orch.getProfile()?.packageManager).toBe("pnpm");
       orch.transition("RETROSPECTIVE");
       expect(orch.getProfile()?.aiModel).toBe("claude-opus-4-6");
       orch.transition("COMPLETE");

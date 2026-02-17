@@ -18,6 +18,7 @@ const {
   mockGenerateAnalyticsDefaults,
   mockGenerateAccessibilityDefaults,
   mockGenerateSecurityHeaderDefaults,
+  mockGenerateDeploymentDefaults,
   mockRunLoopIteration,
   mockRunReviewPipeline,
   mockCreateCodeReviewer,
@@ -34,6 +35,7 @@ const {
   mockBuildMemoryEntries,
   mockSaveMemory,
   mockFormatSummary,
+  mockDeploy,
 } = vi.hoisted(() => ({
   mockParseStoryMarkdown: vi.fn(),
   mockConvertToPrd: vi.fn(),
@@ -43,6 +45,7 @@ const {
   mockGenerateAnalyticsDefaults: vi.fn(),
   mockGenerateAccessibilityDefaults: vi.fn(),
   mockGenerateSecurityHeaderDefaults: vi.fn(),
+  mockGenerateDeploymentDefaults: vi.fn(),
   mockRunLoopIteration: vi.fn(),
   mockRunReviewPipeline: vi.fn(),
   mockCreateCodeReviewer: vi.fn(),
@@ -59,6 +62,7 @@ const {
   mockBuildMemoryEntries: vi.fn(),
   mockSaveMemory: vi.fn(),
   mockFormatSummary: vi.fn(),
+  mockDeploy: vi.fn(),
 }));
 
 // Runner's direct dependencies
@@ -83,6 +87,12 @@ vi.mock("../scaffolding/defaults/accessibility.js", () => ({
 }));
 vi.mock("../scaffolding/defaults/security-headers.js", () => ({
   generateSecurityHeaderDefaults: mockGenerateSecurityHeaderDefaults,
+}));
+vi.mock("../scaffolding/defaults/deployment.js", () => ({
+  generateDeploymentDefaults: mockGenerateDeploymentDefaults,
+}));
+vi.mock("../deployment/deployer.js", () => ({
+  deploy: mockDeploy,
 }));
 vi.mock("../build/ralph-loop.js", () => ({
   runLoopIteration: mockRunLoopIteration,
@@ -233,6 +243,13 @@ describe("runFullPipeline", () => {
     mockGenerateAnalyticsDefaults.mockReturnValue([]);
     mockGenerateAccessibilityDefaults.mockReturnValue([]);
     mockGenerateSecurityHeaderDefaults.mockReturnValue([]);
+    mockGenerateDeploymentDefaults.mockReturnValue([]);
+    mockDeploy.mockResolvedValue({
+      success: true,
+      url: "https://test.vercel.app",
+      output: "Deployed!",
+      provider: "Vercel",
+    });
 
     mockRunLoopIteration
       .mockResolvedValueOnce({ outcome: "passed", story: { id: "1.1" }, allComplete: false })
@@ -505,8 +522,191 @@ describe("runFullPipeline", () => {
     expect(phases).toContain("BUILDING");
     expect(phases).toContain("REVIEWING");
     expect(phases).toContain("SIGN_OFF");
+    expect(phases).toContain("DEPLOYING");
     expect(phases).toContain("RETROSPECTIVE");
     expect(phases).toContain("COMPLETE");
+  });
+
+  // -------------------------------------------------------------------------
+  // Deployment phase
+  // -------------------------------------------------------------------------
+
+  it("runs DEPLOYING phase when cloudProvider is set", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+    const progress: Array<[string, string]> = [];
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+      onProgress: (phase, msg) => progress.push([phase, msg]),
+    });
+
+    expect(mockDeploy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectDir: tmpDir,
+        cloudProvider: "vercel",
+      }),
+    );
+
+    const deployPhases = progress.filter(([phase]) => phase === "DEPLOYING");
+    expect(deployPhases.length).toBeGreaterThanOrEqual(1);
+    expect(orch.getState().phase).toBe("COMPLETE");
+  });
+
+  it("skips DEPLOYING when cloudProvider is 'none'", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const noDeployProfile = { ...TEST_PROFILE, cloudProvider: "none" as const };
+    const orch = new PipelineOrchestrator(tmpDir, noDeployProfile);
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: noDeployProfile,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(mockDeploy).not.toHaveBeenCalled();
+    expect(orch.getState().phase).toBe("COMPLETE");
+  });
+
+  it("deploy failure does not stop pipeline — continues to RETROSPECTIVE", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockDeploy.mockResolvedValue({
+      success: false,
+      url: null,
+      output: "Error!",
+      error: "Build failed on Vercel",
+      provider: "Vercel",
+    });
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    // Pipeline reached COMPLETE despite deploy failure
+    expect(orch.getState().phase).toBe("COMPLETE");
+    expect(mockAnalyze).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Deployment failed"),
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  it("deploy exception does not stop pipeline", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockDeploy.mockRejectedValue(new Error("Network timeout"));
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(orch.getState().phase).toBe("COMPLETE");
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Deployment error"),
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  it("saves deploy result to .boop/deploy-result.json", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockDeploy.mockResolvedValue({
+      success: true,
+      url: "https://my-app.vercel.app",
+      output: "Deployed successfully",
+      provider: "Vercel",
+    });
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    const resultPath = path.join(tmpDir, ".boop", "deploy-result.json");
+    expect(fs.existsSync(resultPath)).toBe(true);
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf-8"));
+    expect(result.success).toBe(true);
+    expect(result.url).toBe("https://my-app.vercel.app");
+    expect(result.provider).toBe("Vercel");
+    expect(result.timestamp).toBeDefined();
+  });
+
+  it("redacts credentials from deploy-result.json output", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockDeploy.mockResolvedValue({
+      success: true,
+      url: "https://my-app.vercel.app",
+      output: "Deploying...\nVERCEL_TOKEN=sk_live_abc123\nAuthorization: Bearer eyJhbGciOi\nhttps://user:pass123@registry.example.com\nDone!",
+      provider: "Vercel",
+    });
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    const resultPath = path.join(tmpDir, ".boop", "deploy-result.json");
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf-8"));
+    expect(result.output).not.toContain("sk_live_abc123");
+    expect(result.output).not.toContain("eyJhbGciOi");
+    expect(result.output).not.toContain("pass123");
+    expect(result.output).toContain("[REDACTED]");
+  });
+
+  it("truncates deploy output to 2000 chars in result file", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockDeploy.mockResolvedValue({
+      success: true,
+      url: "https://my-app.vercel.app",
+      output: "x".repeat(10_000),
+      provider: "Vercel",
+    });
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    const resultPath = path.join(tmpDir, ".boop", "deploy-result.json");
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf-8"));
+    expect(result.output.length).toBeLessThanOrEqual(2000);
   });
 
   // -------------------------------------------------------------------------

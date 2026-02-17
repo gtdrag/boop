@@ -12,6 +12,7 @@ describe("types", () => {
       "BUILDING",
       "REVIEWING",
       "SIGN_OFF",
+      "DEPLOYING",
       "RETROSPECTIVE",
       "COMPLETE",
     ]);

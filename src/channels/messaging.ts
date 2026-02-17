@@ -73,6 +73,9 @@ export type PipelineEvent =
   | "build-complete"
   | "review-complete"
   | "sign-off-ready"
+  | "deployment-started"
+  | "deployment-complete"
+  | "deployment-failed"
   | "retrospective-complete"
   | "epic-complete"
   | "error";
@@ -83,12 +86,12 @@ export type PipelineEvent =
 
 const CREDENTIAL_PATTERNS = [
   /password/i,
-  /secret/i,
-  /api.?key/i,
-  /token/i,
+  /\bclient[_\s-]?secret\b/i,
+  /\bsecret[_\s-]?key\b/i,
+  /api[_.\s-]?key/i,
+  /\b(?:auth|api|access|bearer|bot|refresh)[_\s-]?token\b/i,
   /credential/i,
-  /private.?key/i,
-  /\bauth\b/i,
+  /private[_.\s-]?key/i,
 ];
 
 /**
@@ -123,6 +126,12 @@ const EVENT_MESSAGES: Record<PipelineEvent, (ctx: { epic?: number; detail?: stri
     `Review complete for Epic ${ctx.epic ?? "?"}. ${ctx.detail ?? "Ready for sign-off."}`,
   "sign-off-ready": (ctx) =>
     `Epic ${ctx.epic ?? "?"} is ready for sign-off.\n\n${ctx.detail ?? "Reply 'approve' or provide feedback to reject."}`,
+  "deployment-started": (ctx) =>
+    `Deploying Epic ${ctx.epic ?? "?"}...`,
+  "deployment-complete": (ctx) =>
+    `Deployment complete for Epic ${ctx.epic ?? "?"}! ${ctx.detail ?? ""}`,
+  "deployment-failed": (ctx) =>
+    `Deployment failed for Epic ${ctx.epic ?? "?"}: ${ctx.detail ?? "Unknown error"}`,
   "retrospective-complete": (ctx) =>
     `Retrospective complete for Epic ${ctx.epic ?? "?"}. Project insights saved.`,
   "epic-complete": (ctx) => `Epic ${ctx.epic ?? "?"} approved and complete!`,
@@ -178,9 +187,10 @@ export class MessagingDispatcher {
     event: PipelineEvent,
     context?: { epic?: number; detail?: string },
   ): Promise<void> {
-    if (!this.enabled || !this.adapter) return;
+    if (!this.enabled || !this.adapter || !this.started) return;
 
-    const text = EVENT_MESSAGES[event](context ?? {});
+    const raw = EVENT_MESSAGES[event](context ?? {});
+    const text = sanitizeForMessaging(raw);
     await this.adapter.send({ text, type: "status" });
   }
 
@@ -189,7 +199,7 @@ export class MessagingDispatcher {
    * No-op if messaging is disabled.
    */
   async send(message: OutboundMessage): Promise<void> {
-    if (!this.enabled || !this.adapter) return;
+    if (!this.enabled || !this.adapter || !this.started) return;
 
     const safeText = sanitizeForMessaging(message.text);
     await this.adapter.send({ ...message, text: safeText });
@@ -200,7 +210,7 @@ export class MessagingDispatcher {
    * Truncates to fit messaging limits.
    */
   async sendSummary(epicNumber: number, markdown: string): Promise<void> {
-    if (!this.enabled || !this.adapter) return;
+    if (!this.enabled || !this.adapter || !this.started) return;
 
     // Truncate summary for messaging (WhatsApp/Telegram have limits)
     const MAX_MESSAGE_LENGTH = 4000;
@@ -209,6 +219,9 @@ export class MessagingDispatcher {
       text = text.slice(0, MAX_MESSAGE_LENGTH - 100) + "\n\n... (truncated, see full summary in .boop/reviews/)";
     }
 
+    // Note: summaries are internally generated review content — not user credential
+    // requests — so we skip sanitizeForMessaging() here to avoid suppressing
+    // legitimate security findings that mention "password", "token", etc.
     await this.adapter.send({ text, type: "summary" });
   }
 
@@ -219,12 +232,14 @@ export class MessagingDispatcher {
    * Credential-related questions are rejected with a safe message.
    */
   async ask(question: string): Promise<AskResult> {
-    if (!this.enabled || !this.adapter) {
+    if (!this.enabled || !this.adapter || !this.started) {
       return { replied: false, reason: this.config.channel === "none" ? "disabled" : "no-channel" };
     }
 
-    const safeQuestion = sanitizeForMessaging(question);
-    await this.adapter.send({ text: safeQuestion, type: "question" });
+    if (question) {
+      const safeQuestion = sanitizeForMessaging(question);
+      await this.adapter.send({ text: safeQuestion, type: "question" });
+    }
 
     const timeoutMs = (this.config.replyTimeout ?? 0) * 1000;
     const reply = await this.adapter.waitForReply(timeoutMs);
@@ -255,12 +270,11 @@ export class MessagingDispatcher {
       const result = await this.ask("");
 
       if (!result.replied) {
-        // Timeout — treat as needing local review
+        // Timeout — auto-approve to not block, instruct user to review locally
         await this.send({
-          text: "No reply received. Pipeline paused. Use 'npx boop --review' to continue locally.",
+          text: "No reply received. Pipeline continuing. Use 'npx boop --review' to review locally.",
           type: "status",
         });
-        // Return approve to not block — user can use local review
         return { action: "approve" as const };
       }
 
