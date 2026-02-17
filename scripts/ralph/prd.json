@@ -1,106 +1,86 @@
 {
   "project": "Boop",
-  "branchName": "ralph/epic-3-planning-pipeline",
-  "description": "Epic 3: Planning Pipeline. Idea goes in, stories come out. Viability assessment, PRD generation, architecture generation, story breakdown — all chained automatically with BMAD-extracted prompts.",
+  "branchName": "ralph/epic-4-bridge-and-build",
+  "description": "Epic 4: Bridge & Build. Stories convert from BMAD markdown to Ralph's prd.json format. Ralph's execution loop is ported to TypeScript — pick story, implement via Claude API, typecheck, test, reality check, commit, next.",
   "userStories": [
     {
-      "id": "3.1",
-      "title": "Viability assessment",
-      "description": "As a user, I want Boop to honestly evaluate my idea before investing effort, so that I get honest feedback and can pivot early if needed.",
+      "id": "4.1",
+      "title": "BMAD story markdown parser",
+      "description": "As a developer, I want a parser that reads BMAD story markdown files and extracts structured data, so that stories can be converted to Ralph's format.",
       "acceptanceCriteria": [
-        "Given an idea via npx boop 'my idea', Claude assesses it for feasibility, market fit, and technical complexity",
-        "Assessment is presented with a recommendation (proceed / concerns / reconsider)",
-        "User can confirm to proceed or provide a revised idea",
-        "Viability summary is saved to .boop/planning/viability.md",
-        "Developer profile context is included in the assessment",
+        "Given a BMAD story markdown file, the parser extracts: story ID, title, user story text, acceptance criteria (as array), tasks/subtasks, dev notes",
+        "Handles variations in markdown formatting (different heading levels, bullet styles, optional sections)",
+        "Returns a typed TypeScript object",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Create src/planning/viability.ts. Load prompt from prompts/viability/. Include developer profile context. This is the first phase that actually calls the Claude API — set up the Anthropic SDK client as a shared utility if not already present. For tests, mock the API calls. Depends on 2.4 being complete."
+      "passes": false,
+      "notes": "Create src/bridge/parser.ts. The BMAD story markdown format uses: '### Story X.Y: Title', 'As a... I want... So that...', '**Acceptance Criteria:**' with BDD Given/When/Then bullets, '**Prerequisites:**', '**Technical Notes:**'. Test with fixtures covering normal and edge cases. Depends on 1.3 being complete."
     },
     {
-      "id": "3.2",
-      "title": "PRD generation",
-      "description": "As a user, I want Boop to generate a PRD from my idea and viability assessment, so that requirements are documented before architecture and stories.",
+      "id": "4.2",
+      "title": "Ralph prd.json converter",
+      "description": "As a developer, I want the parsed stories converted to Ralph's prd.json format, so that the build loop can consume them.",
       "acceptanceCriteria": [
-        "Given the viability phase passed, Claude generates a PRD using the BMAD PRD prompt template",
-        "PRD includes: executive summary, functional requirements, NFRs, MVP scope, success criteria",
-        "Developer profile informs tech-specific requirements",
-        "PRD is saved to .boop/planning/prd.md",
+        "Given parsed story data, generates a valid prd.json with: project, branchName, description, userStories[]",
+        "Each story has: id, title, description, acceptanceCriteria[] (including 'Typecheck passes' and 'All tests pass'), priority (from epic ordering), passes (false), notes",
+        "The prd.json is saved to .boop/prd.json",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Create src/planning/prd.ts. Prompt from prompts/prd/. Chain viability output as input context. Depends on 3.1 being complete."
+      "passes": false,
+      "notes": "Create src/bridge/converter.ts. Takes parsed BMAD stories + project metadata, outputs Ralph-format JSON. Priority maps from epic ordering (epic 1 stories = priority 1-N, etc.). Always appends 'Typecheck passes' and 'All tests pass' to acceptanceCriteria. Depends on 4.1 being complete."
     },
     {
-      "id": "3.3",
-      "title": "Architecture generation",
-      "description": "As a user, I want Boop to generate architecture decisions automatically from my profile and PRD, so that tech stack choices are made without me having to specify them again.",
+      "id": "4.3",
+      "title": "Ralph story execution loop",
+      "description": "As a developer, I want Ralph's story loop integrated into Boop, so that stories are built autonomously one at a time.",
       "acceptanceCriteria": [
-        "Given a PRD exists, Claude generates architecture decisions using the developer profile as primary input",
-        "Most decisions are made automatically (database, framework, styling, etc. from profile)",
-        "Only genuinely novel choices are escalated to the user",
-        "Architecture is saved to .boop/planning/architecture.md",
+        "Given a valid .boop/prd.json exists, the loop picks the highest-priority incomplete story",
+        "Spawns a fresh Claude context with: story details + progress.txt + CLAUDE.md",
+        "The agent implements the story, runs typecheck and tests",
+        "Reality check scans for mock/placeholder data, stub implementations, and TODO/FIXME markers in production code paths",
+        "On all pass: commits, marks story done in prd.json, appends to progress.txt",
+        "On fail (including reality check failures): retries once, then pauses and reports",
+        "Mock data in production code is treated as a failing test — not a warning",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Create src/planning/architecture.ts. Prompt from prompts/architecture/. Profile replaces most interactive decisions. Depends on 3.2 being complete."
+      "passes": false,
+      "notes": "Create src/build/ralph-loop.ts, src/build/story-runner.ts, src/build/reality-check.ts. IMPORTANT: Use the Anthropic SDK directly (src/shared/claude-client.ts) to invoke Claude for each story — do NOT shell out to 'claude --print' or any CLI tool. The SDK gives proper timeout control, streaming, and error handling without the process-hanging issues of the CLI's --print mode. Each story gets a fresh API conversation. The story runner assembles the prompt (story details + progress.txt + CLAUDE.md context), sends it via the SDK, and processes the response. Reality check runs after typecheck + tests pass but before commit. Depends on 4.2 and 1.4 being complete."
     },
     {
-      "id": "3.4",
-      "title": "Epic and story breakdown",
-      "description": "As a user, I want Boop to decompose the PRD into epics and stories with acceptance criteria, so that the build phase has clear, implementable units of work.",
+      "id": "4.4",
+      "title": "Progress and pattern tracking",
+      "description": "As a developer, I want progress.txt and CLAUDE.md maintained across story iterations, so that knowledge compounds between stories.",
       "acceptanceCriteria": [
-        "Given PRD and architecture exist, Claude generates epics with stories",
-        "Each story contains: user story, BDD acceptance criteria, prerequisites, technical notes",
-        "Stories are sized for single dev agent sessions",
-        "Stories are sequentially ordered with no forward dependencies",
-        "Output is saved to .boop/planning/epics.md",
+        "Given a story completes, progress.txt is appended with: iteration number, story ID, files changed, learnings",
+        "CLAUDE.md is updated with discovered codebase patterns",
+        "Both files are injected into the next story's context",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Create src/planning/stories.ts. Prompt from prompts/stories/. Depends on 3.3 being complete."
+      "passes": false,
+      "notes": "Create src/build/progress.ts. Follow Ralph's existing format: append-only progress log with Codebase Patterns section at the top. The story runner reads progress.txt before each iteration and includes it in the Claude prompt context. CLAUDE.md updates are extracted from the agent's response. Depends on 4.3 being complete."
     },
     {
-      "id": "3.5",
-      "title": "Planning prompt chain orchestration",
-      "description": "As a developer, I want the planning phases to chain automatically with each feeding into the next, so that the pipeline runs without manual intervention between phases.",
+      "id": "4.5",
+      "title": "Git branch management",
+      "description": "As a developer, I want Boop to manage git branches for each project, so that work is isolated and organized.",
       "acceptanceCriteria": [
-        "Given a user provides an idea, viability → PRD → architecture → stories execute in sequence",
-        "Each phase receives the output of the previous phase as context",
-        "Pipeline state updates after each phase completes",
-        "If any phase fails, Boop retries once then pauses and reports",
+        "Given prd.json has a branchName, the branch is created or checked out when the build phase starts",
+        "Each story commit uses format: 'feat: [Story ID] - [Story Title]'",
+        "Review phase commits use format: 'refactor: Epic N review - [description]'",
         "Typecheck passes",
         "All tests pass"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Wire the planning functions together in src/pipeline/orchestrator.ts. Each phase is a function, chained. Use the retry utility from shared/retry.ts. Update pipeline state machine to transition through PLANNING sub-phases. Depends on 3.1-3.4 being complete."
-    },
-    {
-      "id": "3.6",
-      "title": "BMAD prompt library extraction",
-      "description": "As a developer, I want the tested BMAD instruction files, templates, and personas extracted and organized in the prompts directory, so that planning phases use proven, refined prompts.",
-      "acceptanceCriteria": [
-        "prompts/viability/, prompts/prd/, prompts/architecture/, prompts/stories/ each contain relevant instruction files and templates",
-        "Persona definitions (PM, architect, dev) are in prompts/personas/",
-        "Validation checklists are in prompts/checklists/",
-        "No workflow engine code is included — only the knowledge files",
-        "Each prompt file is loadable by the planning phase functions",
-        "Typecheck passes",
-        "All tests pass"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Create the prompts/ directory structure with extracted BMAD content. Since we don't have the actual BMAD installation in this repo, create well-structured prompt templates based on the BMAD methodology described in the docs. Each prompt should be a markdown file loadable at runtime. Include: system instructions for each phase, output format templates, validation checklists. This can run independently of 3.1-3.5. Depends on 1.1 being complete."
+      "passes": false,
+      "notes": "Create git utilities in the build module. Use child_process or simple-git for git operations. Branch created from main if it doesn't exist, checked out if it does. Commit format enforced by the story runner. Depends on 4.3 being complete."
     }
   ]
 }
