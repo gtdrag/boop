@@ -57,6 +57,38 @@ describe("checkFiles", () => {
     expect(result.violations[0]!.line).toBe(1);
   });
 
+  it("does NOT flag 'todo' in non-comment code", () => {
+    const file = writeFile(
+      "table.ts",
+      `console.log(\`Seeded \${count} todo records.\`);\n`,
+    );
+
+    const result = checkFiles([file]);
+    expect(result.passed).toBe(true);
+  });
+
+  it("detects TODO in inline comments after code", () => {
+    const file = writeFile(
+      "inline.ts",
+      `const x = 1; // TODO: fix this value\n`,
+    );
+
+    const result = checkFiles([file]);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]!.kind).toBe("todo");
+  });
+
+  it("detects TODO in multiline comment continuations", () => {
+    const file = writeFile(
+      "multiline.ts",
+      ` * TODO: handle edge case\n`,
+    );
+
+    const result = checkFiles([file]);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]!.kind).toBe("todo");
+  });
+
   it("detects FIXME markers", () => {
     const file = writeFile("fixme.ts", "// FIXME: broken\nconst x = 1;\n");
 

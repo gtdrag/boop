@@ -40,11 +40,9 @@ export interface RealityViolation {
  * Each entry: [regex, violation kind].
  */
 const VIOLATION_PATTERNS: Array<[RegExp, RealityViolation["kind"]]> = [
-  // TODO / FIXME markers
-  [/\bTODO\b/i, "todo"],
-  [/\bFIXME\b/i, "todo"],
-  [/\bHACK\b/i, "todo"],
-  [/\bXXX\b/, "todo"],
+  // TODO / FIXME markers — only in comments (// or /* or * continuation)
+  [/(?:\/[\/\*]|^\s*\*).*\b(?:TODO|FIXME|HACK)\b/i, "todo"],
+  [/(?:\/[\/\*]|^\s*\*).*\bXXX\b/, "todo"],
 
   // Stub / placeholder implementations
   [/\bthrow new Error\(\s*["']not implemented["']\s*\)/i, "stub"],
