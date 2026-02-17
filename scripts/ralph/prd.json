@@ -64,7 +64,7 @@
         "All tests pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/build/progress.ts. Follow Ralph's existing format: append-only progress log with Codebase Patterns section at the top. The story runner reads progress.txt before each iteration and includes it in the Claude prompt context. CLAUDE.md updates are extracted from the agent's response. Depends on 4.3 being complete."
     },
     {
@@ -79,7 +79,7 @@
         "All tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Create git utilities in the build module. Use child_process or simple-git for git operations. Branch created from main if it doesn't exist, checked out if it does. Commit format enforced by the story runner. Depends on 4.3 being complete."
     }
   ]

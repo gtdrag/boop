@@ -57,3 +57,41 @@ Started: Mon Feb 16 18:45:10 CST 2026
   - Story 4.4 (progress tracking) builds on the progress.txt append pattern already used here
   - Story 4.5 (git branch management) will use the execSync pattern from runQualityChecks for git operations
 ---
+
+## 2026-02-16 19:01 - Story 4.4: Progress and pattern tracking
+- Implemented src/build/progress.ts — manages append-only progress log and CLAUDE.md pattern updates
+- Exported: readProgress, formatProgressEntry, appendProgress, extractPatternsSection, addPattern, extractClaudeMdUpdates, appendToClaudeMd, buildProgressEntry
+- appendProgress: creates file/dirs if needed, formats entry in Ralph progress log format, appends without replacing
+- extractPatternsSection: parses the ## Codebase Patterns block from progress.txt content
+- addPattern: inserts new bullet into patterns section (creates section if missing)
+- extractClaudeMdUpdates: two strategies — marker-delimited blocks (<!-- CLAUDE_MD_UPDATE -->) and heading-based (## CLAUDE.md Updates)
+- appendToClaudeMd: appends extracted patterns to ## Codebase Patterns section in CLAUDE.md
+- buildProgressEntry: convenience function that creates a ProgressEntry from story + summary data with auto-generated date
+- Integrated into ralph-loop.ts: after quality checks pass, loop calls appendProgress and optionally extractClaudeMdUpdates + appendToClaudeMd
+- 25 tests covering: readProgress (existing/missing), formatProgressEntry (all fields/empty sections), appendProgress (create/append/no-double-newline), extractPatternsSection, addPattern (create/append/empty), extractClaudeMdUpdates (markers/heading/null), appendToClaudeMd (create/append/new-file), buildProgressEntry
+- Files changed: src/build/progress.ts (new), src/build/progress.test.ts (new), src/build/ralph-loop.ts (modified)
+- **Learnings for future iterations:**
+  - fs.appendFileSync is simpler than read+write for append-only files
+  - Pattern section parsing uses indexOf + search(/^## /m) to find section boundaries
+  - Two extraction strategies for CLAUDE.md updates cover both structured (markers) and freeform (heading) agent responses
+  - ralph-loop integration captures runStory result text to extract CLAUDE.md updates
+  - Story 4.5 (git branch management) is the last story — will add branch create/checkout to the build phase
+---
+
+## 2026-02-16 19:04 - Story 4.5: Git branch management
+- Implemented src/build/git.ts — git branch management utilities for the Ralph build loop
+- Exported: runGit, getCurrentBranch, branchExists, ensureBranch, buildStoryCommitMessage, buildReviewCommitMessage, stageAndCommit, commitStory, commitReview
+- ensureBranch: checks current branch, checks out existing branch, or creates new branch from main (falls back to HEAD)
+- buildStoryCommitMessage: enforces `feat: [Story ID] - [Story Title]` format
+- buildReviewCommitMessage: enforces `refactor: Epic N review - [description]` format
+- stageAndCommit: stages all changes with `git add -A`, detects empty staging, commits with message
+- Integrated into ralph-loop.ts: ensureBranch called at loop start (ensures correct branch from prd.branchName), commitStory called after quality checks pass
+- 22 tests covering: runGit (valid/invalid/bad-dir), getCurrentBranch (main/feature/no-repo), branchExists (exists/not-exists/new), ensureBranch (already-on/checkout-existing/create-from-main/create-from-HEAD), buildStoryCommitMessage, buildReviewCommitMessage, stageAndCommit (changes/nothing/quotes), commitStory, commitReview
+- Files changed: src/build/git.ts (new), src/build/git.test.ts (new), src/build/ralph-loop.ts (modified)
+- **Learnings for future iterations:**
+  - execSync with `git rev-parse --verify refs/heads/<branch>` is reliable for checking local branch existence
+  - `git diff --cached --quiet` returns exit code 0 when no staged changes (useful for detecting empty commits)
+  - Double quotes in commit messages need escaping when passed via shell — use `message.replace(/"/g, '\\"')`
+  - Tests create real git repos in tmpDir with `git init` — need initial commit so branches can be created
+  - `git branch -M main` ensures consistent branch naming in test repos
+---

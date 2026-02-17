@@ -24,6 +24,7 @@ import {
   extractClaudeMdUpdates,
   appendToClaudeMd,
 } from "./progress.js";
+import { ensureBranch, commitStory } from "./git.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -230,6 +231,9 @@ export async function runLoopIteration(
   // Load PRD
   const prd = loadPrd(prdPath);
 
+  // Ensure we're on the correct branch before building
+  ensureBranch(prd.branchName, options.projectDir);
+
   // Pick next story
   const story = pickNextStory(prd);
   if (!story) {
@@ -272,6 +276,9 @@ export async function runLoopIteration(
     const qualityResult = runQualityChecks(options.projectDir);
 
     if (qualityResult.passed) {
+      // Commit the story changes
+      commitStory(story.id, story.title, options.projectDir);
+
       // Mark story as passed and save
       markStoryPassed(prd, story.id);
       savePrdFile(prd, prdPath);
