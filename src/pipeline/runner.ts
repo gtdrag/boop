@@ -237,6 +237,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
         projectDir,
         prdPath,
         model: profile.aiModel || undefined,
+        epicNumber,
       });
 
       if (result.allComplete) {

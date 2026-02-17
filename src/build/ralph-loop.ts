@@ -12,11 +12,7 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 import type { Prd, Story } from "../shared/types.js";
 import { runStory } from "./story-runner.js";
-import {
-  checkDirectory,
-  formatViolations,
-  type RealityCheckResult,
-} from "./reality-check.js";
+import { checkDirectory, formatViolations, type RealityCheckResult } from "./reality-check.js";
 import {
   appendProgress,
   buildProgressEntry,
@@ -24,6 +20,8 @@ import {
   appendToClaudeMd,
 } from "./progress.js";
 import { ensureBranch, commitStory } from "./git.js";
+import { writeSnapshot, generateSessionId } from "../shared/context-snapshot.js";
+import type { ContextSnapshot } from "../shared/context-snapshot.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,6 +36,8 @@ export interface RalphLoopOptions {
   model?: string;
   /** Maximum retries per story on failure. Defaults to 1. */
   maxRetries?: number;
+  /** Epic number (used for context snapshot handoffs). */
+  epicNumber?: number;
 }
 
 export type StoryOutcome = "passed" | "failed" | "no-stories";
@@ -190,9 +190,7 @@ function runCommand(
     return { success: true, output };
   } catch (error: unknown) {
     const execError = error as { stdout?: string; stderr?: string };
-    const output = [execError.stdout ?? "", execError.stderr ?? ""]
-      .filter(Boolean)
-      .join("\n");
+    const output = [execError.stdout ?? "", execError.stderr ?? ""].filter(Boolean).join("\n");
     return { success: false, output };
   }
 }
@@ -258,10 +256,7 @@ export function formatQualityFailure(result: QualityCheckResult): string {
     parts.push("\n--- Tests ---", result.testOutput);
   }
   if (result.realityCheck && !result.realityCheck.passed) {
-    parts.push(
-      "\n--- Reality Check ---",
-      formatViolations(result.realityCheck.violations),
-    );
+    parts.push("\n--- Reality Check ---", formatViolations(result.realityCheck.violations));
   }
 
   return parts.join("\n");
@@ -282,12 +277,8 @@ export function formatQualityFailure(result: QualityCheckResult): string {
  *
  * @returns The loop result indicating what happened.
  */
-export async function runLoopIteration(
-  options: RalphLoopOptions,
-): Promise<LoopResult> {
-  const prdPath =
-    options.prdPath ??
-    path.join(options.projectDir, ".boop", "prd.json");
+export async function runLoopIteration(options: RalphLoopOptions): Promise<LoopResult> {
+  const prdPath = options.prdPath ?? path.join(options.projectDir, ".boop", "prd.json");
 
   // Load PRD
   const prd = loadPrd(prdPath);
@@ -317,11 +308,11 @@ export async function runLoopIteration(
       const result = await runStory(story, prd, {
         projectDir: options.projectDir,
         model: options.model,
+        epicNumber: options.epicNumber,
       });
       responseText = result.output;
     } catch (error: unknown) {
-      const errorMsg =
-        error instanceof Error ? error.message : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
 
       if (attempt < maxRetries) continue;
 
@@ -357,6 +348,22 @@ export async function runLoopIteration(
       const claudeMdUpdate = extractClaudeMdUpdates(responseText);
       if (claudeMdUpdate) {
         appendToClaudeMd(claudeMdPath, claudeMdUpdate);
+      }
+
+      // Write context snapshot for next iteration
+      if (options.epicNumber !== undefined) {
+        const snapshot: ContextSnapshot = {
+          sessionId: generateSessionId(),
+          timestamp: new Date().toISOString(),
+          phase: "BUILDING",
+          epicNumber: options.epicNumber,
+          storyId: story.id,
+          filesChanged: [],
+          decisions: [],
+          blockers: [],
+          notes: `Completed story ${story.id}: ${story.title}`,
+        };
+        writeSnapshot(options.projectDir, snapshot);
       }
 
       return {

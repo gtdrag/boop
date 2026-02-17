@@ -14,6 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { TestSuiteRunnerFn } from "../team-orchestrator.js";
+import { writeSnapshot, generateSessionId } from "../../shared/context-snapshot.js";
+import type { ContextSnapshot } from "../../shared/context-snapshot.js";
 import { runAdversarialAgents } from "./runner.js";
 import type {
   AdversarialAgentResult,
@@ -245,6 +247,28 @@ export async function runAdversarialLoop(
 
     iterations.push(iterResult);
     saveIterationArtifacts(projectDir, epicNumber, iterResult);
+
+    // Write context snapshot for next iteration
+    const reviewSnapshot: ContextSnapshot = {
+      sessionId: generateSessionId(),
+      timestamp: new Date().toISOString(),
+      phase: "REVIEWING",
+      epicNumber,
+      reviewIteration: i,
+      filesChanged: fixResult
+        ? fixResult.results.filter((r) => r.fixed && r.finding.file).map((r) => r.finding.file!)
+        : [],
+      decisions: [],
+      blockers: [],
+      findingsCount: allFindings.length,
+      fixedCount: fixResult?.fixed.length ?? 0,
+      discardedCount: verification.stats.discarded,
+      unresolvedIds: unresolvedIds,
+      fixCommits: fixResult
+        ? fixResult.results.filter((r) => r.commitSha).map((r) => r.commitSha!)
+        : [],
+    };
+    writeSnapshot(projectDir, reviewSnapshot);
 
     // Step 5: Check exit conditions
     if (verification.verified.length === 0) {

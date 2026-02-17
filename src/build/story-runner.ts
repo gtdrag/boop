@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import type { Story, Prd } from "../shared/types.js";
+import { readLatestSnapshot, formatSnapshotForPrompt } from "../shared/context-snapshot.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +29,8 @@ export interface StoryRunnerOptions {
   maxTurns?: number;
   /** Timeout in milliseconds. Defaults to 600_000 (10 minutes). */
   timeout?: number;
+  /** Epic number (used to load previous context snapshot). */
+  epicNumber?: number;
 }
 
 export interface StoryRunResult {
@@ -56,20 +59,34 @@ function readFileOrFallback(filePath: string, fallback: string): string {
  * Build the system prompt for story execution.
  *
  * Includes project context (CLAUDE.md, progress.txt, PRD summary) and
- * agent instructions. The Claude CLI also reads CLAUDE.md from the project
- * directory automatically, but including it here ensures the context is
- * complete even if the file doesn't exist on disk yet.
+ * agent instructions. If a previous snapshot exists, it's injected as
+ * structured XML context so the agent has perfect handoff state.
+ *
+ * The Claude CLI also reads CLAUDE.md from the project directory
+ * automatically, but including it here ensures the context is complete
+ * even if the file doesn't exist on disk yet.
  */
-export function buildSystemPrompt(prd: Prd, projectDir: string): string {
-  const claudeMd = readFileOrFallback(
-    path.join(projectDir, "CLAUDE.md"),
-    "(No CLAUDE.md found)",
-  );
+export function buildSystemPrompt(prd: Prd, projectDir: string, epicNumber?: number): string {
+  const claudeMd = readFileOrFallback(path.join(projectDir, "CLAUDE.md"), "(No CLAUDE.md found)");
 
   const progressTxt = readFileOrFallback(
     path.join(projectDir, ".boop", "progress.txt"),
     "(No progress.txt yet — this is the first story)",
   );
+
+  // Inject previous snapshot if available
+  let snapshotBlock = "";
+  if (epicNumber !== undefined) {
+    const prev = readLatestSnapshot(projectDir, "BUILDING", epicNumber);
+    if (prev) {
+      snapshotBlock = `
+## Previous Session Context
+
+${formatSnapshotForPrompt(prev)}
+
+`;
+    }
+  }
 
   return `# Ralph Agent Instructions
 
@@ -82,7 +99,7 @@ ${claudeMd}
 ## Progress Log (progress.txt)
 
 ${progressTxt}
-
+${snapshotBlock}
 ## PRD
 
 Project: ${prd.project}
@@ -105,9 +122,7 @@ Description: ${prd.description}
  * Build the user message for a specific story.
  */
 export function buildStoryPrompt(story: Story): string {
-  const criteria = story.acceptanceCriteria
-    .map((c, i) => `  ${i + 1}. ${c}`)
-    .join("\n");
+  const criteria = story.acceptanceCriteria.map((c, i) => `  ${i + 1}. ${c}`).join("\n");
 
   let prompt = `## Implement Story ${story.id}: ${story.title}
 
@@ -155,7 +170,7 @@ export async function runStory(
   prd: Prd,
   options: StoryRunnerOptions,
 ): Promise<StoryRunResult> {
-  const systemPrompt = buildSystemPrompt(prd, options.projectDir);
+  const systemPrompt = buildSystemPrompt(prd, options.projectDir, options.epicNumber);
   const userMessage = buildStoryPrompt(story);
 
   // Combine system prompt and story prompt into a single input.
@@ -163,11 +178,7 @@ export async function runStory(
   // so project context is doubly reinforced.
   const fullPrompt = systemPrompt + "\n\n---\n\n" + userMessage;
 
-  const args: string[] = [
-    "--print",
-    "--dangerously-skip-permissions",
-    "--no-session-persistence",
-  ];
+  const args: string[] = ["--print", "--dangerously-skip-permissions", "--no-session-persistence"];
 
   if (options.model) {
     args.push("--model", options.model);
@@ -203,9 +214,7 @@ export async function runStory(
   // Handle non-zero exit code
   if (result.status !== null && result.status !== 0) {
     const stderr = result.stderr?.trim() ?? "";
-    throw new Error(
-      `Claude CLI exited with code ${result.status}${stderr ? `: ${stderr}` : ""}`,
-    );
+    throw new Error(`Claude CLI exited with code ${result.status}${stderr ? `: ${stderr}` : ""}`);
   }
 
   return {
