@@ -53,7 +53,7 @@ export class PlanningPhaseError extends Error {
 /** Callback for reporting progress during the planning chain. */
 export type PlanningProgressCallback = (
   phase: PlanningSubPhase,
-  status: "starting" | "completed" | "failed" | "retrying",
+  status: "starting" | "completed" | "failed" | "retrying" | "warning",
 ) => void;
 
 /**
@@ -264,7 +264,7 @@ export class PipelineOrchestrator {
    */
   async runPlanning(
     idea: string,
-    options?: { onProgress?: PlanningProgressCallback },
+    options?: { onProgress?: PlanningProgressCallback; autonomous?: boolean },
   ): Promise<PlanningResult> {
     const profile = this.requireProfile();
     const onProgress = options?.onProgress;
@@ -286,12 +286,18 @@ export class PipelineOrchestrator {
       onProgress,
     );
 
-    // If RECONSIDER, throw to halt the chain
+    // If RECONSIDER in interactive mode, halt so the user can decide.
+    // In autonomous mode, log the warning and continue — the user
+    // explicitly chose to run without gates.
     if (viability.recommendation === "RECONSIDER") {
-      throw new PlanningPhaseError(
-        "viability",
-        new Error(`Recommendation is RECONSIDER — stopping pipeline.`),
-      );
+      if (options?.autonomous) {
+        onProgress?.("viability", "warning");
+      } else {
+        throw new PlanningPhaseError(
+          "viability",
+          new Error(`Recommendation is RECONSIDER — stopping pipeline.`),
+        );
+      }
     }
 
     // --- PRD ---

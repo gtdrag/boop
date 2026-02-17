@@ -213,10 +213,13 @@ async function startPipeline(
     // Run the full planning chain without user interaction
     try {
       const result = await orch.runPlanning(idea, {
+        autonomous: true,
         onProgress: (phase, status) => {
           if (status === "starting") console.log(`[boop] Running ${phase}...`);
           if (status === "completed") console.log(`[boop] ${phase} completed.`);
           if (status === "retrying") console.log(`[boop] Retrying ${phase}...`);
+          if (status === "warning")
+            console.log(`[boop] WARNING: ${phase} recommends reconsideration — continuing anyway.`);
         },
       });
 
