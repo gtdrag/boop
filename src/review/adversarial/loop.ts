@@ -52,7 +52,7 @@ export interface AdversarialLoopResult {
   /** Whether the loop converged (zero findings). */
   converged: boolean;
   /** Why the loop exited. */
-  exitReason: "converged" | "max-iterations" | "stuck" | "test-failure";
+  exitReason: "converged" | "max-iterations" | "stuck" | "test-failure" | "diverging";
   /** Total findings across all iterations. */
   totalFindings: number;
   /** Total findings auto-fixed. */
@@ -63,6 +63,8 @@ export interface AdversarialLoopResult {
   unresolvedFindings: AdversarialFinding[];
   /** All fix results across iterations. */
   allFixResults: FixResult[];
+  /** Findings deferred to summary (medium/low severity, not auto-fixed). */
+  deferredFindings: AdversarialFinding[];
 }
 
 export interface AdversarialLoopOptions {
@@ -80,6 +82,12 @@ export interface AdversarialLoopOptions {
   model?: string;
   /** Progress callback. */
   onProgress?: (iteration: number, phase: string, message: string) => void;
+  /**
+   * Minimum severity to auto-fix. Findings below this threshold are
+   * captured in the summary as recommendations but not sent to the fixer.
+   * Defaults to "high" (only critical + high get auto-fixed).
+   */
+  minFixSeverity?: "critical" | "high" | "medium" | "low";
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +148,52 @@ function isStuck(prev: IterationResult, curr: IterationResult): boolean {
   return true;
 }
 
+/**
+ * Check if the review loop is diverging (finding count increasing).
+ * When fixes introduce more surface area than they resolve, the loop
+ * will never converge — it's a doom loop. Exit early.
+ */
+function isDiverging(prev: IterationResult, curr: IterationResult): boolean {
+  const prevCount = prev.verification.stats.verified;
+  const currCount = curr.verification.stats.verified;
+  return currCount > prevCount;
+}
+
+/**
+ * Severity rank for comparison. Lower number = more severe.
+ */
+const SEVERITY_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
+
+/**
+ * Filter findings to only those at or above the minimum severity threshold.
+ * Returns [fixable, deferred] — fixable get auto-fixed, deferred go to summary.
+ */
+function partitionBySeverity(
+  findings: AdversarialFinding[],
+  minSeverity: string,
+): [AdversarialFinding[], AdversarialFinding[]] {
+  const threshold = SEVERITY_RANK[minSeverity] ?? 1;
+  const fixable: AdversarialFinding[] = [];
+  const deferred: AdversarialFinding[] = [];
+
+  for (const f of findings) {
+    const rank = SEVERITY_RANK[f.severity] ?? 4;
+    if (rank <= threshold) {
+      fixable.push(f);
+    } else {
+      deferred.push(f);
+    }
+  }
+
+  return [fixable, deferred];
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -165,10 +219,12 @@ export async function runAdversarialLoop(
     baseBranch = "main",
     model,
     onProgress,
+    minFixSeverity = "high",
   } = options;
 
   const iterations: IterationResult[] = [];
   const allFixResults: FixResult[] = [];
+  const allDeferredFindings: AdversarialFinding[] = [];
   let totalFindings = 0;
   let totalFixed = 0;
   let totalDiscarded = 0;
@@ -204,13 +260,56 @@ export async function runAdversarialLoop(
       `Verified: ${verification.stats.verified}, Discarded: ${verification.stats.discarded}`,
     );
 
-    // Step 3: Fix verified findings (if any)
+    // Step 2b: Severity gate — only auto-fix critical + high
+    const [fixable, deferred] = partitionBySeverity(verification.verified, minFixSeverity);
+    allDeferredFindings.push(...deferred);
+
+    if (deferred.length > 0) {
+      onProgress?.(
+        i,
+        "verify",
+        `Deferred ${deferred.length} ${minFixSeverity === "high" ? "medium/low" : "low"} findings to summary`,
+      );
+    }
+
+    // Step 3: Divergence detection — if verified finding count is increasing,
+    // the loop is creating more problems than it solves. Exit early.
+    if (iterations.length >= 1) {
+      const prev = iterations[iterations.length - 1]!;
+      if (isDiverging(prev, { verification } as IterationResult)) {
+        exitReason = "diverging";
+        onProgress?.(
+          i,
+          "done",
+          `Diverging — findings increased from ${prev.verification.stats.verified} to ${verification.stats.verified}. Stopping to prevent doom loop.`,
+        );
+
+        // Still save this iteration's data
+        const iterResult: IterationResult = {
+          iteration: i,
+          agentResults,
+          verification,
+          fixResult: null,
+          testsPass: true,
+          unresolvedIds: [],
+        };
+        iterations.push(iterResult);
+        saveIterationArtifacts(projectDir, epicNumber, iterResult);
+        break;
+      }
+    }
+
+    // Step 4: Fix verified findings that meet the severity threshold
     let fixResult: FixBatchResult | null = null;
 
-    if (verification.verified.length > 0) {
-      onProgress?.(i, "fix", `Fixing ${verification.verified.length} verified findings...`);
+    if (fixable.length > 0) {
+      onProgress?.(
+        i,
+        "fix",
+        `Fixing ${fixable.length} verified findings (${minFixSeverity}+ severity)...`,
+      );
 
-      fixResult = await fixFindings(verification.verified, {
+      fixResult = await fixFindings(fixable, {
         projectDir,
         testSuiteRunner,
         model,
@@ -228,7 +327,7 @@ export async function runAdversarialLoop(
       onProgress?.(i, "fix", "No findings to fix — iteration clean");
     }
 
-    // Step 4: Run final test suite
+    // Step 5: Run final test suite
     const testsPass = fixResult
       ? fixResult.finalTestResult.passed
       : (await testSuiteRunner(projectDir)).passed;
@@ -270,10 +369,10 @@ export async function runAdversarialLoop(
     };
     writeSnapshot(projectDir, reviewSnapshot);
 
-    // Step 5: Check exit conditions
-    if (verification.verified.length === 0) {
+    // Step 6: Check exit conditions
+    if (fixable.length === 0) {
       exitReason = "converged";
-      onProgress?.(i, "done", "Converged — zero findings");
+      onProgress?.(i, "done", "Converged — no fixable findings");
       break;
     }
 
@@ -284,8 +383,7 @@ export async function runAdversarialLoop(
     }
 
     if (fixResult && fixResult.unfixed.length === 0) {
-      // All findings were fixed — but we need to re-review to check if
-      // the fixes introduced new issues. Continue to next iteration.
+      // All fixable findings were fixed — re-review to check for regressions
       onProgress?.(i, "done", "All findings fixed — re-reviewing for regressions");
       continue;
     }
@@ -314,5 +412,6 @@ export async function runAdversarialLoop(
     totalDiscarded,
     unresolvedFindings,
     allFixResults,
+    deferredFindings: allDeferredFindings,
   };
 }

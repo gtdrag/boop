@@ -48,6 +48,7 @@ function makeLoopResult(overrides: Partial<AdversarialLoopResult> = {}): Adversa
     totalDiscarded: 0,
     unresolvedFindings: [],
     allFixResults: [],
+    deferredFindings: [],
     ...overrides,
   };
 }

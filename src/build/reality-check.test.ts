@@ -58,9 +58,17 @@ describe("checkFiles", () => {
   });
 
   it("does NOT flag 'todo' in non-comment code", () => {
+    const file = writeFile("table.ts", `console.log(\`Seeded \${count} todo records.\`);\n`);
+
+    const result = checkFiles([file]);
+    expect(result.passed).toBe(true);
+  });
+
+  it("does NOT flag lowercase 'todo' as a domain word in comments", () => {
     const file = writeFile(
-      "table.ts",
-      `console.log(\`Seeded \${count} todo records.\`);\n`,
+      "store.ts",
+      `/** Maximum allowed length for a single todo's text field. */\n` +
+        `// Ensure nextId is greater than all existing todo IDs.\n`,
     );
 
     const result = checkFiles([file]);
@@ -68,10 +76,7 @@ describe("checkFiles", () => {
   });
 
   it("detects TODO in inline comments after code", () => {
-    const file = writeFile(
-      "inline.ts",
-      `const x = 1; // TODO: fix this value\n`,
-    );
+    const file = writeFile("inline.ts", `const x = 1; // TODO: fix this value\n`);
 
     const result = checkFiles([file]);
     expect(result.passed).toBe(false);
@@ -79,10 +84,7 @@ describe("checkFiles", () => {
   });
 
   it("detects TODO in multiline comment continuations", () => {
-    const file = writeFile(
-      "multiline.ts",
-      ` * TODO: handle edge case\n`,
-    );
+    const file = writeFile("multiline.ts", ` * TODO: handle edge case\n`);
 
     const result = checkFiles([file]);
     expect(result.passed).toBe(false);
@@ -125,10 +127,7 @@ describe("checkFiles", () => {
   });
 
   it("detects placeholder strings", () => {
-    const file = writeFile(
-      "placeholder.ts",
-      `const name = "placeholder";\n`,
-    );
+    const file = writeFile("placeholder.ts", `const name = "placeholder";\n`);
 
     const result = checkFiles([file]);
     expect(result.passed).toBe(false);
@@ -136,10 +135,7 @@ describe("checkFiles", () => {
   });
 
   it("detects mock data strings", () => {
-    const file = writeFile(
-      "mock.ts",
-      `const email = "test@example.com";\n`,
-    );
+    const file = writeFile("mock.ts", `const email = "test@example.com";\n`);
 
     const result = checkFiles([file]);
     expect(result.passed).toBe(false);
@@ -155,20 +151,14 @@ describe("checkFiles", () => {
   });
 
   it("reports only the first violation per line", () => {
-    const file = writeFile(
-      "multi.ts",
-      `// TODO: fix this placeholder value\n`,
-    );
+    const file = writeFile("multi.ts", `// TODO: fix this placeholder value\n`);
 
     const result = checkFiles([file]);
     expect(result.violations).toHaveLength(1);
   });
 
   it("reports multiple violations across different lines", () => {
-    const file = writeFile(
-      "many.ts",
-      `// TODO: first\nconst x = 1;\n// FIXME: second\n`,
-    );
+    const file = writeFile("many.ts", `// TODO: first\nconst x = 1;\n// FIXME: second\n`);
 
     const result = checkFiles([file]);
     expect(result.violations).toHaveLength(2);

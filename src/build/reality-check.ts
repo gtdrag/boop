@@ -41,7 +41,8 @@ export interface RealityViolation {
  */
 const VIOLATION_PATTERNS: Array<[RegExp, RealityViolation["kind"]]> = [
   // TODO / FIXME markers — only in comments (// or /* or * continuation)
-  [/(?:\/[\/\*]|^\s*\*).*\b(?:TODO|FIXME|HACK)\b/i, "todo"],
+  // Case-sensitive: matches TODO, FIXME, HACK but NOT "todo" as a domain word
+  [/(?:\/[\/\*]|^\s*\*).*\b(?:TODO|FIXME|HACK)\b/, "todo"],
   [/(?:\/[\/\*]|^\s*\*).*\bXXX\b/, "todo"],
 
   // Stub / placeholder implementations
@@ -67,13 +68,7 @@ const SCANNABLE_EXTENSIONS = new Set([".ts", ".js", ".mts", ".mjs"]);
 /**
  * Directories to skip entirely.
  */
-const SKIP_DIRS = new Set([
-  "node_modules",
-  "dist",
-  "coverage",
-  ".git",
-  ".boop",
-]);
+const SKIP_DIRS = new Set(["node_modules", "dist", "coverage", ".git", ".boop"]);
 
 // ---------------------------------------------------------------------------
 // Helpers

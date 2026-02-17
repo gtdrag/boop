@@ -65,6 +65,26 @@ describe("parseAdversarialFindings", () => {
     expect(findings).toEqual([]);
   });
 
+  it("caps findings at 5 per agent, keeping highest severity", () => {
+    const lines = [
+      '{"title":"Low 1","severity":"low","description":"A low issue"}',
+      '{"title":"Low 2","severity":"low","description":"Another low issue"}',
+      '{"title":"High 1","severity":"high","description":"A high issue"}',
+      '{"title":"Critical 1","severity":"critical","description":"A critical issue"}',
+      '{"title":"Low 3","severity":"low","description":"Yet another low"}',
+      '{"title":"Medium 1","severity":"medium","description":"A medium issue"}',
+      '{"title":"Low 4","severity":"low","description":"Low number 4"}',
+    ].join("\n");
+
+    const findings = parseAdversarialFindings(lines, "code-quality");
+
+    expect(findings).toHaveLength(5);
+    // Should be sorted by severity: critical first, then high, then medium, then low
+    expect(findings[0]!.severity).toBe("critical");
+    expect(findings[1]!.severity).toBe("high");
+    expect(findings[2]!.severity).toBe("medium");
+  });
+
   it("skips invalid JSON lines", () => {
     const text = [
       "{not valid json}",

@@ -55,6 +55,8 @@ function exitReasonLabel(reason: string): string {
       return "Stuck (same findings repeated)";
     case "test-failure":
       return "Tests failing after fixes";
+    case "diverging":
+      return "Diverging (finding count increasing — stopped to prevent doom loop)";
     default:
       return reason;
   }
@@ -98,6 +100,7 @@ export function generateAdversarialSummary(
   lines.push(`| ------ | ----- |`);
   lines.push(`| Total findings (all iterations) | ${loopResult.totalFindings} |`);
   lines.push(`| Auto-fixed | ${loopResult.totalFixed} |`);
+  lines.push(`| Deferred (medium/low — not auto-fixed) | ${loopResult.deferredFindings.length} |`);
   lines.push(`| Discarded (hallucinations) | ${loopResult.totalDiscarded} |`);
   lines.push(`| Unresolved | ${loopResult.unresolvedFindings.length} |`);
   lines.push("");
@@ -178,6 +181,24 @@ export function generateAdversarialSummary(
     lines.push("### Unresolved by Severity");
     lines.push("");
     lines.push(severityTable(loopResult.unresolvedFindings));
+  }
+
+  // Deferred findings (medium/low — captured for future reference, not auto-fixed)
+  if (loopResult.deferredFindings.length > 0) {
+    lines.push("## Deferred Findings (Future Improvements)");
+    lines.push("");
+    lines.push(
+      "The following findings were below the auto-fix severity threshold. " +
+        "They are captured here for future reference but were not auto-fixed.",
+    );
+    lines.push("");
+
+    for (const finding of loopResult.deferredFindings) {
+      lines.push(`- **[${finding.severity.toUpperCase()}]** ${finding.title}`);
+      if (finding.file) lines.push(`  - File: \`${finding.file}\``);
+      lines.push(`  - ${finding.description}`);
+    }
+    lines.push("");
   }
 
   const markdown = lines.join("\n");

@@ -82,6 +82,7 @@ describe("runAdversarialLoop", () => {
     expect(result.exitReason).toBe("converged");
     expect(result.iterations).toHaveLength(1);
     expect(result.totalFindings).toBe(0);
+    expect(result.deferredFindings).toEqual([]);
   });
 
   it("fixes findings and re-reviews", async () => {
@@ -133,7 +134,7 @@ describe("runAdversarialLoop", () => {
   });
 
   it("exits on max iterations", async () => {
-    const finding = makeFinding("cq-1", "medium");
+    const finding = makeFinding("cq-1", "high");
 
     // Every iteration finds the same thing and can't fix it
     mockRunAgents.mockResolvedValue([
@@ -170,7 +171,7 @@ describe("runAdversarialLoop", () => {
   });
 
   it("detects stuck state (same findings across iterations)", async () => {
-    const finding = makeFinding("cq-1");
+    const finding = makeFinding("cq-1", "high");
 
     mockRunAgents.mockResolvedValue([
       { agent: "code-quality", findings: [finding], report: "Found 1", success: true },
@@ -203,7 +204,7 @@ describe("runAdversarialLoop", () => {
   });
 
   it("exits on test failure", async () => {
-    const finding = makeFinding("cq-1");
+    const finding = makeFinding("cq-1", "high");
 
     mockRunAgents.mockResolvedValue([
       { agent: "code-quality", findings: [finding], report: "Found 1", success: true },
@@ -235,8 +236,8 @@ describe("runAdversarialLoop", () => {
   });
 
   it("discards hallucinated findings", async () => {
-    const realFinding = makeFinding("cq-1");
-    const fakeFinding = makeFinding("cq-2");
+    const realFinding = makeFinding("cq-1", "high");
+    const fakeFinding = makeFinding("cq-2", "high");
 
     mockRunAgents.mockResolvedValueOnce([
       {
@@ -311,6 +312,121 @@ describe("runAdversarialLoop", () => {
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf-8"));
     expect(artifact.iteration).toBe(1);
     expect(artifact.agents).toHaveLength(3);
+  });
+
+  it("defers medium/low findings instead of auto-fixing them", async () => {
+    const highFinding = makeFinding("cq-1", "high");
+    const lowFinding = makeFinding("tc-1", "low");
+    const medFinding = makeFinding("tc-2", "medium");
+
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [highFinding], report: "Found 1", success: true },
+      {
+        agent: "test-coverage",
+        findings: [lowFinding, medFinding],
+        report: "Found 2",
+        success: true,
+      },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+
+    // Verifier passes all three through
+    mockVerify.mockReturnValueOnce({
+      verified: [highFinding, lowFinding, medFinding],
+      discarded: [],
+      stats: { total: 3, verified: 3, discarded: 0 },
+    });
+
+    // Fixer only gets the high finding (severity gate filters out low + medium)
+    mockFix.mockResolvedValueOnce({
+      results: [{ finding: highFinding, fixed: true, commitSha: "abc", attempts: 1 }],
+      fixed: [highFinding],
+      unfixed: [],
+      finalTestResult: { passed: true, output: "All pass" },
+    });
+
+    // Iteration 2: clean
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [], report: "Clean", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+
+    mockVerify.mockReturnValueOnce({
+      verified: [],
+      discarded: [],
+      stats: { total: 0, verified: 0, discarded: 0 },
+    });
+
+    const result = await runAdversarialLoop({
+      projectDir: tmpDir,
+      epicNumber: 1,
+      testSuiteRunner: passingTestRunner,
+    });
+
+    // High finding was fixed, low + medium were deferred
+    expect(result.totalFixed).toBe(1);
+    expect(result.deferredFindings).toHaveLength(2);
+    expect(result.deferredFindings.map((f) => f.severity)).toEqual(
+      expect.arrayContaining(["low", "medium"]),
+    );
+
+    // Fixer was only called with the high finding
+    expect(mockFix).toHaveBeenCalledWith(
+      [highFinding],
+      expect.objectContaining({ projectDir: tmpDir }),
+    );
+  });
+
+  it("exits with 'diverging' when finding count increases", async () => {
+    const finding1 = makeFinding("cq-1", "high");
+    const finding2 = makeFinding("cq-2", "high");
+    const finding3 = makeFinding("sec-1", "high");
+
+    // Iteration 1: 1 finding
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [finding1], report: "Found 1", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+
+    mockVerify.mockReturnValueOnce({
+      verified: [finding1],
+      discarded: [],
+      stats: { total: 1, verified: 1, discarded: 0 },
+    });
+
+    mockFix.mockResolvedValueOnce({
+      results: [{ finding: finding1, fixed: true, commitSha: "abc", attempts: 1 }],
+      fixed: [finding1],
+      unfixed: [],
+      finalTestResult: { passed: true, output: "All pass" },
+    });
+
+    // Iteration 2: MORE findings (2 > 1) → diverging
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [finding2], report: "Found 1", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [finding3], report: "Found 1", success: true },
+    ]);
+
+    mockVerify.mockReturnValueOnce({
+      verified: [finding2, finding3],
+      discarded: [],
+      stats: { total: 2, verified: 2, discarded: 0 },
+    });
+
+    const result = await runAdversarialLoop({
+      projectDir: tmpDir,
+      epicNumber: 1,
+      testSuiteRunner: passingTestRunner,
+    });
+
+    expect(result.exitReason).toBe("diverging");
+    expect(result.converged).toBe(false);
+    expect(result.iterations).toHaveLength(2);
+    // Fixer should NOT have been called for iteration 2
+    expect(mockFix).toHaveBeenCalledTimes(1);
   });
 
   it("calls progress callback at each phase", async () => {
