@@ -27,7 +27,9 @@ export interface StoriesOptions {
   projectDir?: string;
 }
 
-const PROMPTS_DIR = path.resolve(import.meta.dirname, "..", "..", "prompts", "stories");
+const PROMPTS_DIR = fs.existsSync(path.resolve(import.meta.dirname, "prompts", "stories"))
+  ? path.resolve(import.meta.dirname, "prompts", "stories")
+  : path.resolve(import.meta.dirname, "..", "..", "prompts", "stories");
 
 /**
  * Load the stories system prompt from the prompts directory.

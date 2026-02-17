@@ -12,6 +12,7 @@ import path from "node:path";
 import { parse, stringify } from "yaml";
 import { PROFILE_CATEGORIES } from "./defaults.js";
 import type { DeveloperProfile, ProfileCategory } from "./schema.js";
+import { createCredentialStore } from "../security/credentials.js";
 
 /**
  * Options for the onboarding interview.
@@ -178,6 +179,31 @@ export async function runOnboarding(options: OnboardingOptions): Promise<Onboard
   }
 
   const finalProfile = profile as unknown as DeveloperProfile;
+
+  // Prompt for Anthropic API key (required for all pipeline phases)
+  const credStore = createCredentialStore();
+  const existingKey = credStore.load("anthropic");
+  const keyMessage = existingKey
+    ? "Anthropic API key? (already saved — press enter to keep, or paste a new one)"
+    : "Anthropic API key? (get one at console.anthropic.com/settings/keys)";
+
+  const apiKeyResult = await clack.password({
+    message: keyMessage,
+  });
+
+  if (clack.isCancel(apiKeyResult)) {
+    clack.outro("Profile setup cancelled.");
+    return { completed: false };
+  }
+
+  const apiKeyValue = (apiKeyResult as string).trim();
+  if (apiKeyValue) {
+    credStore.save("anthropic", apiKeyValue);
+  } else if (!existingKey) {
+    clack.log.warn(
+      "No API key saved. Set ANTHROPIC_API_KEY env var or run boop --profile to add it later.",
+    );
+  }
 
   // Save to disk
   const profilePath = path.join(options.stateDir, "profile.yaml");

@@ -22,7 +22,7 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && cp -r prompts dist/prompts",
     "check": "pnpm format:check && pnpm typecheck && pnpm lint",
     "dev": "tsx src/index.ts",
     "format": "oxfmt --write",

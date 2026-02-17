@@ -5,6 +5,7 @@
  * Used by all planning phases (viability, PRD, architecture, stories).
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { createCredentialStore } from "../security/credentials.js";
 
 const DEFAULT_MODEL = "claude-opus-4-6";
 const DEFAULT_MAX_TOKENS = 4096;
@@ -38,11 +39,12 @@ export interface ClaudeResponse {
 /**
  * Create an Anthropic client instance.
  *
- * Uses ANTHROPIC_API_KEY from environment if no key is provided.
+ * Resolution order: explicit apiKey param → ANTHROPIC_API_KEY env var → ~/.boop/credentials/anthropic.key file.
  */
 export function createAnthropicClient(apiKey?: string): Anthropic {
+  const key = apiKey ?? createCredentialStore().load("anthropic");
   return new Anthropic({
-    apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
+    apiKey: key ?? undefined,
   });
 }
 

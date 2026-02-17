@@ -10,17 +10,20 @@ import type { DeveloperProfile } from "./schema.js";
 let textCalls: Array<{ message: string; defaultValue?: string }> = [];
 let multiselectCalls: Array<{ message: string; initialValues?: string[] }> = [];
 let confirmCalls: Array<{ message: string; initialValue?: boolean }> = [];
+let passwordCalls: Array<{ message: string }> = [];
 
 // Response queues — tests push values here, mock pops them
 let textResponses: (string | symbol)[] = [];
 let multiselectResponses: (string[] | symbol)[] = [];
 let confirmResponses: (boolean | symbol)[] = [];
+let passwordResponses: (string | symbol)[] = [];
 
 const CANCEL = Symbol("cancel");
 
 vi.mock("@clack/prompts", () => ({
   intro: vi.fn(),
   outro: vi.fn(),
+  log: { warn: vi.fn() },
   isCancel: (value: unknown) => value === CANCEL,
   text: vi.fn((opts: { message: string; defaultValue?: string }) => {
     textCalls.push(opts);
@@ -34,6 +37,16 @@ vi.mock("@clack/prompts", () => ({
     confirmCalls.push(opts);
     return Promise.resolve(confirmResponses.shift() ?? opts.initialValue ?? false);
   }),
+  password: vi.fn((opts: { message: string }) => {
+    passwordCalls.push(opts);
+    return Promise.resolve(passwordResponses.shift() ?? "");
+  }),
+}));
+
+// Mock credential store so tests don't touch real ~/.boop/credentials/
+const mockCredStore = { load: vi.fn().mockReturnValue(null), save: vi.fn(), delete: vi.fn(), exists: vi.fn().mockReturnValue(false), verifyPermissions: vi.fn() };
+vi.mock("../security/credentials.js", () => ({
+  createCredentialStore: () => mockCredStore,
 }));
 
 describe("profile/onboarding", () => {
@@ -44,9 +57,13 @@ describe("profile/onboarding", () => {
     textCalls = [];
     multiselectCalls = [];
     confirmCalls = [];
+    passwordCalls = [];
     textResponses = [];
     multiselectResponses = [];
     confirmResponses = [];
+    passwordResponses = [];
+    mockCredStore.load.mockReturnValue(null);
+    mockCredStore.save.mockClear();
   });
 
   afterEach(() => {
@@ -126,9 +143,9 @@ describe("profile/onboarding", () => {
 
     await runOnboarding({ stateDir: tmpDir });
 
-    // Count total prompts: text + multiselect + confirm
-    const totalPrompts = textCalls.length + multiselectCalls.length + confirmCalls.length;
-    expect(totalPrompts).toBe(PROFILE_CATEGORIES.length);
+    // Count total prompts: text + multiselect + confirm + password (API key)
+    const totalPrompts = textCalls.length + multiselectCalls.length + confirmCalls.length + passwordCalls.length;
+    expect(totalPrompts).toBe(PROFILE_CATEGORIES.length + 1); // +1 for API key prompt
   });
 
   it("pre-populates with existing profile when editing", async () => {
@@ -200,9 +217,13 @@ describe("profile/editing (Story 2.3)", () => {
     textCalls = [];
     multiselectCalls = [];
     confirmCalls = [];
+    passwordCalls = [];
     textResponses = [];
     multiselectResponses = [];
     confirmResponses = [];
+    passwordResponses = [];
+    mockCredStore.load.mockReturnValue(null);
+    mockCredStore.save.mockClear();
   });
 
   afterEach(() => {

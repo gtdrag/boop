@@ -141,18 +141,14 @@ Progress is tracked in `.boop/progress.txt` — an append-only log of what was b
 
 ### Reviewing
 
-After all stories in an epic are done, a review team runs in parallel:
+After all stories in an epic are done, an adversarial review loop runs:
 
-| Agent | What it does |
-|-------|-------------|
-| **Code Reviewer** | Bugs, antipatterns, security issues |
-| **Gap Analyst** | Acceptance criteria verification |
-| **Tech Debt Auditor** | Duplication, extraction opportunities |
-| **Security Scanner** | Vulnerability scan |
-| **Test Hardener** | Coverage gaps, edge cases |
-| **QA Smoke Tester** | End-to-end sanity checks |
+1. **3 review agents run in parallel** — code reviewer, security scanner, and test hardener each independently scan the codebase and report findings
+2. **Verifier** — checks each finding against the actual code to discard false positives
+3. **Fixer** — patches all verified findings via Claude CLI
+4. **Repeat** — the loop runs up to 3 iterations, catching regressions introduced by fixes
 
-Findings are collected and passed to a **Refactoring Agent** that applies fixes. Critical/high findings block sign-off.
+Each iteration typically finds fewer issues than the last. The loop converges when all findings are resolved or the max iteration count is reached.
 
 ### Sign-Off and Retrospective
 
@@ -190,13 +186,50 @@ Learnings are saved to `~/.boop/memory/` as structured YAML, so the next project
 - **Credential isolation** — API keys stored with 0600 permissions, never written to project files or logs, redacted in all output
 - **No plugins** — Closed system. No marketplace, no external extensions, no auto-downloading from public repos
 
+## Roadmap
+
+### Improve Mode (`boop --improve`) — Brownfield Support
+
+Point boop at an existing codebase and iteratively improve it. Instead of building from an idea, it analyzes what's already there, generates improvement stories, builds the fixes, and reviews them.
+
+```bash
+boop --improve                           # improve current directory
+boop --improve /path/to/project          # improve specific project
+boop --improve --depth 5                 # up to 5 improvement cycles
+boop --improve --focus security          # only security-related issues
+boop --improve --focus tests             # only test coverage gaps
+```
+
+Each cycle scans the codebase, runs adversarial agents, fixes verified findings, then re-scans. Tracks a "findings memory" so resolved issues don't resurface. Reports a quality score trend across cycles (e.g., "Cycle 1: 47 issues → Cycle 2: 12 → Cycle 3: 3").
+
+### Status Dashboard (`boop --dashboard`)
+
+A local web page showing real-time pipeline progress. No framework, no build step — a single self-contained HTML page served on `localhost:3141` with SSE for live updates.
+
+```bash
+boop "my idea" --autonomous --dashboard  # run with dashboard open
+boop --dashboard                          # attach to running pipeline
+```
+
+Shows current phase, epic/story progress bars, review findings (found/fixed/remaining per iteration), timeline with timestamps and durations, live log tail, token usage, and cost estimate.
+
+### Notifications via WhatsApp & Telegram
+
+Get notified when boop needs attention or finishes work. WhatsApp adapter uses Baileys (QR code on first connect), Telegram uses grammy (bot token from @BotFather). Configure in your developer profile.
+
+### Docker Sandbox
+
+Run build agents in isolated Docker containers with memory/CPU/PID limits, read-only root filesystem, and API-key-only network access. Enabled with `--sandbox`.
+
+See [docs/roadmap.md](docs/roadmap.md) for full details on planned features.
+
 ## Development
 
 ```bash
 pnpm install                    # Install dependencies
 pnpm run dev                    # Run in development mode
 pnpm run check                  # Format + typecheck + lint
-pnpm run test                   # Run tests (1,055 tests)
+pnpm run test                   # Run tests (1,264 tests)
 pnpm run build                  # Build with tsdown
 ```
 

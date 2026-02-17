@@ -34,7 +34,10 @@ export interface ViabilityOptions {
   projectDir?: string;
 }
 
-const PROMPTS_DIR = path.resolve(import.meta.dirname, "..", "..", "prompts", "viability");
+/** Resolve prompts dir — works from both src/planning/ and dist/ (bundled). */
+const PROMPTS_DIR = fs.existsSync(path.resolve(import.meta.dirname, "prompts", "viability"))
+  ? path.resolve(import.meta.dirname, "prompts", "viability")
+  : path.resolve(import.meta.dirname, "..", "..", "prompts", "viability");
 
 /**
  * Load the viability system prompt from the prompts directory.

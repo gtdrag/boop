@@ -28,7 +28,9 @@ export interface ArchitectureOptions {
   projectDir?: string;
 }
 
-const PROMPTS_DIR = path.resolve(import.meta.dirname, "..", "..", "prompts", "architecture");
+const PROMPTS_DIR = fs.existsSync(path.resolve(import.meta.dirname, "prompts", "architecture"))
+  ? path.resolve(import.meta.dirname, "prompts", "architecture")
+  : path.resolve(import.meta.dirname, "..", "..", "prompts", "architecture");
 
 /**
  * Load the architecture system prompt from the prompts directory.

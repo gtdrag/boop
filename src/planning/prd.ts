@@ -28,7 +28,9 @@ export interface PrdOptions {
   projectDir?: string;
 }
 
-const PROMPTS_DIR = path.resolve(import.meta.dirname, "..", "..", "prompts", "prd");
+const PROMPTS_DIR = fs.existsSync(path.resolve(import.meta.dirname, "prompts", "prd"))
+  ? path.resolve(import.meta.dirname, "prompts", "prd")
+  : path.resolve(import.meta.dirname, "..", "..", "prompts", "prd");
 
 /**
  * Load the PRD system prompt from the prompts directory.
