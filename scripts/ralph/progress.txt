@@ -20,6 +20,29 @@ Started: Mon Feb 16 19:15:19 CST 2026
 - Claude outputs structured JSON finding lines, parsed by `parseFindings()`
 - Source files use relative imports (`../shared/`), NOT `#boop/` alias
 
+### Gap Analyst Agent Pattern
+- Factory function: `createGapAnalyst(options)` returns `ReviewAgentFn`
+- Reads PRD from `.boop/prd.json`, extracts stories + acceptance criteria
+- Scans source files for placeholder patterns (TODO, FIXME, mock, stub, etc.)
+- Sends criteria + code to Claude, parses `{storyId, criterion, status, evidence}` JSON lines
+- Gaps are high severity + blocking; placeholder matches are medium severity
+- Uses `\bmock` (no trailing `\b`) to catch prefixed mock variables like `mockData`
+
+### Tech Debt Auditor Pattern
+- Factory function: `createTechDebtAuditor(options)` returns `ReviewAgentFn`
+- Collects source files recursively from `src/` (same skip dirs as gap-analyst)
+- Sends full file contents to Claude for tech debt analysis (duplication, coupling, naming, unused code)
+- Uses same JSON-line parsing as code-reviewer (`parseFindings()`)
+- critical/high findings become blockingIssues
+
+### Refactoring Agent Pattern
+- Factory function: `createRefactoringAgent(options)` returns `RefactoringAgentFn`
+- Receives combined findings from parallel phase (code-reviewer + gap-analyst + tech-debt-auditor)
+- Reads only affected files referenced in findings (not entire codebase)
+- Groups findings by severity (critical first) in prompt
+- Uses same JSON-line parsing for fix suggestions
+- Commits should use format: `refactor: Epic N review - [description]`
+
 ### Review Pipeline Sequence
 1. Parallel: code-reviewer + gap-analyst + tech-debt-auditor (Promise.all)
 2. refactoring-agent (receives combined findings from step 1)
@@ -61,4 +84,52 @@ Started: Mon Feb 16 19:15:19 CST 2026
   - When mocking `node:child_process.execFile` with promisify, must also mock `node:util.promisify`
   - Git diff args include `--diff-filter=ACMR` at index 2, so matching by branch name needs `args.includes()` not positional check
   - Truncation helper needed for large files to stay within API token limits
+---
+
+## 2026-02-16 19:30 - Story 5.3
+- Implemented gap analysis agent at src/review/gap-analyst.ts
+- Files created:
+  - src/review/gap-analyst.ts (gap analyst agent with PRD cross-reference + placeholder scan)
+  - src/review/gap-analyst.test.ts (37 tests)
+- **Architecture:**
+  - `createGapAnalyst(options)` factory returns a `ReviewAgentFn`
+  - Reads stories from `.boop/prd.json` — extracts acceptance criteria
+  - Recursively collects source files from `src/` (skips node_modules, .git, dist, test, .boop)
+  - Scans production code for placeholder patterns: TODO, FIXME, HACK, stub, fake, mock, placeholder, dummy, sample, hardcoded, not implemented
+  - Sends criteria + source code to Claude for intelligent gap verification
+  - Claude outputs structured JSON: `{storyId, criterion, status: verified|gap, evidence}`
+  - `parseCriterionResults()` parses JSON lines from response
+  - Gaps become high-severity findings + blocking issues
+  - Placeholder matches become medium-severity findings
+  - Requests 8192 maxTokens (more than default 4096) for detailed analysis
+- **Learnings for future iterations:**
+  - `\bmock\b` regex won't match `mockData` — use `\bmock` (no trailing boundary) to catch prefixed mock variables
+  - `readPrdStories()` handles missing/invalid PRD gracefully — returns empty array
+  - `collectSourceFiles()` uses `fs.readdirSync({ withFileTypes: true })` for efficient recursive traversal
+  - `maxFilesForApi` and `maxTotalChars` limits prevent API token overflow on large codebases
+  - Test pattern: write PRD + source files to tmpDir, mock sendMessage, verify message content + result structure
+---
+
+## 2026-02-16 19:35 - Story 5.4
+- Implemented tech debt auditor at src/review/tech-debt-auditor.ts
+- Implemented refactoring agent at src/review/refactoring-agent.ts
+- Files created:
+  - src/review/tech-debt-auditor.ts (tech debt auditor agent — scans codebase via Claude SDK)
+  - src/review/tech-debt-auditor.test.ts (25 tests)
+  - src/review/refactoring-agent.ts (refactoring agent — takes combined findings, suggests fixes via Claude SDK)
+  - src/review/refactoring-agent.test.ts (24 tests)
+- **Architecture:**
+  - `createTechDebtAuditor(options)` factory returns `ReviewAgentFn` — runs in parallel with code-reviewer and gap-analyst
+  - Collects source files recursively, sends to Claude for analysis (duplication, coupling, naming, unused code)
+  - `createRefactoringAgent(options)` factory returns `RefactoringAgentFn` — runs AFTER parallel phase
+  - Receives combined findings, reads affected files, sends to Claude for fix suggestions
+  - Groups findings by severity (critical first) in the prompt for prioritized fixing
+  - Both agents use same JSON-line parsing pattern as code-reviewer/gap-analyst
+  - Both request 8192 maxTokens for detailed analysis
+- **Learnings for future iterations:**
+  - `getAffectedFiles()` deduplicates file paths from findings — prevents sending same file content multiple times
+  - Refactoring agent only reads files referenced in findings (not entire codebase) — more focused API calls
+  - SCAN_EXTENSIONS filter applied to affected files prevents reading non-code files (README.md, etc.)
+  - Both agents share the same parseFindings/extractSummary pattern — potential future extraction to shared module
+  - Test helper `makeFindings()` simplifies creating test finding arrays with defaults
 ---

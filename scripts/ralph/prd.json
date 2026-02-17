@@ -52,7 +52,7 @@
         "All tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/review/gap-analyst.ts. Cross-references story acceptance criteria from .boop/prd.json against actual code. Scans for patterns: mock, fake, placeholder, TODO, FIXME, HACK, dummy, sample, hardcoded arrays/objects that look like seed data. Uses Claude via SDK for intelligent analysis. Runs in parallel with code-reviewer and tech-debt-auditor. Depends on 5.1."
     },
     {
@@ -68,7 +68,7 @@
         "All tests pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/review/tech-debt-auditor.ts and src/review/refactoring-agent.ts. Tech debt auditor runs in parallel with code-reviewer and gap-analyst. Refactoring agent runs AFTER all three parallel agents complete — it takes combined findings from code reviewer (5.2), gap analyst (5.3), and tech debt auditor, then applies fixes via Claude SDK. Commits use format: 'refactor: Epic N review - [description]'. Depends on 5.2 and 5.3."
     },
     {
