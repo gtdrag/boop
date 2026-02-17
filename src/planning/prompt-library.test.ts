@@ -103,14 +103,7 @@ describe("prompt library", () => {
   });
 
   describe("directory structure completeness", () => {
-    const expectedDirs = [
-      "viability",
-      "prd",
-      "architecture",
-      "stories",
-      "personas",
-      "checklists",
-    ];
+    const expectedDirs = ["viability", "prd", "architecture", "stories", "personas", "checklists"];
 
     for (const dir of expectedDirs) {
       it(`prompts/${dir}/ directory exists`, () => {

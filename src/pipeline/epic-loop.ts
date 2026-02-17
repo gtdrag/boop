@@ -36,9 +36,7 @@ export interface EpicSummary {
   summaryPath: string;
 }
 
-export type SignOffDecision =
-  | { action: "approve" }
-  | { action: "reject"; feedback: string };
+export type SignOffDecision = { action: "approve" } | { action: "reject"; feedback: string };
 
 /**
  * Function that prompts the user for sign-off.
@@ -195,8 +193,7 @@ export function generateEpicSummary(
   lines.push("");
 
   const codeReview = reviewResult.parallelResults.find((r) => r.agent === "code-review") ?? null;
-  const gapAnalysis =
-    reviewResult.parallelResults.find((r) => r.agent === "gap-analysis") ?? null;
+  const gapAnalysis = reviewResult.parallelResults.find((r) => r.agent === "gap-analysis") ?? null;
   const techDebt = reviewResult.parallelResults.find((r) => r.agent === "tech-debt") ?? null;
 
   lines.push(formatAgentSection("Code Review", codeReview));

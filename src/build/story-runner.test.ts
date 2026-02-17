@@ -219,11 +219,9 @@ describe("runStory", () => {
       error: null,
     });
 
-    const result = await runStory(
-      makeStory({ id: "3.1", title: "Custom story" }),
-      makePrd(),
-      { projectDir: tmpDir },
-    );
+    const result = await runStory(makeStory({ id: "3.1", title: "Custom story" }), makePrd(), {
+      projectDir: tmpDir,
+    });
 
     expect(result.story.id).toBe("3.1");
     expect(result.output).toBe("Files created, tests passing.");
@@ -237,9 +235,9 @@ describe("runStory", () => {
       error: new Error("spawnSync claude ENOENT"),
     });
 
-    await expect(
-      runStory(makeStory(), makePrd(), { projectDir: tmpDir }),
-    ).rejects.toThrow("Claude CLI not found");
+    await expect(runStory(makeStory(), makePrd(), { projectDir: tmpDir })).rejects.toThrow(
+      "Claude CLI not found",
+    );
   });
 
   it("throws timeout error on ETIMEDOUT", async () => {
@@ -263,9 +261,9 @@ describe("runStory", () => {
       error: null,
     });
 
-    await expect(
-      runStory(makeStory(), makePrd(), { projectDir: tmpDir }),
-    ).rejects.toThrow("exited with code 1: Authentication failed");
+    await expect(runStory(makeStory(), makePrd(), { projectDir: tmpDir })).rejects.toThrow(
+      "exited with code 1: Authentication failed",
+    );
   });
 
   it("throws on non-zero exit code without stderr", async () => {
@@ -276,9 +274,9 @@ describe("runStory", () => {
       error: null,
     });
 
-    await expect(
-      runStory(makeStory(), makePrd(), { projectDir: tmpDir }),
-    ).rejects.toThrow("exited with code 2");
+    await expect(runStory(makeStory(), makePrd(), { projectDir: tmpDir })).rejects.toThrow(
+      "exited with code 2",
+    );
   });
 
   it("uses custom timeout", async () => {

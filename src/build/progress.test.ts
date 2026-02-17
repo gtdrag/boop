@@ -86,9 +86,7 @@ describe("formatProgressEntry", () => {
   });
 
   it("includes multiple files in a comma-separated list", () => {
-    const formatted = formatProgressEntry(
-      makeEntry({ filesChanged: ["a.ts", "b.ts", "c.ts"] }),
-    );
+    const formatted = formatProgressEntry(makeEntry({ filesChanged: ["a.ts", "b.ts", "c.ts"] }));
     expect(formatted).toContain("Files changed: a.ts, b.ts, c.ts");
   });
 });

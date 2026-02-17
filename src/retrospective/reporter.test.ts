@@ -25,8 +25,20 @@ function makeTestData(overrides?: Partial<RetrospectiveData>): RetrospectiveData
       {
         epicNumber: 1,
         stories: [
-          { storyId: "1.1", storyTitle: "Bootstrap", summaryLines: 3, filesChanged: 5, learnings: ["L1"] },
-          { storyId: "1.2", storyTitle: "CLI", summaryLines: 2, filesChanged: 3, learnings: ["L2", "L3"] },
+          {
+            storyId: "1.1",
+            storyTitle: "Bootstrap",
+            summaryLines: 3,
+            filesChanged: 5,
+            learnings: ["L1"],
+          },
+          {
+            storyId: "1.2",
+            storyTitle: "CLI",
+            summaryLines: 2,
+            filesChanged: 3,
+            learnings: ["L2", "L3"],
+          },
         ],
         reviewFindings: { "code-review": 3, "security-scan": 1 },
         blockingIssues: [],
@@ -35,9 +47,27 @@ function makeTestData(overrides?: Partial<RetrospectiveData>): RetrospectiveData
       {
         epicNumber: 2,
         stories: [
-          { storyId: "2.1", storyTitle: "Profile", summaryLines: 4, filesChanged: 7, learnings: [] },
-          { storyId: "2.2", storyTitle: "Onboarding", summaryLines: 2, filesChanged: 4, learnings: ["L4"] },
-          { storyId: "2.3", storyTitle: "Defaults", summaryLines: 1, filesChanged: 2, learnings: [] },
+          {
+            storyId: "2.1",
+            storyTitle: "Profile",
+            summaryLines: 4,
+            filesChanged: 7,
+            learnings: [],
+          },
+          {
+            storyId: "2.2",
+            storyTitle: "Onboarding",
+            summaryLines: 2,
+            filesChanged: 4,
+            learnings: ["L4"],
+          },
+          {
+            storyId: "2.3",
+            storyTitle: "Defaults",
+            summaryLines: 1,
+            filesChanged: 2,
+            learnings: [],
+          },
         ],
         reviewFindings: { "security-scan": 2, "gap-analysis": 1 },
         blockingIssues: ["security-scan had critical/high findings"],
@@ -51,7 +81,13 @@ function makeTestData(overrides?: Partial<RetrospectiveData>): RetrospectiveData
     ],
     codebasePatterns: ["**Mock pattern:** Use vi.hoisted()", "**API pattern:** Use retry"],
     allLearnings: ["L1", "L2", "L3", "L4"],
-    mostComplexStory: { storyId: "2.1", storyTitle: "Profile", summaryLines: 4, filesChanged: 7, learnings: [] },
+    mostComplexStory: {
+      storyId: "2.1",
+      storyTitle: "Profile",
+      summaryLines: 4,
+      filesChanged: 7,
+      learnings: [],
+    },
     avgFilesPerStory: 4.2,
     ...overrides,
   };

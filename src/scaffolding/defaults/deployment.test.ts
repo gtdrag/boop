@@ -187,7 +187,10 @@ describe("package manager sanitization", () => {
 
   it("railway falls back to npm for invalid packageManager", () => {
     const files = generateDeploymentDefaults(
-      makeProfile({ cloudProvider: "railway", packageManager: 'pnpm"\n[deploy]\nstartCommand = "evil' as any }),
+      makeProfile({
+        cloudProvider: "railway",
+        packageManager: 'pnpm"\n[deploy]\nstartCommand = "evil' as any,
+      }),
     );
     const rt = findFile(files, "railway.toml");
     expect(rt).toBeDefined();

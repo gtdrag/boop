@@ -52,10 +52,7 @@ function writePrd(
 ): void {
   const prdDir = path.join(projectDir, ".boop");
   fs.mkdirSync(prdDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(prdDir, "prd.json"),
-    JSON.stringify({ userStories: stories }),
-  );
+  fs.writeFileSync(path.join(prdDir, "prd.json"), JSON.stringify({ userStories: stories }));
 }
 
 function writeSourceFile(projectDir: string, relPath: string, content: string): void {
@@ -89,9 +86,7 @@ describe("readPrdStories", () => {
   });
 
   it("reads stories from .boop/prd.json", () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story One", acceptanceCriteria: ["AC-1", "AC-2"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story One", acceptanceCriteria: ["AC-1", "AC-2"] }]);
 
     const stories = readPrdStories(tmpDir);
 
@@ -251,7 +246,11 @@ describe("scanFileForPlaceholders", () => {
   });
 
   it("returns empty array for clean file", () => {
-    writeSourceFile(tmpDir, "src/foo.ts", "export const x = 1;\nexport function add(a: number, b: number) { return a + b; }");
+    writeSourceFile(
+      tmpDir,
+      "src/foo.ts",
+      "export const x = 1;\nexport function add(a: number, b: number) { return a + b; }",
+    );
 
     const matches = scanFileForPlaceholders(tmpDir, "src/foo.ts");
 
@@ -347,9 +346,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("sends acceptance criteria and source code to Claude", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Test Story", acceptanceCriteria: ["AC-1", "AC-2"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Test Story", acceptanceCriteria: ["AC-1", "AC-2"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export const x = 1;");
 
     const analyst = createGapAnalyst();
@@ -369,9 +366,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("returns verified results as non-blocking", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Test Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Test Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export const x = 1;");
 
     const analyst = createGapAnalyst();
@@ -402,9 +397,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("gap findings have high severity", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export {}");
 
     mockSendMessage.mockResolvedValue({
@@ -422,9 +415,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("includes placeholder matches in findings", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "// TODO: implement this\nexport const x = 1;");
 
     const analyst = createGapAnalyst();
@@ -437,9 +428,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("includes placeholder patterns in the API message", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "// TODO: finish this\nexport const x = 1;");
 
     const analyst = createGapAnalyst();
@@ -451,9 +440,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("generates a markdown report", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export const x = 1;");
 
     const analyst = createGapAnalyst();
@@ -465,9 +452,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("always returns agent='gap-analysis'", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export {}");
 
     const analyst = createGapAnalyst();
@@ -477,9 +462,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("always returns success=true on completion", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export {}");
 
     const analyst = createGapAnalyst();
@@ -489,9 +472,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("requests higher max tokens for gap analysis", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export {}");
 
     const analyst = createGapAnalyst();
@@ -529,9 +510,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("report includes gap details and verified criteria", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1", "AC-2"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1", "AC-2"] }]);
     writeSourceFile(tmpDir, "src/foo.ts", "export {}");
 
     mockSendMessage.mockResolvedValue({
@@ -556,9 +535,7 @@ describe("createGapAnalyst", () => {
   });
 
   it("respects maxFilesForApi limit", async () => {
-    writePrd(tmpDir, [
-      { id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] },
-    ]);
+    writePrd(tmpDir, [{ id: "1.1", title: "Story", acceptanceCriteria: ["AC-1"] }]);
     // Create many files
     for (let i = 0; i < 10; i++) {
       writeSourceFile(tmpDir, `src/file${i}.ts`, `export const x${i} = ${i};`);

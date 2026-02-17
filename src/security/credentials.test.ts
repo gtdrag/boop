@@ -180,7 +180,9 @@ describe("containsCredential", () => {
   });
 
   it("detects key embedded in larger text", () => {
-    expect(containsCredential("config: ANTHROPIC_API_KEY=sk-ant-api03-abcdef1234567890abcdef")).toBe(true);
+    expect(
+      containsCredential("config: ANTHROPIC_API_KEY=sk-ant-api03-abcdef1234567890abcdef"),
+    ).toBe(true);
   });
 });
 

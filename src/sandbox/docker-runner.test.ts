@@ -130,9 +130,7 @@ describe("buildDockerArgs", () => {
   });
 
   it("includes read-only mounts", () => {
-    const args = buildDockerArgs(
-      makeOptions({ readOnlyMounts: ["/home/user/.boop"] }),
-    );
+    const args = buildDockerArgs(makeOptions({ readOnlyMounts: ["/home/user/.boop"] }));
 
     // Find the second --volume (after project mount)
     const volumeIndices: number[] = [];

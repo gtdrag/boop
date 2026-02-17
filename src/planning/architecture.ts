@@ -47,11 +47,7 @@ export function loadSystemPrompt(promptDir?: string): string {
  * Includes the developer profile, original idea, and PRD
  * so the architecture builds on the prior phase outputs.
  */
-export function buildUserMessage(
-  idea: string,
-  profile: DeveloperProfile,
-  prd: string,
-): string {
+export function buildUserMessage(idea: string, profile: DeveloperProfile, prd: string): string {
   const profileContext = formatProfileContext(profile);
   const lines = [
     profileContext,

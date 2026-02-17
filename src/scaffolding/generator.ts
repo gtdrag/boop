@@ -43,10 +43,7 @@ const MONOREPO_DIRS = ["packages"];
 // Package.json generation
 // ---------------------------------------------------------------------------
 
-function buildPackageJson(
-  projectName: string,
-  profile: DeveloperProfile,
-): Record<string, unknown> {
+function buildPackageJson(projectName: string, profile: DeveloperProfile): Record<string, unknown> {
   const pkg: Record<string, unknown> = {
     name: projectName,
     version: "0.0.1",
@@ -224,11 +221,7 @@ function buildTsConfig(profile: DeveloperProfile): Record<string, unknown> | nul
   const jsxFrameworks = ["next", "remix", "vite-react", "angular"];
   if (jsxFrameworks.includes(profile.frontendFramework)) {
     (config.compilerOptions as Record<string, unknown>).jsx = "react-jsx";
-    (config.compilerOptions as Record<string, unknown>).lib = [
-      "DOM",
-      "DOM.Iterable",
-      "ES2023",
-    ];
+    (config.compilerOptions as Record<string, unknown>).lib = ["DOM", "DOM.Iterable", "ES2023"];
   }
 
   return config;
@@ -260,23 +253,24 @@ export default [
     case "biome":
       return {
         filename: "biome.json",
-        content: JSON.stringify(
-          {
-            $schema: "https://biomejs.dev/schemas/1.0.0/schema.json",
-            organizeImports: { enabled: true },
-            linter: {
-              enabled: true,
-              rules: { recommended: true },
+        content:
+          JSON.stringify(
+            {
+              $schema: "https://biomejs.dev/schemas/1.0.0/schema.json",
+              organizeImports: { enabled: true },
+              linter: {
+                enabled: true,
+                rules: { recommended: true },
+              },
+              formatter: {
+                enabled: true,
+                indentStyle: "space",
+                indentWidth: 2,
+              },
             },
-            formatter: {
-              enabled: true,
-              indentStyle: "space",
-              indentWidth: 2,
-            },
-          },
-          null,
-          2,
-        ) + "\n",
+            null,
+            2,
+          ) + "\n",
       };
     case "oxlint":
       // oxlint works with zero config — no file needed
@@ -326,9 +320,7 @@ export default {
 // CI config generation
 // ---------------------------------------------------------------------------
 
-function buildCiConfig(
-  profile: DeveloperProfile,
-): { filepath: string; content: string } | null {
+function buildCiConfig(profile: DeveloperProfile): { filepath: string; content: string } | null {
   const installCmd =
     profile.packageManager === "npm"
       ? "npm ci"
@@ -548,21 +540,17 @@ export function scaffoldProject(
     if (!fs.existsSync(gitDir)) {
       execFileSync("git", ["init"], { cwd: projectDir, stdio: "pipe" });
       execFileSync("git", ["add", "-A"], { cwd: projectDir, stdio: "pipe" });
-      execFileSync(
-        "git",
-        ["commit", "-m", "chore: initial project scaffold"],
-        {
-          cwd: projectDir,
-          stdio: "pipe",
-          env: {
-            ...process.env,
-            GIT_AUTHOR_NAME: profile.name || "Boop",
-            GIT_AUTHOR_EMAIL: "boop@scaffold",
-            GIT_COMMITTER_NAME: profile.name || "Boop",
-            GIT_COMMITTER_EMAIL: "boop@scaffold",
-          },
+      execFileSync("git", ["commit", "-m", "chore: initial project scaffold"], {
+        cwd: projectDir,
+        stdio: "pipe",
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: profile.name || "Boop",
+          GIT_AUTHOR_EMAIL: "boop@scaffold",
+          GIT_COMMITTER_NAME: profile.name || "Boop",
+          GIT_COMMITTER_EMAIL: "boop@scaffold",
         },
-      );
+      });
       gitInitialized = true;
     }
   }

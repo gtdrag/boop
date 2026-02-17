@@ -15,17 +15,8 @@ import { sendMessage, isRetryableApiError } from "../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../shared/claude-client.js";
 import { retry } from "../shared/retry.js";
 
-import type {
-  AgentResult,
-  ReviewContext,
-  ReviewFinding,
-} from "./team-orchestrator.js";
-import {
-  truncate,
-  parseFindings,
-  extractSummary,
-  collectSourceFiles,
-} from "./shared.js";
+import type { AgentResult, ReviewContext, ReviewFinding } from "./team-orchestrator.js";
+import { truncate, parseFindings, extractSummary, collectSourceFiles } from "./shared.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -114,10 +105,7 @@ export function parseAuditOutput(rawOutput: string): AuditResult {
 
     // pnpm audit format (advisories-based)
     if (parsed.advisories && typeof parsed.advisories === "object") {
-      const advisories = parsed.advisories as Record<
-        string,
-        { severity?: string }
-      >;
+      const advisories = parsed.advisories as Record<string, { severity?: string }>;
       for (const advisory of Object.values(advisories)) {
         const sev = advisory.severity?.toLowerCase();
         if (sev === "critical") result.vulnerabilities.critical++;
@@ -176,9 +164,7 @@ Rules:
 - Focus on real vulnerabilities, not theoretical edge cases
 - Each finding must be a single JSON line (no multi-line JSON)`;
 
-function buildSastMessage(
-  sourceContents: Array<{ path: string; content: string }>,
-): string {
+function buildSastMessage(sourceContents: Array<{ path: string; content: string }>): string {
   const parts: string[] = [
     "Perform a SAST security scan on the following source files. For each vulnerability, output a JSON finding line.\n",
   ];
@@ -238,9 +224,7 @@ function generateReport(
       `**BLOCKING:** ${v.critical} critical and ${v.high} high dependency vulnerabilities must be resolved.\n`,
     );
   } else if (v.total > 0) {
-    parts.push(
-      `${v.total} non-blocking dependency vulnerabilities found (moderate/low/info).\n`,
-    );
+    parts.push(`${v.total} non-blocking dependency vulnerabilities found (moderate/low/info).\n`);
   } else {
     parts.push("No dependency vulnerabilities found.\n");
   }

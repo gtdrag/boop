@@ -360,9 +360,7 @@ export function getSecurityDeps(profile: DeveloperProfile): SecurityHeaderDeps {
  * tracking file when errorTracker is not "none". So returns
  * 1 or 2 files for web projects.
  */
-export function generateSecurityHeaderDefaults(
-  profile: DeveloperProfile,
-): SecurityHeaderFile[] {
+export function generateSecurityHeaderDefaults(profile: DeveloperProfile): SecurityHeaderFile[] {
   if (!isWebProject(profile)) {
     return [];
   }

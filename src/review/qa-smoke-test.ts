@@ -147,7 +147,10 @@ function collectNextAppRoutes(dir: string, prefix: string, routes: Set<string>):
   const hasPage = entries.some(
     (e) =>
       e.isFile() &&
-      (e.name === "page.tsx" || e.name === "page.ts" || e.name === "page.jsx" || e.name === "page.js"),
+      (e.name === "page.tsx" ||
+        e.name === "page.ts" ||
+        e.name === "page.jsx" ||
+        e.name === "page.js"),
   );
 
   if (hasPage) {
@@ -293,7 +296,10 @@ export interface PlaywrightBrowserHandle {
 
 /** Minimal abstraction over Playwright page for testability. */
 export interface PlaywrightPageHandle {
-  goto: (url: string, options?: { timeout?: number; waitUntil?: string }) => Promise<{ status: () => number | null }>;
+  goto: (
+    url: string,
+    options?: { timeout?: number; waitUntil?: string },
+  ) => Promise<{ status: () => number | null }>;
   screenshot: (options: { path: string; fullPage?: boolean }) => Promise<void>;
   onConsoleError: (handler: (msg: string) => void) => void;
   onPageError: (handler: (err: string) => void) => void;
@@ -367,7 +373,13 @@ export async function testRoutes(options: BrowserTestOptions): Promise<RouteResu
     browser = await launchBrowser();
 
     for (const route of routes) {
-      const routeResult = await testSingleRoute(browser, baseUrl, route, screenshotDir, navigationTimeoutMs);
+      const routeResult = await testSingleRoute(
+        browser,
+        baseUrl,
+        route,
+        screenshotDir,
+        navigationTimeoutMs,
+      );
       results.push(routeResult);
     }
   } catch (error: unknown) {
@@ -421,7 +433,8 @@ async function testSingleRoute(
     const screenshotPath = path.join(screenshotDir, `${safeName}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
 
-    const success = status >= 200 && status < 400 && consoleErrors.length === 0 && pageErrors.length === 0;
+    const success =
+      status >= 200 && status < 400 && consoleErrors.length === 0 && pageErrors.length === 0;
 
     return {
       route,
@@ -523,10 +536,14 @@ function routeResultsToFindings(results: RouteResult[]): ReviewFinding[] {
       issues.push(`HTTP ${result.status} response`);
     }
     if (result.consoleErrors.length > 0) {
-      issues.push(`${result.consoleErrors.length} console error(s): ${result.consoleErrors.slice(0, 3).join("; ")}`);
+      issues.push(
+        `${result.consoleErrors.length} console error(s): ${result.consoleErrors.slice(0, 3).join("; ")}`,
+      );
     }
     if (result.pageErrors.length > 0) {
-      issues.push(`${result.pageErrors.length} page error(s): ${result.pageErrors.slice(0, 3).join("; ")}`);
+      issues.push(
+        `${result.pageErrors.length} page error(s): ${result.pageErrors.slice(0, 3).join("; ")}`,
+      );
     }
 
     const severity: FindingSeverity =

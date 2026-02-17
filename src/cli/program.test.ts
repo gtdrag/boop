@@ -6,12 +6,13 @@ import { buildProgram, handleCli } from "./program.js";
 import type { CliOptions } from "./program.js";
 
 // Use vi.hoisted for mock fns that need to survive resetAllMocks
-const { mockAssessViability, mockGeneratePrd, mockGenerateArchitecture, mockGenerateStories } = vi.hoisted(() => ({
-  mockAssessViability: vi.fn(),
-  mockGeneratePrd: vi.fn(),
-  mockGenerateArchitecture: vi.fn(),
-  mockGenerateStories: vi.fn(),
-}));
+const { mockAssessViability, mockGeneratePrd, mockGenerateArchitecture, mockGenerateStories } =
+  vi.hoisted(() => ({
+    mockAssessViability: vi.fn(),
+    mockGeneratePrd: vi.fn(),
+    mockGenerateArchitecture: vi.fn(),
+    mockGenerateStories: vi.fn(),
+  }));
 
 // Mock the config module to avoid real interactive prompts
 vi.mock("../config/index.js", async (importOriginal) => {
@@ -178,7 +179,9 @@ describe("handleCli", () => {
     fs.writeFileSync(path.join(configDir, "profile.yaml"), "name: test\n");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     await handleCli(undefined, { review: true }, "/tmp/boop-test-nonexistent", configDir);
-    expect(spy).toHaveBeenCalledWith("[boop] No active epic in REVIEWING phase. Nothing to review.");
+    expect(spy).toHaveBeenCalledWith(
+      "[boop] No active epic in REVIEWING phase. Nothing to review.",
+    );
     spy.mockRestore();
   });
 

@@ -5,7 +5,11 @@
  * based on the developer profile. Only applies when the project has
  * a frontend framework (frontendFramework !== "none").
  */
-import type { DeveloperProfile, AnalyticsProvider, FrontendFramework } from "../../profile/schema.js";
+import type {
+  DeveloperProfile,
+  AnalyticsProvider,
+  FrontendFramework,
+} from "../../profile/schema.js";
 import { isWebProject } from "./shared.js";
 
 // ---------------------------------------------------------------------------

@@ -230,9 +230,7 @@ describe("formatQualityFailure", () => {
       testOutput: "ok",
       realityCheck: {
         passed: false,
-        violations: [
-          { file: "src/x.ts", line: 5, kind: "todo", text: "// TODO" },
-        ],
+        violations: [{ file: "src/x.ts", line: 5, kind: "todo", text: "// TODO" }],
       },
     };
 

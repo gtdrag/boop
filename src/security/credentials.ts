@@ -95,9 +95,7 @@ export function redactCredentials(input: string): string {
  * Create a credential store rooted at the given directory.
  * Defaults to ~/.boop/credentials/.
  */
-export function createCredentialStore(
-  credentialsDir: string = CREDENTIALS_DIR,
-): CredentialStore {
+export function createCredentialStore(credentialsDir: string = CREDENTIALS_DIR): CredentialStore {
   return {
     load(key: CredentialKey): string | null {
       // Priority 1: environment variable

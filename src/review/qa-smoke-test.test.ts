@@ -47,12 +47,14 @@ function writeFile(relativePath: string, content: string): void {
   fs.writeFileSync(fullPath, content);
 }
 
-function makeMockPage(opts: {
-  status?: number;
-  consoleErrors?: string[];
-  pageErrors?: string[];
-  gotoError?: Error;
-} = {}): PlaywrightPageHandle {
+function makeMockPage(
+  opts: {
+    status?: number;
+    consoleErrors?: string[];
+    pageErrors?: string[];
+    gotoError?: Error;
+  } = {},
+): PlaywrightPageHandle {
   const consoleHandlers: Array<(msg: string) => void> = [];
   const pageErrorHandlers: Array<(err: string) => void> = [];
 
@@ -83,7 +85,9 @@ function makeMockPage(opts: {
   };
 }
 
-function makeMockBrowser(pageOverrides: Parameters<typeof makeMockPage>[0] = {}): PlaywrightBrowserHandle {
+function makeMockBrowser(
+  pageOverrides: Parameters<typeof makeMockPage>[0] = {},
+): PlaywrightBrowserHandle {
   return {
     newPage: async () => makeMockPage(pageOverrides),
     close: async () => {},
@@ -277,7 +281,10 @@ describe("testRoutes", () => {
       routes: ["/"],
       screenshotDir,
       launchBrowser: async () =>
-        makeMockBrowser({ status: 200, consoleErrors: ["Uncaught TypeError: x is not a function"] }),
+        makeMockBrowser({
+          status: 200,
+          consoleErrors: ["Uncaught TypeError: x is not a function"],
+        }),
     });
 
     expect(results[0].success).toBe(false);

@@ -4,11 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ParsedBreakdown, ParsedEpic, ParsedStory } from "./parser.js";
 import { parseStoryMarkdown } from "./parser.js";
-import {
-  convertToPrd,
-  savePrd,
-  type ProjectMetadata,
-} from "./converter.js";
+import { convertToPrd, savePrd, type ProjectMetadata } from "./converter.js";
 import type { Prd } from "../shared/types.js";
 
 // ---------------------------------------------------------------------------
@@ -72,9 +68,7 @@ describe("convertToPrd", () => {
 
     expect(story.id).toBe("1.1");
     expect(story.title).toBe("Test story");
-    expect(story.description).toBe(
-      "As a developer, I want tests, so that things work.",
-    );
+    expect(story.description).toBe("As a developer, I want tests, so that things work.");
     expect(story.passes).toBe(false);
   });
 
@@ -88,11 +82,7 @@ describe("convertToPrd", () => {
 
   it("does not duplicate required criteria if already present", () => {
     const story = makeStory({
-      acceptanceCriteria: [
-        "Given X, when Y, then Z",
-        "Typecheck passes",
-        "All tests pass",
-      ],
+      acceptanceCriteria: ["Given X, when Y, then Z", "Typecheck passes", "All tests pass"],
     });
     const breakdown = makeBreakdown([makeEpic({ stories: [story] })]);
     const prd = convertToPrd(breakdown, META);
@@ -119,23 +109,18 @@ describe("convertToPrd", () => {
   it("sets priority based on epic and story ordering", () => {
     const epic1 = makeEpic({
       number: 1,
-      stories: [
-        makeStory({ id: "1.1" }),
-        makeStory({ id: "1.2" }),
-      ],
+      stories: [makeStory({ id: "1.1" }), makeStory({ id: "1.2" })],
     });
     const epic2 = makeEpic({
       number: 2,
-      stories: [
-        makeStory({ id: "2.1" }),
-      ],
+      stories: [makeStory({ id: "2.1" })],
     });
     const breakdown = makeBreakdown([epic1, epic2]);
     const prd = convertToPrd(breakdown, META);
 
     // Epic 1 stories should have lower priority numbers than epic 2
-    expect(prd.userStories[0]!.priority).toBe(1);   // epic 0, story 0
-    expect(prd.userStories[1]!.priority).toBe(2);   // epic 0, story 1
+    expect(prd.userStories[0]!.priority).toBe(1); // epic 0, story 0
+    expect(prd.userStories[1]!.priority).toBe(2); // epic 0, story 1
     expect(prd.userStories[2]!.priority).toBe(101); // epic 1, story 0
   });
 
@@ -186,9 +171,7 @@ describe("convertToPrd", () => {
 
     it("throws when epic number not found", () => {
       const breakdown = makeBreakdown();
-      expect(() => convertToPrd(breakdown, META, { epicNumber: 99 })).toThrow(
-        "Epic 99 not found",
-      );
+      expect(() => convertToPrd(breakdown, META, { epicNumber: 99 })).toThrow("Epic 99 not found");
     });
   });
 
@@ -269,9 +252,7 @@ describe("savePrd", () => {
     savePrd(prd1, tmpDir);
     savePrd(prd2, tmpDir);
 
-    const content = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".boop", "prd.json"), "utf-8"),
-    );
+    const content = JSON.parse(fs.readFileSync(path.join(tmpDir, ".boop", "prd.json"), "utf-8"));
     expect(content.project).toBe("Second");
   });
 
@@ -327,17 +308,8 @@ describe("end-to-end: parse → convert → save", () => {
 
   it("produces a valid prd.json from fixture markdown", () => {
     // Load the fixture used by parser tests
-    const fixturesDir = path.resolve(
-      import.meta.dirname,
-      "..",
-      "..",
-      "test",
-      "fixtures",
-    );
-    const md = fs.readFileSync(
-      path.join(fixturesDir, "stories-normal.md"),
-      "utf-8",
-    );
+    const fixturesDir = path.resolve(import.meta.dirname, "..", "..", "test", "fixtures");
+    const md = fs.readFileSync(path.join(fixturesDir, "stories-normal.md"), "utf-8");
 
     const breakdown = parseStoryMarkdown(md);
 

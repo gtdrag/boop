@@ -171,12 +171,11 @@ describe("Pipeline integration flow", () => {
     vi.clearAllMocks();
 
     // Build loop: first call returns "passed", second returns "no-stories" (all complete)
-    mockRunLoopIteration
-      .mockResolvedValueOnce({
-        outcome: "passed",
-        story: { id: "1.1", title: "Init" },
-        allComplete: true,
-      });
+    mockRunLoopIteration.mockResolvedValueOnce({
+      outcome: "passed",
+      story: { id: "1.1", title: "Init" },
+      allComplete: true,
+    });
 
     // Adversarial review: converges with zero findings
     mockRunAdversarialLoop.mockResolvedValue({
@@ -291,9 +290,7 @@ describe("Pipeline integration flow", () => {
     });
 
     // Verify sandboxed was passed to runLoopIteration
-    expect(mockRunLoopIteration).toHaveBeenCalledWith(
-      expect.objectContaining({ sandboxed: true }),
-    );
+    expect(mockRunLoopIteration).toHaveBeenCalledWith(expect.objectContaining({ sandboxed: true }));
   });
 
   it("calls adversarial review after build completes", async () => {
@@ -380,9 +377,7 @@ describe("Pipeline integration flow", () => {
       autonomous: false,
     });
 
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining("not approved"),
-    );
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("not approved"));
     logSpy.mockRestore();
   });
 

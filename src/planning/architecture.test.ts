@@ -222,12 +222,9 @@ describe("architecture", () => {
         model: "claude-opus-4-6",
       });
 
-      const result = await generateArchitecture(
-        "Build a task manager",
-        TEST_PROFILE,
-        SAMPLE_PRD,
-        { projectDir: tmpDir },
-      );
+      const result = await generateArchitecture("Build a task manager", TEST_PROFILE, SAMPLE_PRD, {
+        projectDir: tmpDir,
+      });
 
       expect(result.architecture).toContain("Architecture Document");
       expect(result.usage.inputTokens).toBe(800);

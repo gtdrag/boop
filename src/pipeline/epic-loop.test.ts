@@ -2,15 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  generateEpicSummary,
-  runEpicSignOff,
-  runFixCycle,
-} from "./epic-loop.js";
-import type {
-  SignOffPromptFn,
-  FixCycleAgents,
-} from "./epic-loop.js";
+import { generateEpicSummary, runEpicSignOff, runFixCycle } from "./epic-loop.js";
+import type { SignOffPromptFn, FixCycleAgents } from "./epic-loop.js";
 import type {
   ReviewPhaseResult,
   AgentResult,
@@ -75,22 +68,22 @@ function makeFixCycleAgents(): FixCycleAgents & {
   mockSecurityScanner: ReturnType<typeof vi.fn<ReviewAgentFn>>;
   mockQaSmokeTester: ReturnType<typeof vi.fn<ReviewAgentFn>>;
 } {
-  const mockRefactoring = vi.fn<RefactoringAgentFn>().mockResolvedValue(
-    makeAgentResult("refactoring"),
-  );
-  const mockTestHardener = vi.fn<ReviewAgentFn>().mockResolvedValue(
-    makeAgentResult("test-hardening"),
-  );
+  const mockRefactoring = vi
+    .fn<RefactoringAgentFn>()
+    .mockResolvedValue(makeAgentResult("refactoring"));
+  const mockTestHardener = vi
+    .fn<ReviewAgentFn>()
+    .mockResolvedValue(makeAgentResult("test-hardening"));
   const mockTestSuiteRunner = vi.fn<TestSuiteRunnerFn>().mockResolvedValue({
     passed: true,
     output: "All tests passed",
   });
-  const mockSecurityScanner = vi.fn<ReviewAgentFn>().mockResolvedValue(
-    makeAgentResult("security-scan"),
-  );
-  const mockQaSmokeTester = vi.fn<ReviewAgentFn>().mockResolvedValue(
-    makeAgentResult("qa-smoke-test"),
-  );
+  const mockSecurityScanner = vi
+    .fn<ReviewAgentFn>()
+    .mockResolvedValue(makeAgentResult("security-scan"));
+  const mockQaSmokeTester = vi
+    .fn<ReviewAgentFn>()
+    .mockResolvedValue(makeAgentResult("qa-smoke-test"));
 
   return {
     refactoringAgent: mockRefactoring,
@@ -338,9 +331,7 @@ describe("runFixCycle", () => {
       }),
     );
     // Also includes previous findings
-    expect(findings).toContainEqual(
-      expect.objectContaining({ title: "Old bug" }),
-    );
+    expect(findings).toContainEqual(expect.objectContaining({ title: "Old bug" }));
   });
 
   it("stops early if test suite fails", async () => {
@@ -370,9 +361,7 @@ describe("runFixCycle", () => {
     const agents = makeFixCycleAgents();
     agents.mockSecurityScanner.mockResolvedValue(
       makeAgentResult("security-scan", {
-        findings: [
-          makeFinding({ severity: "critical", title: "SQL injection" }),
-        ],
+        findings: [makeFinding({ severity: "critical", title: "SQL injection" })],
       }),
     );
 

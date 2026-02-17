@@ -24,12 +24,7 @@ export const PIPELINE_PHASES = [
 
 export type PipelinePhase = (typeof PIPELINE_PHASES)[number];
 
-export const PLANNING_SUB_PHASES = [
-  "viability",
-  "prd",
-  "architecture",
-  "stories",
-] as const;
+export const PLANNING_SUB_PHASES = ["viability", "prd", "architecture", "stories"] as const;
 
 export type PlanningSubPhase = (typeof PLANNING_SUB_PHASES)[number];
 

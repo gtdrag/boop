@@ -95,9 +95,7 @@ describe("getCurrentBranch", () => {
   it("throws when not in a git repo", () => {
     const noGitDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-nogit-"));
     try {
-      expect(() => getCurrentBranch(noGitDir)).toThrow(
-        "Failed to get current branch",
-      );
+      expect(() => getCurrentBranch(noGitDir)).toThrow("Failed to get current branch");
     } finally {
       fs.rmSync(noGitDir, { recursive: true, force: true });
     }
@@ -158,9 +156,7 @@ describe("ensureBranch", () => {
   });
 
   it("rejects invalid branch names", () => {
-    expect(() => ensureBranch("branch;rm -rf /", tmpDir)).toThrow(
-      "Invalid branch name",
-    );
+    expect(() => ensureBranch("branch;rm -rf /", tmpDir)).toThrow("Invalid branch name");
   });
 });
 
@@ -204,9 +200,9 @@ describe("buildStoryCommitMessage", () => {
   });
 
   it("handles multi-word titles", () => {
-    expect(
-      buildStoryCommitMessage("1.1", "Fork and strip OpenClaw"),
-    ).toBe("feat: [1.1] - Fork and strip OpenClaw");
+    expect(buildStoryCommitMessage("1.1", "Fork and strip OpenClaw")).toBe(
+      "feat: [1.1] - Fork and strip OpenClaw",
+    );
   });
 });
 
@@ -222,9 +218,9 @@ describe("buildReviewCommitMessage", () => {
   });
 
   it("handles longer descriptions", () => {
-    expect(
-      buildReviewCommitMessage(1, "Resolve tech debt and add missing tests"),
-    ).toBe("refactor: Epic 1 review - Resolve tech debt and add missing tests");
+    expect(buildReviewCommitMessage(1, "Resolve tech debt and add missing tests")).toBe(
+      "refactor: Epic 1 review - Resolve tech debt and add missing tests",
+    );
   });
 });
 
@@ -264,11 +260,7 @@ describe("stageAndCommit", () => {
 
 describe("commitStory", () => {
   it("commits with the correct story message format", () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "feature.ts"),
-      "export const x = 1;\n",
-      "utf-8",
-    );
+    fs.writeFileSync(path.join(tmpDir, "feature.ts"), "export const x = 1;\n", "utf-8");
 
     const result = commitStory("4.5", "Git branch management", tmpDir);
     expect(result.success).toBe(true);
@@ -284,11 +276,7 @@ describe("commitStory", () => {
 
 describe("commitReview", () => {
   it("commits with the correct review message format", () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "refactored.ts"),
-      "export const y = 2;\n",
-      "utf-8",
-    );
+    fs.writeFileSync(path.join(tmpDir, "refactored.ts"), "export const y = 2;\n", "utf-8");
 
     const result = commitReview(4, "Code cleanup", tmpDir);
     expect(result.success).toBe(true);

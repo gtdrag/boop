@@ -2,10 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  runReviewPipeline,
-  ReviewPhaseError,
-} from "./team-orchestrator.js";
+import { runReviewPipeline, ReviewPhaseError } from "./team-orchestrator.js";
 import type {
   ReviewOrchestratorOptions,
   ReviewAgentFn,
@@ -61,7 +58,9 @@ describe("runReviewPipeline", () => {
   let mockSecurityScanner: ReturnType<typeof vi.fn<ReviewAgentFn>>;
   let mockQaSmokeTester: ReturnType<typeof vi.fn<ReviewAgentFn>>;
 
-  function buildOptions(overrides: Partial<ReviewOrchestratorOptions> = {}): ReviewOrchestratorOptions {
+  function buildOptions(
+    overrides: Partial<ReviewOrchestratorOptions> = {},
+  ): ReviewOrchestratorOptions {
     return {
       projectDir: tmpDir,
       epicNumber: 1,
@@ -83,10 +82,16 @@ describe("runReviewPipeline", () => {
     mockCodeReviewer = vi.fn<ReviewAgentFn>().mockResolvedValue(makeAgentResult("code-review"));
     mockGapAnalyst = vi.fn<ReviewAgentFn>().mockResolvedValue(makeAgentResult("gap-analysis"));
     mockTechDebtAuditor = vi.fn<ReviewAgentFn>().mockResolvedValue(makeAgentResult("tech-debt"));
-    mockRefactoringAgent = vi.fn<RefactoringAgentFn>().mockResolvedValue(makeAgentResult("refactoring"));
+    mockRefactoringAgent = vi
+      .fn<RefactoringAgentFn>()
+      .mockResolvedValue(makeAgentResult("refactoring"));
     mockTestHardener = vi.fn<ReviewAgentFn>().mockResolvedValue(makeAgentResult("test-hardening"));
-    mockTestSuiteRunner = vi.fn<TestSuiteRunnerFn>().mockResolvedValue({ passed: true, output: "All tests passed" });
-    mockSecurityScanner = vi.fn<ReviewAgentFn>().mockResolvedValue(makeAgentResult("security-scan"));
+    mockTestSuiteRunner = vi
+      .fn<TestSuiteRunnerFn>()
+      .mockResolvedValue({ passed: true, output: "All tests passed" });
+    mockSecurityScanner = vi
+      .fn<ReviewAgentFn>()
+      .mockResolvedValue(makeAgentResult("security-scan"));
     mockQaSmokeTester = vi.fn<ReviewAgentFn>().mockResolvedValue(makeAgentResult("qa-smoke-test"));
   });
 
@@ -204,12 +209,8 @@ describe("runReviewPipeline", () => {
     const finding1 = makeFinding({ title: "Bug in auth", severity: "high" });
     const finding2 = makeFinding({ title: "Missing check", severity: "medium" });
 
-    mockCodeReviewer.mockResolvedValue(
-      makeAgentResult("code-review", { findings: [finding1] }),
-    );
-    mockGapAnalyst.mockResolvedValue(
-      makeAgentResult("gap-analysis", { findings: [finding2] }),
-    );
+    mockCodeReviewer.mockResolvedValue(makeAgentResult("code-review", { findings: [finding1] }));
+    mockGapAnalyst.mockResolvedValue(makeAgentResult("gap-analysis", { findings: [finding2] }));
 
     await runReviewPipeline(buildOptions());
 
@@ -307,26 +308,20 @@ describe("runReviewPipeline", () => {
   it("blocks advancement when security scanner finds critical vulnerabilities", async () => {
     mockSecurityScanner.mockResolvedValue(
       makeAgentResult("security-scan", {
-        findings: [
-          makeFinding({ title: "SQL Injection in query.ts", severity: "critical" }),
-        ],
+        findings: [makeFinding({ title: "SQL Injection in query.ts", severity: "critical" })],
       }),
     );
 
     const result = await runReviewPipeline(buildOptions());
 
     expect(result.canAdvance).toBe(false);
-    expect(result.blockingIssues).toContainEqual(
-      expect.stringContaining("SQL Injection"),
-    );
+    expect(result.blockingIssues).toContainEqual(expect.stringContaining("SQL Injection"));
   });
 
   it("blocks advancement when security scanner finds high vulnerabilities", async () => {
     mockSecurityScanner.mockResolvedValue(
       makeAgentResult("security-scan", {
-        findings: [
-          makeFinding({ title: "XSS in template", severity: "high" }),
-        ],
+        findings: [makeFinding({ title: "XSS in template", severity: "high" })],
       }),
     );
 
@@ -351,16 +346,12 @@ describe("runReviewPipeline", () => {
   });
 
   it("blocks advancement when QA smoke test fails", async () => {
-    mockQaSmokeTester.mockResolvedValue(
-      makeAgentResult("qa-smoke-test", { success: false }),
-    );
+    mockQaSmokeTester.mockResolvedValue(makeAgentResult("qa-smoke-test", { success: false }));
 
     const result = await runReviewPipeline(buildOptions());
 
     expect(result.canAdvance).toBe(false);
-    expect(result.blockingIssues).toContainEqual(
-      expect.stringContaining("QA smoke test failed"),
-    );
+    expect(result.blockingIssues).toContainEqual(expect.stringContaining("QA smoke test failed"));
   });
 
   it("blocks advancement when test suite fails", async () => {
@@ -369,9 +360,7 @@ describe("runReviewPipeline", () => {
     const result = await runReviewPipeline(buildOptions());
 
     expect(result.canAdvance).toBe(false);
-    expect(result.blockingIssues).toContainEqual(
-      expect.stringContaining("Test suite failed"),
-    );
+    expect(result.blockingIssues).toContainEqual(expect.stringContaining("Test suite failed"));
   });
 
   it("stops pipeline after test suite failure (skips security + QA)", async () => {
@@ -495,9 +484,7 @@ describe("runReviewPipeline", () => {
 
     const qaDir = path.join(tmpDir, ".boop", "reviews", "epic-1", "qa-smoke-test");
     expect(fs.existsSync(qaDir)).toBe(true);
-    expect(fs.readFileSync(path.join(qaDir, "results.md"), "utf-8")).toBe(
-      "# QA\nAll routes OK",
-    );
+    expect(fs.readFileSync(path.join(qaDir, "results.md"), "utf-8")).toBe("# QA\nAll routes OK");
   });
 
   it("saves test hardening report to disk", async () => {
@@ -547,9 +534,7 @@ describe("runReviewPipeline", () => {
 
     mockRefactoringAgent.mockRejectedValue(new Error("crash"));
 
-    await expect(
-      runReviewPipeline(buildOptions({ onProgress })),
-    ).rejects.toThrow();
+    await expect(runReviewPipeline(buildOptions({ onProgress }))).rejects.toThrow();
 
     expect(events).toContainEqual({ phase: "refactoring", status: "failed" });
   });

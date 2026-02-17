@@ -200,7 +200,16 @@ describe("file count", () => {
   });
 
   it("generates 4 files for every supported frontend framework", () => {
-    const frameworks = ["next", "remix", "astro", "nuxt", "sveltekit", "vite-react", "vite-vue", "angular"];
+    const frameworks = [
+      "next",
+      "remix",
+      "astro",
+      "nuxt",
+      "sveltekit",
+      "vite-react",
+      "vite-vue",
+      "angular",
+    ];
     for (const fw of frameworks) {
       const profile = makeProfile({ frontendFramework: fw });
       const files = generateAccessibilityDefaults(profile);

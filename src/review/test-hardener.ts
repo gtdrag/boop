@@ -12,17 +12,8 @@ import { sendMessage, isRetryableApiError } from "../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../shared/claude-client.js";
 import { retry } from "../shared/retry.js";
 
-import type {
-  AgentResult,
-  ReviewContext,
-  ReviewFinding,
-} from "./team-orchestrator.js";
-import {
-  truncate,
-  parseFindings,
-  extractSummary,
-  collectSourceFiles,
-} from "./shared.js";
+import type { AgentResult, ReviewContext, ReviewFinding } from "./team-orchestrator.js";
+import { truncate, parseFindings, extractSummary, collectSourceFiles } from "./shared.js";
 
 // Re-export shared utilities so existing imports from this module continue to work.
 export { parseFindings, extractSummary } from "./shared.js";
@@ -85,10 +76,7 @@ function isTestFile(filePath: string): boolean {
 /**
  * Find source files that have no corresponding test file.
  */
-export function findUntestedFiles(
-  sourceFiles: string[],
-  testFiles: string[],
-): string[] {
+export function findUntestedFiles(sourceFiles: string[], testFiles: string[]): string[] {
   const testedBases = new Set<string>();
 
   for (const testFile of testFiles) {

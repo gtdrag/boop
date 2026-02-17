@@ -44,7 +44,13 @@ vi.mock("@clack/prompts", () => ({
 }));
 
 // Mock credential store so tests don't touch real ~/.boop/credentials/
-const mockCredStore = { load: vi.fn().mockReturnValue(null), save: vi.fn(), delete: vi.fn(), exists: vi.fn().mockReturnValue(false), verifyPermissions: vi.fn() };
+const mockCredStore = {
+  load: vi.fn().mockReturnValue(null),
+  save: vi.fn(),
+  delete: vi.fn(),
+  exists: vi.fn().mockReturnValue(false),
+  verifyPermissions: vi.fn(),
+};
 vi.mock("../security/credentials.js", () => ({
   createCredentialStore: () => mockCredStore,
 }));
@@ -144,7 +150,8 @@ describe("profile/onboarding", () => {
     await runOnboarding({ stateDir: tmpDir });
 
     // Count total prompts: text + multiselect + confirm + password (API key)
-    const totalPrompts = textCalls.length + multiselectCalls.length + confirmCalls.length + passwordCalls.length;
+    const totalPrompts =
+      textCalls.length + multiselectCalls.length + confirmCalls.length + passwordCalls.length;
     expect(totalPrompts).toBe(PROFILE_CATEGORIES.length + 1); // +1 for API key prompt
   });
 

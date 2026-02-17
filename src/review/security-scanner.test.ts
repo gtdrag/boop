@@ -137,7 +137,8 @@ Found 2 vulnerabilities.`;
 
 describe("extractSummary", () => {
   it("extracts text starting from ## Summary", () => {
-    const text = 'Some findings\n{"title":"x","severity":"low","description":"d"}\n## Summary\nAll good.';
+    const text =
+      'Some findings\n{"title":"x","severity":"low","description":"d"}\n## Summary\nAll good.';
     expect(extractSummary(text)).toBe("## Summary\nAll good.");
   });
 

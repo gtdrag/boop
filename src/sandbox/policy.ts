@@ -100,7 +100,8 @@ const DESTRUCTIVE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
     // rm -rf --no-preserve-root /, and any flag ordering with absolute paths.
     // The key change: allow optional extra flags (--no-preserve-root, etc.) between
     // the rm flags and the target path.
-    pattern: /\brm\s+(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|-[a-zA-Z]*r\s+-[a-zA-Z]*f|-[a-zA-Z]*f\s+-[a-zA-Z]*r|--recursive\b[^/]*--force|--force\b[^/]*--recursive)(?:\s+--?\S+)*\s+\//,
+    pattern:
+      /\brm\s+(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|-[a-zA-Z]*r\s+-[a-zA-Z]*f|-[a-zA-Z]*f\s+-[a-zA-Z]*r|--recursive\b[^/]*--force|--force\b[^/]*--recursive)(?:\s+--?\S+)*\s+\//,
     reason: "Recursive force delete (rm -rf) on absolute paths is blocked",
   },
   {
@@ -126,10 +127,7 @@ const DESTRUCTIVE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 /**
  * Default allowed hosts for Claude API access.
  */
-export const DEFAULT_ALLOWED_HOSTS = [
-  "api.anthropic.com",
-  "api.anthropic.com:443",
-];
+export const DEFAULT_ALLOWED_HOSTS = ["api.anthropic.com", "api.anthropic.com:443"];
 
 // ---------------------------------------------------------------------------
 // Path validation
@@ -138,10 +136,7 @@ export const DEFAULT_ALLOWED_HOSTS = [
 /**
  * Check if a path is within the allowed boundaries (project dir + allowed paths).
  */
-export function isPathAllowed(
-  targetPath: string,
-  policy: SandboxPolicy,
-): PolicyResult {
+export function isPathAllowed(targetPath: string, policy: SandboxPolicy): PolicyResult {
   const resolved = path.resolve(targetPath);
   const normalizedProject = path.resolve(policy.projectDir);
 
@@ -231,10 +226,7 @@ export function extractPaths(command: string): string[] {
  *
  * @returns A PolicyResult indicating whether the command is allowed.
  */
-export function evaluateCommand(
-  command: string,
-  policy: SandboxPolicy,
-): PolicyResult {
+export function evaluateCommand(command: string, policy: SandboxPolicy): PolicyResult {
   const baseCommand = extractBaseCommand(command);
 
   // 1. Check blocked commands
@@ -264,9 +256,7 @@ export function evaluateCommand(
   // 4. Check file paths in the command
   const paths = extractPaths(command);
   for (const p of paths) {
-    const expanded = p.startsWith("~")
-      ? path.join(process.env.HOME ?? "/root", p.slice(1))
-      : p;
+    const expanded = p.startsWith("~") ? path.join(process.env.HOME ?? "/root", p.slice(1)) : p;
     const pathResult = isPathAllowed(expanded, policy);
     if (pathResult.verdict === "deny") {
       return pathResult;
@@ -292,9 +282,7 @@ export function createPolicy(
 
   return {
     projectDir: path.resolve(projectDir),
-    allowedPaths: options?.allowedPaths ?? [
-      path.join(homeDir, ".boop"),
-    ],
+    allowedPaths: options?.allowedPaths ?? [path.join(homeDir, ".boop")],
     enforceNetwork: options?.enforceNetwork ?? true,
     allowedHosts: options?.allowedHosts ?? DEFAULT_ALLOWED_HOSTS,
   };

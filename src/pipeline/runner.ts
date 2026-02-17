@@ -199,226 +199,225 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
   await messaging.start();
 
   try {
-  const breakdown = parseStoryMarkdown(storiesMarkdown);
-  const projectName = path.basename(projectDir);
+    const breakdown = parseStoryMarkdown(storiesMarkdown);
+    const projectName = path.basename(projectDir);
 
-  for (const epic of breakdown.epics) {
-    const epicNumber = epic.number;
-    onProgress?.("BRIDGING", `Starting epic ${epicNumber}: ${epic.name}`);
+    for (const epic of breakdown.epics) {
+      const epicNumber = epic.number;
+      onProgress?.("BRIDGING", `Starting epic ${epicNumber}: ${epic.name}`);
 
-    // --- 1. BRIDGING ---
-    orch.startEpic(epicNumber);
-    orch.transition("BRIDGING");
+      // --- 1. BRIDGING ---
+      orch.startEpic(epicNumber);
+      orch.transition("BRIDGING");
 
-    const metadata: ProjectMetadata = {
-      project: projectName,
-      branchName: `epic-${epicNumber}`,
-      description: `${epic.name}: ${epic.goal}`,
-    };
-
-    const prd = convertToPrd(breakdown, metadata, { epicNumber });
-    savePrd(prd, projectDir);
-    onProgress?.("BRIDGING", `PRD saved for epic ${epicNumber}`);
-
-    // --- 2. SCAFFOLDING (first epic only) ---
-    const state = orch.getState();
-    if (!state.scaffoldingComplete) {
-      orch.transition("SCAFFOLDING");
-      onProgress?.("SCAFFOLDING", "Scaffolding project...");
-
-      scaffoldProject(profile, projectDir);
-      applyScaffoldingDefaults(profile, projectDir, onProgress);
-      orch.completeScaffolding();
-
-      onProgress?.("SCAFFOLDING", "Scaffolding complete");
-    }
-
-    // --- 3. BUILDING ---
-    orch.advance(); // SCAFFOLDING→BUILDING or BRIDGING→BUILDING
-    onProgress?.("BUILDING", `Building epic ${epicNumber}...`);
-
-    const prdPath = path.join(projectDir, ".boop", "prd.json");
-    const maxIterations = epic.stories.length * 3;
-    let buildFailed = false;
-
-    for (let i = 0; i < maxIterations; i++) {
-      const result: LoopResult = await runLoopIteration({
-        projectDir,
-        prdPath,
-        model: profile.aiModel || undefined,
-        epicNumber,
-        sandboxed,
-      });
-
-      if (result.allComplete) {
-        onProgress?.("BUILDING", `All stories complete for epic ${epicNumber}`);
-        break;
-      }
-
-      if (result.outcome === "failed") {
-        onProgress?.("BUILDING", `Build failed: ${result.error ?? "unknown error"}`);
-        console.error(`[boop] Build failed on story ${result.story?.id ?? "?"}: ${result.error}`);
-        console.error("[boop] Pipeline paused in BUILDING. Resume with: boop --resume");
-        buildFailed = true;
-        break;
-      }
-
-      if (result.outcome === "no-stories") {
-        onProgress?.("BUILDING", "No more stories to process");
-        break;
-      }
-
-      onProgress?.("BUILDING", `Story ${result.story?.id ?? "?"} passed`);
-    }
-
-    if (buildFailed) return;
-
-    // --- 4. REVIEWING (adversarial loop) ---
-    orch.transition("REVIEWING");
-    onProgress?.("REVIEWING", `Running adversarial review for epic ${epicNumber}...`);
-
-    let reviewResult: ReviewPhaseResult;
-    try {
-      const loopResult = await runAdversarialLoop({
-        projectDir,
-        epicNumber,
-        testSuiteRunner: createTestSuiteRunner(projectDir),
-        model: profile.aiModel || undefined,
-        onProgress: (iter, phase, msg) =>
-          onProgress?.("REVIEWING", `[iter ${iter}] ${phase}: ${msg}`),
-      });
-
-      generateAdversarialSummary(projectDir, epicNumber, loopResult);
-      reviewResult = toReviewPhaseResult(epicNumber, loopResult);
-    } catch (error: unknown) {
-      console.error(`[boop] Review failed for epic ${epicNumber}: ${formatError(error)}`);
-      console.error("[boop] Pipeline paused in REVIEWING. Resume with: boop --resume");
-      return;
-    }
-
-    onProgress?.("REVIEWING", `Review complete for epic ${epicNumber}`);
-
-    // --- 5. SIGN-OFF ---
-    orch.transition("SIGN_OFF");
-    onProgress?.("SIGN_OFF", `Epic ${epicNumber} sign-off`);
-
-    let signOffResult;
-    try {
-      signOffResult = await runEpicSignOff({
-        projectDir,
-        epicNumber,
-        reviewResult,
-        autonomous,
-        signOffPrompt: autonomous
-          ? undefined
-          : (messaging.enabled
-              ? messaging.createSignOffPrompt() ?? createInteractiveSignOff()
-              : createInteractiveSignOff()),
-        fixCycleAgents: {
-          refactoringAgent: createRefactoringAgent(),
-          testHardener: createTestHardener(),
-          testSuiteRunner: createTestSuiteRunner(projectDir),
-          securityScanner: createSecurityScanner(),
-          qaSmokeTester: createQaSmokeTest(),
-        },
-      });
-    } catch (error: unknown) {
-      console.error(`[boop] Sign-off failed for epic ${epicNumber}: ${formatError(error)}`);
-      console.error("[boop] Pipeline paused in SIGN_OFF. Resume with: boop --resume");
-      return;
-    }
-
-    if (!signOffResult.approved && !autonomous) {
-      console.log(`[boop] Epic ${epicNumber} not approved. Pipeline paused.`);
-      return;
-    }
-
-    onProgress?.("SIGN_OFF", `Epic ${epicNumber} approved`);
-  }
-
-  // --- 6. DEPLOYING (once after all epics) ---
-  if (profile.cloudProvider && profile.cloudProvider !== "none" && breakdown.epics.length > 0) {
-    const lastEpicNumber = breakdown.epics[breakdown.epics.length - 1]!.number;
-    orch.transition("DEPLOYING");
-    onProgress?.("DEPLOYING", `Deploying project...`);
-
-    try {
-      const { deploy } = await import("../deployment/deployer.js");
-      const deployResult = await deploy({
-        projectDir,
-        cloudProvider: profile.cloudProvider,
-        projectName: path.basename(projectDir),
-        model: profile.aiModel || undefined,
-      });
-
-      const resultToSave = {
-        success: deployResult.success,
-        url: deployResult.url,
-        provider: deployResult.provider,
-        error: deployResult.error,
-        output: redactSecrets(deployResult.output.slice(0, 2000)),
-        timestamp: new Date().toISOString(),
+      const metadata: ProjectMetadata = {
+        project: projectName,
+        branchName: `epic-${epicNumber}`,
+        description: `${epic.name}: ${epic.goal}`,
       };
-      const boopDir = path.join(projectDir, ".boop");
-      fs.mkdirSync(boopDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(boopDir, "deploy-result.json"),
-        JSON.stringify(resultToSave, null, 2),
-      );
 
-      if (deployResult.success) {
-        const urlMsg = deployResult.url
-          ? `Live at: ${deployResult.url}`
-          : "Build verified (no public URL)";
-        onProgress?.("DEPLOYING", urlMsg);
-        orch.notify("deployment-complete", { epic: lastEpicNumber, detail: urlMsg });
-      } else {
-        onProgress?.("DEPLOYING", `Deployment failed: ${deployResult.error ?? "unknown"}`);
-        console.error(`[boop] Deployment failed: ${deployResult.error}`);
-        console.error("[boop] Pipeline continuing to retrospective despite deploy failure.");
-        orch.notify("deployment-failed", { epic: lastEpicNumber, detail: deployResult.error });
+      const prd = convertToPrd(breakdown, metadata, { epicNumber });
+      savePrd(prd, projectDir);
+      onProgress?.("BRIDGING", `PRD saved for epic ${epicNumber}`);
+
+      // --- 2. SCAFFOLDING (first epic only) ---
+      const state = orch.getState();
+      if (!state.scaffoldingComplete) {
+        orch.transition("SCAFFOLDING");
+        onProgress?.("SCAFFOLDING", "Scaffolding project...");
+
+        scaffoldProject(profile, projectDir);
+        applyScaffoldingDefaults(profile, projectDir, onProgress);
+        orch.completeScaffolding();
+
+        onProgress?.("SCAFFOLDING", "Scaffolding complete");
       }
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      onProgress?.("DEPLOYING", `Deployment error: ${msg}`);
-      console.error(`[boop] Deployment error: ${msg}`);
-      console.error("[boop] Pipeline continuing to retrospective despite deploy error.");
-      orch.notify("deployment-failed", {
-        epic: breakdown.epics[breakdown.epics.length - 1]!.number,
-        detail: msg,
-      });
+
+      // --- 3. BUILDING ---
+      orch.advance(); // SCAFFOLDING→BUILDING or BRIDGING→BUILDING
+      onProgress?.("BUILDING", `Building epic ${epicNumber}...`);
+
+      const prdPath = path.join(projectDir, ".boop", "prd.json");
+      const maxIterations = epic.stories.length * 3;
+      let buildFailed = false;
+
+      for (let i = 0; i < maxIterations; i++) {
+        const result: LoopResult = await runLoopIteration({
+          projectDir,
+          prdPath,
+          model: profile.aiModel || undefined,
+          epicNumber,
+          sandboxed,
+        });
+
+        if (result.allComplete) {
+          onProgress?.("BUILDING", `All stories complete for epic ${epicNumber}`);
+          break;
+        }
+
+        if (result.outcome === "failed") {
+          onProgress?.("BUILDING", `Build failed: ${result.error ?? "unknown error"}`);
+          console.error(`[boop] Build failed on story ${result.story?.id ?? "?"}: ${result.error}`);
+          console.error("[boop] Pipeline paused in BUILDING. Resume with: boop --resume");
+          buildFailed = true;
+          break;
+        }
+
+        if (result.outcome === "no-stories") {
+          onProgress?.("BUILDING", "No more stories to process");
+          break;
+        }
+
+        onProgress?.("BUILDING", `Story ${result.story?.id ?? "?"} passed`);
+      }
+
+      if (buildFailed) return;
+
+      // --- 4. REVIEWING (adversarial loop) ---
+      orch.transition("REVIEWING");
+      onProgress?.("REVIEWING", `Running adversarial review for epic ${epicNumber}...`);
+
+      let reviewResult: ReviewPhaseResult;
+      try {
+        const loopResult = await runAdversarialLoop({
+          projectDir,
+          epicNumber,
+          testSuiteRunner: createTestSuiteRunner(projectDir),
+          model: profile.aiModel || undefined,
+          onProgress: (iter, phase, msg) =>
+            onProgress?.("REVIEWING", `[iter ${iter}] ${phase}: ${msg}`),
+        });
+
+        generateAdversarialSummary(projectDir, epicNumber, loopResult);
+        reviewResult = toReviewPhaseResult(epicNumber, loopResult);
+      } catch (error: unknown) {
+        console.error(`[boop] Review failed for epic ${epicNumber}: ${formatError(error)}`);
+        console.error("[boop] Pipeline paused in REVIEWING. Resume with: boop --resume");
+        return;
+      }
+
+      onProgress?.("REVIEWING", `Review complete for epic ${epicNumber}`);
+
+      // --- 5. SIGN-OFF ---
+      orch.transition("SIGN_OFF");
+      onProgress?.("SIGN_OFF", `Epic ${epicNumber} sign-off`);
+
+      let signOffResult;
+      try {
+        signOffResult = await runEpicSignOff({
+          projectDir,
+          epicNumber,
+          reviewResult,
+          autonomous,
+          signOffPrompt: autonomous
+            ? undefined
+            : messaging.enabled
+              ? (messaging.createSignOffPrompt() ?? createInteractiveSignOff())
+              : createInteractiveSignOff(),
+          fixCycleAgents: {
+            refactoringAgent: createRefactoringAgent(),
+            testHardener: createTestHardener(),
+            testSuiteRunner: createTestSuiteRunner(projectDir),
+            securityScanner: createSecurityScanner(),
+            qaSmokeTester: createQaSmokeTest(),
+          },
+        });
+      } catch (error: unknown) {
+        console.error(`[boop] Sign-off failed for epic ${epicNumber}: ${formatError(error)}`);
+        console.error("[boop] Pipeline paused in SIGN_OFF. Resume with: boop --resume");
+        return;
+      }
+
+      if (!signOffResult.approved && !autonomous) {
+        console.log(`[boop] Epic ${epicNumber} not approved. Pipeline paused.`);
+        return;
+      }
+
+      onProgress?.("SIGN_OFF", `Epic ${epicNumber} approved`);
     }
-  }
 
-  // --- 7. RETROSPECTIVE ---
-  orch.transition("RETROSPECTIVE");
-  onProgress?.("RETROSPECTIVE", "Running retrospective analysis...");
+    // --- 6. DEPLOYING (once after all epics) ---
+    if (profile.cloudProvider && profile.cloudProvider !== "none" && breakdown.epics.length > 0) {
+      const lastEpicNumber = breakdown.epics[breakdown.epics.length - 1]!.number;
+      orch.transition("DEPLOYING");
+      onProgress?.("DEPLOYING", `Deploying project...`);
 
-  try {
-    const retroData = analyze({
-      projectDir,
-      projectName,
-      totalEpics: breakdown.epics.length,
-    });
+      try {
+        const { deploy } = await import("../deployment/deployer.js");
+        const deployResult = await deploy({
+          projectDir,
+          cloudProvider: profile.cloudProvider,
+          projectName: path.basename(projectDir),
+          model: profile.aiModel || undefined,
+        });
 
-    const report = generateReport(retroData);
-    saveReport(projectDir, report);
+        const resultToSave = {
+          success: deployResult.success,
+          url: deployResult.url,
+          provider: deployResult.provider,
+          error: deployResult.error,
+          output: redactSecrets(deployResult.output.slice(0, 2000)),
+          timestamp: new Date().toISOString(),
+        };
+        const boopDir = path.join(projectDir, ".boop");
+        fs.mkdirSync(boopDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(boopDir, "deploy-result.json"),
+          JSON.stringify(resultToSave, null, 2),
+        );
 
-    const memoryEntries = buildMemoryEntries(retroData);
-    saveMemory(memoryEntries);
+        if (deployResult.success) {
+          const urlMsg = deployResult.url
+            ? `Live at: ${deployResult.url}`
+            : "Build verified (no public URL)";
+          onProgress?.("DEPLOYING", urlMsg);
+          orch.notify("deployment-complete", { epic: lastEpicNumber, detail: urlMsg });
+        } else {
+          onProgress?.("DEPLOYING", `Deployment failed: ${deployResult.error ?? "unknown"}`);
+          console.error(`[boop] Deployment failed: ${deployResult.error}`);
+          console.error("[boop] Pipeline continuing to retrospective despite deploy failure.");
+          orch.notify("deployment-failed", { epic: lastEpicNumber, detail: deployResult.error });
+        }
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        onProgress?.("DEPLOYING", `Deployment error: ${msg}`);
+        console.error(`[boop] Deployment error: ${msg}`);
+        console.error("[boop] Pipeline continuing to retrospective despite deploy error.");
+        orch.notify("deployment-failed", {
+          epic: breakdown.epics[breakdown.epics.length - 1]!.number,
+          detail: msg,
+        });
+      }
+    }
 
-    const summary = formatSummary(retroData);
-    console.log();
-    console.log(summary);
-  } catch (error: unknown) {
-    console.error(`[boop] Retrospective failed: ${formatError(error)}`);
-    console.error("[boop] Pipeline paused in RETROSPECTIVE. Resume with: boop --resume");
-    return;
-  }
+    // --- 7. RETROSPECTIVE ---
+    orch.transition("RETROSPECTIVE");
+    onProgress?.("RETROSPECTIVE", "Running retrospective analysis...");
 
-  orch.transition("COMPLETE");
-  onProgress?.("COMPLETE", "Pipeline finished");
+    try {
+      const retroData = analyze({
+        projectDir,
+        projectName,
+        totalEpics: breakdown.epics.length,
+      });
 
+      const report = generateReport(retroData);
+      saveReport(projectDir, report);
+
+      const memoryEntries = buildMemoryEntries(retroData);
+      saveMemory(memoryEntries);
+
+      const summary = formatSummary(retroData);
+      console.log();
+      console.log(summary);
+    } catch (error: unknown) {
+      console.error(`[boop] Retrospective failed: ${formatError(error)}`);
+      console.error("[boop] Pipeline paused in RETROSPECTIVE. Resume with: boop --resume");
+      return;
+    }
+
+    orch.transition("COMPLETE");
+    onProgress?.("COMPLETE", "Pipeline finished");
   } finally {
     // Always stop messaging adapter on pipeline exit
     await messaging.stop();

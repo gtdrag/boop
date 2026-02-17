@@ -12,17 +12,8 @@ import { sendMessage, isRetryableApiError } from "../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../shared/claude-client.js";
 import { retry } from "../shared/retry.js";
 
-import type {
-  AgentResult,
-  ReviewContext,
-  ReviewFinding,
-} from "./team-orchestrator.js";
-import {
-  truncate,
-  parseFindings,
-  extractSummary,
-  readFileContent,
-} from "./shared.js";
+import type { AgentResult, ReviewContext, ReviewFinding } from "./team-orchestrator.js";
+import { truncate, parseFindings, extractSummary, readFileContent } from "./shared.js";
 
 // Re-export shared utilities so existing imports from this module continue to work.
 export { parseFindings, extractSummary };
@@ -79,9 +70,7 @@ function buildRefactoringMessage(
   findings: ReviewFinding[],
   fileContents: Array<{ path: string; content: string }>,
 ): string {
-  const parts: string[] = [
-    "Review the following findings and suggest concrete fixes.\n",
-  ];
+  const parts: string[] = ["Review the following findings and suggest concrete fixes.\n"];
 
   // Group findings by severity
   const bySeverity: Record<string, ReviewFinding[]> = {};
@@ -162,11 +151,7 @@ export interface RefactoringAgentOptions {
  * Create a refactoring agent function that conforms to RefactoringAgentFn.
  */
 export function createRefactoringAgent(options: RefactoringAgentOptions = {}) {
-  const {
-    clientOptions = {},
-    maxRetries = 2,
-    maxTotalChars = 100_000,
-  } = options;
+  const { clientOptions = {}, maxRetries = 2, maxTotalChars = 100_000 } = options;
 
   return async function refactoringAgent(
     context: ReviewContext,

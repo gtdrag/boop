@@ -126,8 +126,7 @@ const EVENT_MESSAGES: Record<PipelineEvent, (ctx: { epic?: number; detail?: stri
     `Review complete for Epic ${ctx.epic ?? "?"}. ${ctx.detail ?? "Ready for sign-off."}`,
   "sign-off-ready": (ctx) =>
     `Epic ${ctx.epic ?? "?"} is ready for sign-off.\n\n${ctx.detail ?? "Reply 'approve' or provide feedback to reject."}`,
-  "deployment-started": (ctx) =>
-    `Deploying Epic ${ctx.epic ?? "?"}...`,
+  "deployment-started": (ctx) => `Deploying Epic ${ctx.epic ?? "?"}...`,
   "deployment-complete": (ctx) =>
     `Deployment complete for Epic ${ctx.epic ?? "?"}! ${ctx.detail ?? ""}`,
   "deployment-failed": (ctx) =>
@@ -147,10 +146,7 @@ export class MessagingDispatcher {
   private adapter: ChannelAdapter | null = null;
   private started = false;
 
-  constructor(
-    config: MessagingConfig,
-    adapter?: ChannelAdapter,
-  ) {
+  constructor(config: MessagingConfig, adapter?: ChannelAdapter) {
     this.config = config;
     this.adapter = adapter ?? null;
   }
@@ -216,10 +212,7 @@ export class MessagingDispatcher {
    * Send a pipeline event notification.
    * No-op if messaging is disabled.
    */
-  async notify(
-    event: PipelineEvent,
-    context?: { epic?: number; detail?: string },
-  ): Promise<void> {
+  async notify(event: PipelineEvent, context?: { epic?: number; detail?: string }): Promise<void> {
     if (!this.enabled || !this.adapter || !this.started) return;
 
     const raw = EVENT_MESSAGES[event](context ?? {});
@@ -249,7 +242,9 @@ export class MessagingDispatcher {
     const MAX_MESSAGE_LENGTH = 4000;
     let text = `Epic ${epicNumber} Review Summary\n\n${markdown}`;
     if (text.length > MAX_MESSAGE_LENGTH) {
-      text = text.slice(0, MAX_MESSAGE_LENGTH - 100) + "\n\n... (truncated, see full summary in .boop/reviews/)";
+      text =
+        text.slice(0, MAX_MESSAGE_LENGTH - 100) +
+        "\n\n... (truncated, see full summary in .boop/reviews/)";
     }
 
     // Note: summaries are internally generated review content — not user credential
@@ -290,7 +285,12 @@ export class MessagingDispatcher {
    * Sends the epic summary, then waits for the user to reply
    * with "approve" or feedback text.
    */
-  createSignOffPrompt(): ((summary: { epicNumber: number; markdown: string }) => Promise<{ action: "approve" } | { action: "reject"; feedback: string }>) | undefined {
+  createSignOffPrompt():
+    | ((summary: {
+        epicNumber: number;
+        markdown: string;
+      }) => Promise<{ action: "approve" } | { action: "reject"; feedback: string }>)
+    | undefined {
     if (!this.enabled) return undefined;
 
     return async (summary) => {

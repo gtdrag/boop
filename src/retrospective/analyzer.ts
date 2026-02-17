@@ -78,9 +78,7 @@ export interface RetrospectiveData {
 /** Parse a progress.txt entry block into StoryMetrics. */
 export function parseProgressEntry(block: string): StoryMetrics | null {
   // Header: ## DATE - Story ID: Title
-  const headerMatch = block.match(
-    /^## .+ - Story ([\d.]+):\s*(.+)$/m,
-  );
+  const headerMatch = block.match(/^## .+ - Story ([\d.]+):\s*(.+)$/m);
   if (!headerMatch) return null;
 
   const storyId = headerMatch[1]!;
@@ -104,7 +102,10 @@ export function parseProgressEntry(block: string): StoryMetrics | null {
     if (inLearnings && line.startsWith("  - ")) {
       learnings.push(line.replace(/^\s+-\s*/, ""));
     } else if (!inLearnings && line.startsWith("- Files changed:")) {
-      const fileList = line.replace("- Files changed: ", "").split(",").map((f) => f.trim());
+      const fileList = line
+        .replace("- Files changed: ", "")
+        .split(",")
+        .map((f) => f.trim());
       filesChanged.push(...fileList);
     } else if (!inLearnings && line.startsWith("- ")) {
       summaryLines++;
@@ -197,10 +198,7 @@ export function hasBlockingFindings(reportContent: string): boolean {
 }
 
 /** Read all review reports for an epic from .boop/reviews/epic-{N}/. */
-export function readEpicReviews(
-  projectDir: string,
-  epicNumber: number,
-): Record<string, string> {
+export function readEpicReviews(projectDir: string, epicNumber: number): Record<string, string> {
   const reviewDir = path.join(projectDir, ".boop", "reviews", `epic-${epicNumber}`);
   const reports: Record<string, string> = {};
 
@@ -338,15 +336,12 @@ export function analyze(options: AnalyzeOptions): RetrospectiveData {
   // Most complex story (by files changed)
   const mostComplexStory =
     storyMetrics.length > 0
-      ? storyMetrics.reduce((max, s) =>
-          s.filesChanged > max.filesChanged ? s : max,
-        )
+      ? storyMetrics.reduce((max, s) => (s.filesChanged > max.filesChanged ? s : max))
       : null;
 
   // Average files per story
   const totalFiles = storyMetrics.reduce((sum, s) => sum + s.filesChanged, 0);
-  const avgFilesPerStory =
-    storyMetrics.length > 0 ? totalFiles / storyMetrics.length : 0;
+  const avgFilesPerStory = storyMetrics.length > 0 ? totalFiles / storyMetrics.length : 0;
 
   return {
     projectName,

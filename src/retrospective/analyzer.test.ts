@@ -33,10 +33,7 @@ describe("parseProgressEntry", () => {
     expect(result!.storyTitle).toBe("Viability assessment");
     expect(result!.summaryLines).toBe(2);
     expect(result!.filesChanged).toBe(2);
-    expect(result!.learnings).toEqual([
-      "Use retry for API calls",
-      "Mock the SDK client",
-    ]);
+    expect(result!.learnings).toEqual(["Use retry for API calls", "Mock the SDK client"]);
   });
 
   it("returns null for non-entry blocks", () => {

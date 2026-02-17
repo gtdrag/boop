@@ -25,10 +25,7 @@ import { generateStories } from "../planning/stories.js";
 import type { StoriesResult } from "../planning/stories.js";
 import { retry } from "../shared/retry.js";
 import { isRetryableApiError } from "../shared/claude-client.js";
-import {
-  createMessagingDispatcher,
-  messagingConfigFromProfile,
-} from "../channels/messaging.js";
+import { createMessagingDispatcher, messagingConfigFromProfile } from "../channels/messaging.js";
 import type { MessagingDispatcher, PipelineEvent } from "../channels/messaging.js";
 
 /** Result of the full planning chain. */
@@ -87,9 +84,7 @@ export class PipelineOrchestrator {
     this.state = loadState(projectDir) ?? defaultState();
     this.profile = profile ?? null;
 
-    const msgConfig = profile
-      ? messagingConfigFromProfile(profile)
-      : { channel: "none" as const };
+    const msgConfig = profile ? messagingConfigFromProfile(profile) : { channel: "none" as const };
     this.messaging = createMessagingDispatcher(msgConfig);
   }
 

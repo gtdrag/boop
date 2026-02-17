@@ -140,9 +140,7 @@ function buildImprovementSuggestions(data: RetrospectiveData): string {
   }
 
   // Security findings → add security gates earlier
-  const securityFindings = data.topFindingPatterns.find(
-    (p) => p.category === "security-scan",
-  );
+  const securityFindings = data.topFindingPatterns.find((p) => p.category === "security-scan");
   if (securityFindings && securityFindings.count > 5) {
     suggestions.push(
       "Security findings are recurring. Consider running security scans during the build phase, not just review.",
@@ -170,10 +168,7 @@ function buildImprovementSuggestions(data: RetrospectiveData): string {
     suggestions.push("No major improvement areas detected. Pipeline is running efficiently.");
   }
 
-  const lines: string[] = [
-    "## Pipeline Improvement Suggestions",
-    "",
-  ];
+  const lines: string[] = ["## Pipeline Improvement Suggestions", ""];
 
   for (const suggestion of suggestions) {
     lines.push(`- ${suggestion}`);

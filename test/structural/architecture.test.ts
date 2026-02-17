@@ -67,9 +67,7 @@ describe("layered architecture", () => {
   const domainModules = ["planning", "build", "bridge", "review", "retrospective", "scaffolding"];
 
   it("shared/ does not import from any boop domain or pipeline module", () => {
-    const sharedFiles = allSourceFiles.filter((f) =>
-      f.startsWith(path.join(SRC, "shared")),
-    );
+    const sharedFiles = allSourceFiles.filter((f) => f.startsWith(path.join(SRC, "shared")));
     const violations: string[] = [];
 
     for (const file of sharedFiles) {
@@ -89,9 +87,7 @@ describe("layered architecture", () => {
     const violations: string[] = [];
 
     for (const mod of domainModules) {
-      const files = allSourceFiles.filter((f) =>
-        f.startsWith(path.join(SRC, mod)),
-      );
+      const files = allSourceFiles.filter((f) => f.startsWith(path.join(SRC, mod)));
       for (const file of files) {
         for (const imp of extractImports(file)) {
           const target = resolveModuleDir(file, imp);
@@ -107,9 +103,7 @@ describe("layered architecture", () => {
 
   it("planning/ does not import from build/ or review/", () => {
     const forbidden = ["build", "review"];
-    const planningFiles = allSourceFiles.filter((f) =>
-      f.startsWith(path.join(SRC, "planning")),
-    );
+    const planningFiles = allSourceFiles.filter((f) => f.startsWith(path.join(SRC, "planning")));
     const violations: string[] = [];
 
     for (const file of planningFiles) {
@@ -126,9 +120,7 @@ describe("layered architecture", () => {
 
   it("build/ does not import from review/ or planning/", () => {
     const forbidden = ["review", "planning"];
-    const buildFiles = allSourceFiles.filter((f) =>
-      f.startsWith(path.join(SRC, "build")),
-    );
+    const buildFiles = allSourceFiles.filter((f) => f.startsWith(path.join(SRC, "build")));
     const violations: string[] = [];
 
     for (const file of buildFiles) {
@@ -145,9 +137,7 @@ describe("layered architecture", () => {
 
   it("review/ does not import from build/ or planning/", () => {
     const forbidden = ["build", "planning"];
-    const reviewFiles = allSourceFiles.filter((f) =>
-      f.startsWith(path.join(SRC, "review")),
-    );
+    const reviewFiles = allSourceFiles.filter((f) => f.startsWith(path.join(SRC, "review")));
     const violations: string[] = [];
 
     for (const file of reviewFiles) {
@@ -243,9 +233,7 @@ describe("test co-location", () => {
       if (!fs.existsSync(dirPath)) continue;
 
       const sourceFiles = walk(dirPath).filter(
-        (f) =>
-          !f.endsWith(".test.ts") &&
-          !exemptPatterns.some((re) => re.test(path.basename(f))),
+        (f) => !f.endsWith(".test.ts") && !exemptPatterns.some((re) => re.test(path.basename(f))),
       );
 
       for (const file of sourceFiles) {
@@ -305,9 +293,7 @@ describe("state machine integrity", () => {
     const content = fs.readFileSync(orchPath, "utf-8");
 
     // Extract TRANSITIONS keys
-    const transMatch = content.match(
-      /const TRANSITIONS[\s\S]*?=\s*\{([\s\S]*?)\}\s*(?:as|;)/,
-    );
+    const transMatch = content.match(/const TRANSITIONS[\s\S]*?=\s*\{([\s\S]*?)\}\s*(?:as|;)/);
     expect(transMatch).not.toBeNull();
 
     const keys = [...transMatch![1]!.matchAll(/(\w+)\s*:/g)].map((m) => m[1]);
@@ -367,9 +353,7 @@ describe("no cross-domain circular imports", () => {
     const graph = new Map<string, Set<string>>();
 
     for (const mod of domains) {
-      const files = allSourceFiles.filter((f) =>
-        f.startsWith(path.join(SRC, mod)),
-      );
+      const files = allSourceFiles.filter((f) => f.startsWith(path.join(SRC, mod)));
       const deps = new Set<string>();
 
       for (const file of files) {

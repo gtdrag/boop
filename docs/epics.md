@@ -10,17 +10,17 @@
 
 8 epics, 46 stories. Covers all PRD functional requirements (FR-1 through FR-9). Stories sequenced for incremental value with no forward dependencies. Each story sized for a single dev agent session (~200k context).
 
-| Epic                                       | Stories | FR Coverage                    |
-| ------------------------------------------ | ------- | ------------------------------ |
-| 1: Foundation & OpenClaw Fork              | 6       | FR-8 (partial), infrastructure |
-| 2: Developer Profile                       | 4       | FR-1                           |
-| 3: Planning Pipeline                       | 6       | FR-2                           |
-| 4: Bridge & Build                          | 5       | FR-3, FR-4                     |
-| 5: Review & Epic Loop                      | 9       | FR-5, FR-6                     |
-| 6: Scaffolding, Defaults & Security        | 6       | FR-7, FR-8, FR-9               |
-| 7: Adversarial Review Loop                 | 6       | FR-5 (hardening)               |
-| 8: Context Rotation & Structured Handoffs  | 4       | FR-4 (hardening), reliability  |
-| **Total**                                  | **46**  | **All FRs covered**            |
+| Epic                                      | Stories | FR Coverage                    |
+| ----------------------------------------- | ------- | ------------------------------ |
+| 1: Foundation & OpenClaw Fork             | 6       | FR-8 (partial), infrastructure |
+| 2: Developer Profile                      | 4       | FR-1                           |
+| 3: Planning Pipeline                      | 6       | FR-2                           |
+| 4: Bridge & Build                         | 5       | FR-3, FR-4                     |
+| 5: Review & Epic Loop                     | 9       | FR-5, FR-6                     |
+| 6: Scaffolding, Defaults & Security       | 6       | FR-7, FR-8, FR-9               |
+| 7: Adversarial Review Loop                | 6       | FR-5 (hardening)               |
+| 8: Context Rotation & Structured Handoffs | 4       | FR-4 (hardening), reliability  |
+| **Total**                                 | **46**  | **All FRs covered**            |
 
 ---
 

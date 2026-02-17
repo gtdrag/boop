@@ -95,11 +95,7 @@ function ensureRequiredCriteria(criteria: string[]): string[] {
 /**
  * Convert a single parsed story to a Ralph {@link Story}.
  */
-function convertStory(
-  story: ParsedStory,
-  epicIndex: number,
-  storyIndex: number,
-): Story {
+function convertStory(story: ParsedStory, epicIndex: number, storyIndex: number): Story {
   const result: Story = {
     id: story.id,
     title: story.title,

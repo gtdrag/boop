@@ -173,10 +173,7 @@ describe("stories", () => {
     it("loads from a custom directory", () => {
       const customDir = path.join(tmpDir, "custom-prompts");
       fs.mkdirSync(customDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(customDir, "system.md"),
-        "# Custom Stories Prompt\nTest content",
-      );
+      fs.writeFileSync(path.join(customDir, "system.md"), "# Custom Stories Prompt\nTest content");
       const prompt = loadSystemPrompt(customDir);
       expect(prompt).toContain("Custom Stories Prompt");
     });
@@ -184,7 +181,12 @@ describe("stories", () => {
 
   describe("buildUserMessage", () => {
     it("includes profile context, idea, PRD, and architecture", () => {
-      const msg = buildUserMessage("Build a task manager", TEST_PROFILE, SAMPLE_PRD, SAMPLE_ARCHITECTURE);
+      const msg = buildUserMessage(
+        "Build a task manager",
+        TEST_PROFILE,
+        SAMPLE_PRD,
+        SAMPLE_ARCHITECTURE,
+      );
       expect(msg).toContain("## Developer Profile");
       expect(msg).toContain("## Project Idea");
       expect(msg).toContain("Build a task manager");

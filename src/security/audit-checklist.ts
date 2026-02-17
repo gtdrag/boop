@@ -37,12 +37,7 @@ export interface AuditCheck {
   details?: string;
 }
 
-export type AuditCategory =
-  | "sandbox"
-  | "credentials"
-  | "logging"
-  | "git-safety"
-  | "leak-detection";
+export type AuditCategory = "sandbox" | "credentials" | "logging" | "git-safety" | "leak-detection";
 
 export interface AuditReport {
   /** ISO-8601 timestamp of the audit run. */
@@ -135,9 +130,7 @@ function checkDockerRunnerExists(projectDir: string): AuditCheck {
 /**
  * Check that credential files have correct permissions (0600).
  */
-function checkCredentialPermissions(
-  credentialsDir: string,
-): AuditCheck {
+function checkCredentialPermissions(credentialsDir: string): AuditCheck {
   const store = createCredentialStore(credentialsDir);
   const keys: CredentialKey[] = ["anthropic"];
   const issues: string[] = [];
@@ -162,9 +155,7 @@ function checkCredentialPermissions(
 /**
  * Check that the credentials directory has correct permissions (0700).
  */
-function checkCredentialsDirPermissions(
-  credentialsDir: string,
-): AuditCheck {
+function checkCredentialsDirPermissions(credentialsDir: string): AuditCheck {
   try {
     const stats = fs.statSync(credentialsDir);
     const mode = stats.mode & 0o777;
@@ -207,12 +198,11 @@ function checkLoggerSanitization(projectDir: string): AuditCheck {
       description: "Logger has credential sanitization",
       category: "logging",
       passed: hasSanitize && usedInWrite,
-      details:
-        !hasSanitize
-          ? "sanitize() function not found in logger"
-          : !usedInWrite
-            ? "sanitize() exists but is not used in log writing"
-            : undefined,
+      details: !hasSanitize
+        ? "sanitize() function not found in logger"
+        : !usedInWrite
+          ? "sanitize() exists but is not used in log writing"
+          : undefined,
     };
   } catch {
     return {
@@ -243,9 +233,7 @@ function checkGitignoreCoversCredentials(projectDir: string): AuditCheck {
       category: "git-safety",
       passed: missing.length === 0,
       details:
-        missing.length > 0
-          ? `Missing .gitignore patterns: ${missing.join(", ")}`
-          : undefined,
+        missing.length > 0 ? `Missing .gitignore patterns: ${missing.join(", ")}` : undefined,
     };
   } catch {
     return {
@@ -305,10 +293,7 @@ function checkNoCredentialLeaks(
     description: "No credential patterns found in source files",
     category: "leak-detection",
     passed: leaks.length === 0,
-    details:
-      leaks.length > 0
-        ? `Credential patterns found in: ${leaks.join(", ")}`
-        : undefined,
+    details: leaks.length > 0 ? `Credential patterns found in: ${leaks.join(", ")}` : undefined,
   };
 }
 
@@ -320,11 +305,8 @@ function checkNoCredentialLeaks(
  * Run the full security audit checklist.
  */
 export function runSecurityAudit(options: AuditOptions): AuditReport {
-  const credentialsDir =
-    options.credentialsDir ?? getDefaultCredentialsDir();
-  const scanExtensions = new Set(
-    options.scanExtensions ?? [...DEFAULT_SCAN_EXTENSIONS],
-  );
+  const credentialsDir = options.credentialsDir ?? getDefaultCredentialsDir();
+  const scanExtensions = new Set(options.scanExtensions ?? [...DEFAULT_SCAN_EXTENSIONS]);
   const skipDirs = new Set(options.skipDirs ?? [...DEFAULT_SKIP_DIRS]);
 
   const checks: AuditCheck[] = [
@@ -373,9 +355,7 @@ export function formatAuditReport(report: AuditReport): string {
 
   for (const category of categories) {
     lines.push(`## ${category}`);
-    const categoryChecks = report.checks.filter(
-      (c) => c.category === category,
-    );
+    const categoryChecks = report.checks.filter((c) => c.category === category);
     for (const check of categoryChecks) {
       const icon = check.passed ? "[PASS]" : "[FAIL]";
       lines.push(`${icon} ${check.description}`);

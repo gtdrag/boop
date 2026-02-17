@@ -428,19 +428,12 @@ export function meetsWcag(
  * Returns an empty array if the project is not a web project
  * (frontendFramework === "none").
  */
-export function generateAccessibilityDefaults(
-  profile: DeveloperProfile,
-): AccessibilityFile[] {
+export function generateAccessibilityDefaults(profile: DeveloperProfile): AccessibilityFile[] {
   if (!isWebProject(profile)) {
     return [];
   }
 
   const fw = profile.frontendFramework;
 
-  return [
-    buildSkipNav(fw),
-    buildAriaLandmarks(fw),
-    buildFocusTrap(fw),
-    buildColorContrastConfig(),
-  ];
+  return [buildSkipNav(fw), buildAriaLandmarks(fw), buildFocusTrap(fw), buildColorContrastConfig()];
 }

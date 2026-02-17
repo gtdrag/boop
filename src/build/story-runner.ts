@@ -165,11 +165,7 @@ const MAX_BUFFER = 10 * 1024 * 1024; // 10 MB
  * this builds a container for a full agent session — more memory, writable
  * home directory (for npx cache), and ANTHROPIC_API_KEY forwarded.
  */
-function buildSandboxDockerArgs(
-  projectDir: string,
-  claudeArgs: string[],
-  image: string,
-): string[] {
+function buildSandboxDockerArgs(projectDir: string, claudeArgs: string[], image: string): string[] {
   const resolved = path.resolve(projectDir);
   return [
     "run",

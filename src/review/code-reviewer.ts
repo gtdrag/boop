@@ -12,17 +12,8 @@ import { sendMessage, isRetryableApiError } from "../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../shared/claude-client.js";
 import { retry } from "../shared/retry.js";
 
-import type {
-  AgentResult,
-  ReviewContext,
-  ReviewFinding,
-} from "./team-orchestrator.js";
-import {
-  truncate,
-  parseFindings,
-  extractSummary,
-  readFileContent,
-} from "./shared.js";
+import type { AgentResult, ReviewContext, ReviewFinding } from "./team-orchestrator.js";
+import { truncate, parseFindings, extractSummary, readFileContent } from "./shared.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -36,10 +27,7 @@ const execFileAsync = promisify(execFile);
  * Uses `git diff --name-only` against the main branch to find all files
  * that were added or modified during the epic.
  */
-export async function getChangedFiles(
-  projectDir: string,
-  baseBranch = "main",
-): Promise<string[]> {
+export async function getChangedFiles(projectDir: string, baseBranch = "main"): Promise<string[]> {
   try {
     const { stdout } = await execFileAsync(
       "git",
@@ -73,17 +61,15 @@ export async function getFileDiff(
   baseBranch = "main",
 ): Promise<string> {
   try {
-    const { stdout } = await execFileAsync(
-      "git",
-      ["diff", baseBranch, "HEAD", "--", filePath],
-      { cwd: projectDir, maxBuffer: 10 * 1024 * 1024 },
-    );
+    const { stdout } = await execFileAsync("git", ["diff", baseBranch, "HEAD", "--", filePath], {
+      cwd: projectDir,
+      maxBuffer: 10 * 1024 * 1024,
+    });
     return stdout;
   } catch {
     return "";
   }
 }
-
 
 // ---------------------------------------------------------------------------
 // Prompt construction
@@ -120,9 +106,7 @@ Rules:
  * Build the user message containing the code to review.
  * Chunks large diffs into manageable pieces.
  */
-function buildReviewMessage(
-  files: Array<{ path: string; diff: string; content: string }>,
-): string {
+function buildReviewMessage(files: Array<{ path: string; diff: string; content: string }>): string {
   const parts: string[] = [
     "Review the following code changes. For each issue found, output a JSON finding line.\n",
   ];
@@ -270,10 +254,7 @@ export function createCodeReviewer(options: CodeReviewerOptions = {}) {
       const message = buildReviewMessage(batch);
 
       const response = await retry(
-        () =>
-          sendMessage(clientOptions, SYSTEM_PROMPT, [
-            { role: "user", content: message },
-          ]),
+        () => sendMessage(clientOptions, SYSTEM_PROMPT, [{ role: "user", content: message }]),
         {
           maxRetries,
           isRetryable: isRetryableApiError,

@@ -17,8 +17,12 @@ function makeConfig(overrides: Partial<TelegramConfig> = {}): TelegramConfig {
 
 function makeDeps() {
   const state = { messageHandler: null as ((text: string) => void) | null };
-  const mockConnect = vi.fn<(config: TelegramConfig) => Promise<void>>().mockResolvedValue(undefined);
-  const mockSend = vi.fn<(chatId: string, text: string) => Promise<void>>().mockResolvedValue(undefined);
+  const mockConnect = vi
+    .fn<(config: TelegramConfig) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  const mockSend = vi
+    .fn<(chatId: string, text: string) => Promise<void>>()
+    .mockResolvedValue(undefined);
   const mockDisconnect = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
   const deps: TelegramAdapterDeps = {

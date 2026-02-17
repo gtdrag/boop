@@ -23,7 +23,9 @@ function makeMockAdapter(): ChannelAdapter & {
   mockStop: ReturnType<typeof vi.fn>;
 } {
   const sentMessages: OutboundMessage[] = [];
-  const mockWaitForReply = vi.fn<(timeoutMs: number) => Promise<InboundMessage | null>>().mockResolvedValue(null);
+  const mockWaitForReply = vi
+    .fn<(timeoutMs: number) => Promise<InboundMessage | null>>()
+    .mockResolvedValue(null);
   const mockStart = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
   const mockStop = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
@@ -32,10 +34,18 @@ function makeMockAdapter(): ChannelAdapter & {
     mockWaitForReply,
     mockStart,
     mockStop,
-    async start() { await mockStart(); },
-    async stop() { await mockStop(); },
-    async send(msg: OutboundMessage) { sentMessages.push(msg); },
-    async waitForReply(timeoutMs: number) { return mockWaitForReply(timeoutMs); },
+    async start() {
+      await mockStart();
+    },
+    async stop() {
+      await mockStop();
+    },
+    async send(msg: OutboundMessage) {
+      sentMessages.push(msg);
+    },
+    async waitForReply(timeoutMs: number) {
+      return mockWaitForReply(timeoutMs);
+    },
   };
 }
 

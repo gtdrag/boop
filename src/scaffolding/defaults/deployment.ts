@@ -17,16 +17,17 @@ function vercelDefaults(profile: DeveloperProfile): GeneratedFile[] {
   return [
     {
       filepath: "vercel.json",
-      content: JSON.stringify(
-        {
-          $schema: "https://openapi.vercel.sh/vercel.json",
-          buildCommand: `${pm} build`,
-          installCommand: `${pm} install`,
-          framework: null,
-        },
-        null,
-        2,
-      ) + "\n",
+      content:
+        JSON.stringify(
+          {
+            $schema: "https://openapi.vercel.sh/vercel.json",
+            buildCommand: `${pm} build`,
+            installCommand: `${pm} install`,
+            framework: null,
+          },
+          null,
+          2,
+        ) + "\n",
     },
   ];
 }
@@ -96,11 +97,12 @@ function nodeDockerfile(rawPm: string): string {
 
   // npm uses `npm ci` (not `npm install --ci`); others use --frozen-lockfile
   const installCmd = pm === "npm" ? "npm ci" : `${pm} install --frozen-lockfile`;
-  const installProdCmd = pm === "npm"
-    ? "npm ci --omit=dev"
-    : pm === "pnpm"
-      ? "pnpm install --frozen-lockfile --prod"
-      : `${pm} install --frozen-lockfile --production`;
+  const installProdCmd =
+    pm === "npm"
+      ? "npm ci --omit=dev"
+      : pm === "pnpm"
+        ? "pnpm install --frozen-lockfile --prod"
+        : `${pm} install --frozen-lockfile --production`;
 
   return `# --- Build stage ---
 FROM node:22-alpine AS builder
@@ -149,9 +151,7 @@ CMD ["python", "-m", "app"]
 
 function dockerDefaults(profile: DeveloperProfile): GeneratedFile[] {
   const isPython = profile.languages.includes("python");
-  const dockerfile = isPython
-    ? pythonDockerfile()
-    : nodeDockerfile(profile.packageManager);
+  const dockerfile = isPython ? pythonDockerfile() : nodeDockerfile(profile.packageManager);
 
   const dockerignore = isPython
     ? `__pycache__

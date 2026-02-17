@@ -164,9 +164,7 @@ describe("parseStoryMarkdown", () => {
 
   describe("error handling", () => {
     it("throws when no epics found", () => {
-      expect(() => parseStoryMarkdown("# Just a heading\nSome text")).toThrow(
-        "No epics found",
-      );
+      expect(() => parseStoryMarkdown("# Just a heading\nSome text")).toThrow("No epics found");
     });
 
     it("throws when epics have no stories", () => {

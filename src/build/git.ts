@@ -61,10 +61,7 @@ export function getCurrentBranch(cwd: string): string {
  * Check if a local branch exists.
  */
 export function branchExists(branchName: string, cwd: string): boolean {
-  const result = runGit(
-    ["rev-parse", "--verify", `refs/heads/${branchName}`],
-    cwd,
-  );
+  const result = runGit(["rev-parse", "--verify", `refs/heads/${branchName}`], cwd);
   return result.success;
 }
 
@@ -107,9 +104,7 @@ export function ensureBranch(branchName: string, cwd: string): string {
   if (branchExists(branchName, cwd)) {
     const result = runGit(["checkout", branchName], cwd);
     if (!result.success) {
-      throw new Error(
-        `Failed to checkout branch '${branchName}': ${result.output}`,
-      );
+      throw new Error(`Failed to checkout branch '${branchName}': ${result.output}`);
     }
     return `Switched to existing branch '${branchName}'`;
   }
@@ -118,9 +113,7 @@ export function ensureBranch(branchName: string, cwd: string): string {
   const base = branchExists("main", cwd) ? "main" : "HEAD";
   const result = runGit(["checkout", "-b", branchName, base], cwd);
   if (!result.success) {
-    throw new Error(
-      `Failed to create branch '${branchName}': ${result.output}`,
-    );
+    throw new Error(`Failed to create branch '${branchName}': ${result.output}`);
   }
   return `Created and switched to new branch '${branchName}' from ${base}`;
 }
@@ -134,10 +127,7 @@ export function ensureBranch(branchName: string, cwd: string): string {
  *
  * Format: `feat: [Story ID] - [Story Title]`
  */
-export function buildStoryCommitMessage(
-  storyId: string,
-  storyTitle: string,
-): string {
+export function buildStoryCommitMessage(storyId: string, storyTitle: string): string {
   return `feat: [${storyId}] - ${storyTitle}`;
 }
 
@@ -146,10 +136,7 @@ export function buildStoryCommitMessage(
  *
  * Format: `refactor: Epic N review - [description]`
  */
-export function buildReviewCommitMessage(
-  epicNumber: number,
-  description: string,
-): string {
+export function buildReviewCommitMessage(epicNumber: number, description: string): string {
   return `refactor: Epic ${epicNumber} review - ${description}`;
 }
 
@@ -183,11 +170,7 @@ export function stageAndCommit(message: string, cwd: string): GitResult {
 /**
  * Stage all changes and commit with a story commit message.
  */
-export function commitStory(
-  storyId: string,
-  storyTitle: string,
-  cwd: string,
-): GitResult {
+export function commitStory(storyId: string, storyTitle: string, cwd: string): GitResult {
   const message = buildStoryCommitMessage(storyId, storyTitle);
   return stageAndCommit(message, cwd);
 }
@@ -195,11 +178,7 @@ export function commitStory(
 /**
  * Stage all changes and commit with a review commit message.
  */
-export function commitReview(
-  epicNumber: number,
-  description: string,
-  cwd: string,
-): GitResult {
+export function commitReview(epicNumber: number, description: string, cwd: string): GitResult {
   const message = buildReviewCommitMessage(epicNumber, description);
   return stageAndCommit(message, cwd);
 }

@@ -44,40 +44,55 @@ export function createBaileysAdapterDeps(): WhatsAppAdapterDeps {
       sock.ev.on("creds.update", saveCreds);
 
       // Listen for incoming messages
-      sock.ev.on("messages.upsert", (update: { messages: Array<{ message?: { conversation?: string; extendedTextMessage?: { text?: string } }; key: { fromMe?: boolean } }> }) => {
-        for (const msg of update.messages) {
-          if (msg.key.fromMe) continue;
+      sock.ev.on(
+        "messages.upsert",
+        (update: {
+          messages: Array<{
+            message?: { conversation?: string; extendedTextMessage?: { text?: string } };
+            key: { fromMe?: boolean };
+          }>;
+        }) => {
+          for (const msg of update.messages) {
+            if (msg.key.fromMe) continue;
 
-          const text =
-            msg.message?.conversation ??
-            msg.message?.extendedTextMessage?.text;
+            const text = msg.message?.conversation ?? msg.message?.extendedTextMessage?.text;
 
-          if (text && messageHandler) {
-            messageHandler(text);
+            if (text && messageHandler) {
+              messageHandler(text);
+            }
           }
-        }
-      });
+        },
+      );
 
       // Wait for connection to be ready
       await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("WhatsApp connection timed out")), 60_000);
+        const timeout = setTimeout(
+          () => reject(new Error("WhatsApp connection timed out")),
+          60_000,
+        );
 
-        sock.ev.on("connection.update", (update: { connection?: string; lastDisconnect?: { error?: { output?: { statusCode?: number } } } }) => {
-          if (update.connection === "open") {
-            clearTimeout(timeout);
-            resolve();
-          } else if (update.connection === "close") {
-            const statusCode = update.lastDisconnect?.error?.output?.statusCode;
-            // 401 = logged out, need to re-scan QR
-            if (statusCode === 401) {
-              // Clear credentials and let the user re-pair
-              fs.rmSync(credDir, { recursive: true, force: true });
-              fs.mkdirSync(credDir, { recursive: true });
+        sock.ev.on(
+          "connection.update",
+          (update: {
+            connection?: string;
+            lastDisconnect?: { error?: { output?: { statusCode?: number } } };
+          }) => {
+            if (update.connection === "open") {
+              clearTimeout(timeout);
+              resolve();
+            } else if (update.connection === "close") {
+              const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+              // 401 = logged out, need to re-scan QR
+              if (statusCode === 401) {
+                // Clear credentials and let the user re-pair
+                fs.rmSync(credDir, { recursive: true, force: true });
+                fs.mkdirSync(credDir, { recursive: true });
+              }
+              clearTimeout(timeout);
+              reject(new Error(`WhatsApp connection closed (status: ${statusCode ?? "unknown"})`));
             }
-            clearTimeout(timeout);
-            reject(new Error(`WhatsApp connection closed (status: ${statusCode ?? "unknown"})`));
-          }
-        });
+          },
+        );
       });
     },
 

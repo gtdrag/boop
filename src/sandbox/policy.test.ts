@@ -232,15 +232,11 @@ describe("evaluateCommand — path enforcement", () => {
   const policy = makePolicy();
 
   it("allows commands with paths inside project dir", () => {
-    expect(
-      evaluateCommand("cat /home/user/my-project/src/index.ts", policy).verdict,
-    ).toBe("allow");
+    expect(evaluateCommand("cat /home/user/my-project/src/index.ts", policy).verdict).toBe("allow");
   });
 
   it("allows commands with paths inside ~/.boop", () => {
-    expect(
-      evaluateCommand("cat /home/user/.boop/state.yaml", policy).verdict,
-    ).toBe("allow");
+    expect(evaluateCommand("cat /home/user/.boop/state.yaml", policy).verdict).toBe("allow");
   });
 
   it("denies commands with paths outside project dir", () => {

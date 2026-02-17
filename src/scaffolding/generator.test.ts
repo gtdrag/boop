@@ -112,7 +112,11 @@ describe("directory generation", () => {
   });
 
   it("returns created directories in result", () => {
-    const profile = makeProfile({ frontendFramework: "none", backendFramework: "none", projectStructure: "single-repo" });
+    const profile = makeProfile({
+      frontendFramework: "none",
+      backendFramework: "none",
+      projectStructure: "single-repo",
+    });
     const result = scaffoldProject(profile, tmpDir, { skipGitInit: true });
 
     expect(result.directories).toContain("src");
@@ -316,11 +320,7 @@ describe("tsconfig.json generation", () => {
   });
 
   it("does not overwrite existing tsconfig.json", () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "tsconfig.json"),
-      JSON.stringify({ custom: true }),
-      "utf-8",
-    );
+    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), JSON.stringify({ custom: true }), "utf-8");
 
     const profile = makeProfile();
     scaffoldProject(profile, tmpDir, { skipGitInit: true });

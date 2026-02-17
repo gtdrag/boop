@@ -218,9 +218,7 @@ describe("cli strategy", () => {
 
   it("extracts URL from stderr when stdout has no URL", async () => {
     mockGetProviderConfig.mockReturnValue(cliConfig);
-    mockSpawn.mockReturnValue(
-      fakeSpawnSuccess("Building...", "https://my-app-abc123.vercel.app"),
-    );
+    mockSpawn.mockReturnValue(fakeSpawnSuccess("Building...", "https://my-app-abc123.vercel.app"));
 
     const result = await deploy(baseOptions);
 

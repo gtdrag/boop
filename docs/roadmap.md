@@ -3,6 +3,7 @@
 ## Completed (v0.1)
 
 ### Core Pipeline
+
 - Planning chain: viability → PRD → architecture → stories
 - Bridge: BMAD markdown → Ralph-format prd.json
 - Scaffolding: project structure + config defaults (SEO, analytics, a11y, security headers, deployment)
@@ -14,6 +15,7 @@
 - State machine: IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → DEPLOYING → RETROSPECTIVE → COMPLETE
 
 ### Infrastructure
+
 - Developer profile onboarding with opinionated defaults
 - Credential store (API key in `~/.boop/credentials/` with 0600 permissions)
 - WhatsApp (Baileys) and Telegram (grammy) notification adapters
@@ -59,12 +61,14 @@ boop --improve /path/to/existing-project
 6. **SIGN_OFF** → **RETROSPECTIVE** — same as greenfield
 
 **Convergence control:**
+
 - Track a "findings memory" — issues that were reviewed and intentionally kept as-is don't get re-raised
 - Set a max improvement depth (e.g., `--depth 3` for 3 full cycles)
 - Each cycle should produce fewer findings than the last; stop when delta < threshold
 - Report a quality score trend: "Cycle 1: 47 issues → Cycle 2: 12 issues → Cycle 3: 3 issues"
 
 **CLI interface:**
+
 ```bash
 boop --improve                    # improve current directory
 boop --improve /path/to/project   # improve specific project
@@ -75,6 +79,7 @@ boop --improve --autonomous       # no prompts, full auto
 ```
 
 **New files needed:**
+
 - `src/improve/analyzer.ts` — codebase scanner (file tree, deps, coverage)
 - `src/improve/planner.ts` — generates improvement stories from analysis + review findings
 - `src/improve/convergence.ts` — tracks findings memory, calculates quality score, decides when to stop
@@ -102,6 +107,7 @@ boop --dashboard
 3. **Single HTML page** — no React, no build step. One self-contained HTML file with inline CSS/JS served from the dist bundle.
 
 **Dashboard shows:**
+
 - **Pipeline phase** — big status indicator (PLANNING, BUILDING, REVIEWING, etc.) with color coding
 - **Epic progress** — "Epic 2 of 4" with a progress bar
 - **Story progress** — current story being built, stories completed vs total
@@ -112,6 +118,7 @@ boop --dashboard
 - **Cost estimate** — approximate $ spent based on token counts and model pricing
 
 **Architecture:**
+
 ```
 src/dashboard/
   server.ts      — Express/Hono server, SSE endpoint, static file serving
@@ -120,12 +127,14 @@ src/dashboard/
 ```
 
 **Key decisions:**
+
 - **No framework** — single HTML file with vanilla JS. Zero build complexity. The entire page is a string literal in the bundle.
 - **SSE over WebSocket** — simpler, one-directional (server → browser), no ws dependency needed
 - **Auto-open** — `--dashboard` flag opens the browser automatically via `open` (macOS) / `xdg-open` (Linux)
 - **Attach mode** — `boop --dashboard` (no idea) reads `.boop/state.yaml` and tails the log file, so you can open the dashboard after the pipeline is already running
 
 **Stretch goals:**
+
 - Dark mode toggle
 - Sound notification when pipeline completes or errors
 - Mobile-responsive (check status from phone)

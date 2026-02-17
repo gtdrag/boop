@@ -16,8 +16,12 @@ function makeConfig(overrides: Partial<WhatsAppConfig> = {}): WhatsAppConfig {
 
 function makeDeps() {
   const state = { messageHandler: null as ((text: string) => void) | null };
-  const mockConnect = vi.fn<(config: WhatsAppConfig) => Promise<void>>().mockResolvedValue(undefined);
-  const mockSend = vi.fn<(jid: string, text: string) => Promise<void>>().mockResolvedValue(undefined);
+  const mockConnect = vi
+    .fn<(config: WhatsAppConfig) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  const mockSend = vi
+    .fn<(jid: string, text: string) => Promise<void>>()
+    .mockResolvedValue(undefined);
   const mockDisconnect = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
   const deps: WhatsAppAdapterDeps = {
@@ -49,10 +53,12 @@ describe("createWhatsAppAdapter", () => {
       await adapter.start();
 
       expect(deps.mockConnect).toHaveBeenCalledOnce();
-      expect(deps.mockConnect).toHaveBeenCalledWith(expect.objectContaining({
-        enabled: true,
-        phoneNumber: "+1234567890",
-      }));
+      expect(deps.mockConnect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: true,
+          phoneNumber: "+1234567890",
+        }),
+      );
     });
 
     it("does not connect when disabled", async () => {
@@ -141,10 +147,7 @@ describe("createWhatsAppAdapter", () => {
 
     it("strips non-numeric chars from phone for JID", async () => {
       const deps = makeDeps();
-      const adapter = createWhatsAppAdapter(
-        makeConfig({ phoneNumber: "+1 (234) 567-8900" }),
-        deps,
-      );
+      const adapter = createWhatsAppAdapter(makeConfig({ phoneNumber: "+1 (234) 567-8900" }), deps);
       await adapter.start();
 
       await adapter.send({ text: "Hi" });

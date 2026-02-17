@@ -79,7 +79,9 @@ Structure your response exactly as follows:
 ## Project Structure
 
 ```
+
 [Recommended directory structure based on framework and project type]
+
 ```
 
 ## Escalated Decisions

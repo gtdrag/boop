@@ -104,17 +104,25 @@ export function buildDockerArgs(options: DockerRunnerOptions): string[] {
 
   const args: string[] = [
     "run",
-    "--rm",                               // Remove container after exit
-    "--name", containerName,
-    "--memory", memoryLimit,
-    "--cpus", cpuLimit,
-    "--pids-limit", "256",                // Limit process spawning
-    "--read-only",                        // Read-only root filesystem
-    "--tmpfs", "/tmp:rw,noexec,nosuid,size=512m", // Writable /tmp
-    "--volume", `${projectDir}:${workDir}:rw`, // Project dir is read-write
-    "--workdir", workDir,
-    "--no-new-privileges",                // Prevent privilege escalation
-    "--security-opt", "no-new-privileges:true",
+    "--rm", // Remove container after exit
+    "--name",
+    containerName,
+    "--memory",
+    memoryLimit,
+    "--cpus",
+    cpuLimit,
+    "--pids-limit",
+    "256", // Limit process spawning
+    "--read-only", // Read-only root filesystem
+    "--tmpfs",
+    "/tmp:rw,noexec,nosuid,size=512m", // Writable /tmp
+    "--volume",
+    `${projectDir}:${workDir}:rw`, // Project dir is read-write
+    "--workdir",
+    workDir,
+    "--no-new-privileges", // Prevent privilege escalation
+    "--security-opt",
+    "no-new-privileges:true",
   ];
 
   // Mount additional read-only directories
@@ -209,14 +217,30 @@ function splitShellCommands(command: string): string[] {
     const next = command[i + 1];
 
     // Track quote state
-    if (ch === "'" && !inDouble) { inSingle = !inSingle; current += ch; continue; }
-    if (ch === '"' && !inSingle) { inDouble = !inDouble; current += ch; continue; }
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      current += ch;
+      continue;
+    }
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      current += ch;
+      continue;
+    }
 
     // Skip if inside quotes
-    if (inSingle || inDouble) { current += ch; continue; }
+    if (inSingle || inDouble) {
+      current += ch;
+      continue;
+    }
 
     // Check for operators
-    if (ch === ";" || (ch === "|" && next !== "|") || (ch === "&" && next === "&") || (ch === "|" && next === "|")) {
+    if (
+      ch === ";" ||
+      (ch === "|" && next !== "|") ||
+      (ch === "&" && next === "&") ||
+      (ch === "|" && next === "|")
+    ) {
       if (current.trim()) commands.push(current.trim());
       current = "";
       // Skip the second character of && or ||
@@ -377,12 +401,7 @@ export class SandboxRunner {
   /**
    * Low-level execution wrapper around execFileSync.
    */
-  private runExecFile(
-    file: string,
-    args: string[],
-    timeout: number,
-    cwd?: string,
-  ): ExecResult {
+  private runExecFile(file: string, args: string[], timeout: number, cwd?: string): ExecResult {
     const options: ExecFileSyncOptions = {
       encoding: "utf-8" as BufferEncoding,
       stdio: ["pipe", "pipe", "pipe"],

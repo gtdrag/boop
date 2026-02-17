@@ -93,10 +93,7 @@ export function formatProgressEntry(entry: ProgressEntry): string {
  * Append a progress entry to the progress file. Creates the file (and
  * parent directories) if it does not exist.
  */
-export function appendProgress(
-  progressPath: string,
-  entry: ProgressEntry,
-): void {
+export function appendProgress(progressPath: string, entry: ProgressEntry): void {
   const dir = path.dirname(progressPath);
   fs.mkdirSync(dir, { recursive: true });
 
@@ -104,9 +101,7 @@ export function appendProgress(
   const existing = readProgress(progressPath);
 
   // Ensure a blank line before the new entry when appending
-  const separator = existing.length > 0 && !existing.endsWith("\n\n")
-    ? "\n"
-    : "";
+  const separator = existing.length > 0 && !existing.endsWith("\n\n") ? "\n" : "";
 
   fs.appendFileSync(progressPath, separator + formatted + "\n", "utf-8");
 }
@@ -161,11 +156,7 @@ export function addPattern(progressPath: string, pattern: PatternEntry): void {
   const afterHeader = content.indexOf("\n", headerIdx);
   if (afterHeader === -1) {
     // Header is the last line
-    fs.writeFileSync(
-      progressPath,
-      content + "\n" + newBullet + "\n",
-      "utf-8",
-    );
+    fs.writeFileSync(progressPath, content + "\n" + newBullet + "\n", "utf-8");
     return;
   }
 
@@ -203,9 +194,10 @@ export function extractClaudeMdUpdates(responseText: string): string | null {
   if (startIdx !== -1) {
     const contentStart = startIdx + markerStart.length;
     const endIdx = responseText.indexOf(markerStart, contentStart);
-    const block = endIdx === -1
-      ? responseText.slice(contentStart).trim()
-      : responseText.slice(contentStart, endIdx).trim();
+    const block =
+      endIdx === -1
+        ? responseText.slice(contentStart).trim()
+        : responseText.slice(contentStart, endIdx).trim();
     if (block.length > 0) return block;
   }
 
@@ -216,9 +208,8 @@ export function extractClaudeMdUpdates(responseText: string): string | null {
     const afterHeading = responseText.slice(match.index + match[0].length);
     // Grab everything until the next `## ` heading or end of text
     const nextHeading = afterHeading.search(/^## /m);
-    const block = nextHeading === -1
-      ? afterHeading.trim()
-      : afterHeading.slice(0, nextHeading).trim();
+    const block =
+      nextHeading === -1 ? afterHeading.trim() : afterHeading.slice(0, nextHeading).trim();
     if (block.length > 0) return block;
   }
 
@@ -229,10 +220,7 @@ export function extractClaudeMdUpdates(responseText: string): string | null {
  * Append extracted pattern content to CLAUDE.md. Adds the content under
  * a `## Codebase Patterns` section, creating it if it doesn't exist.
  */
-export function appendToClaudeMd(
-  claudeMdPath: string,
-  content: string,
-): void {
+export function appendToClaudeMd(claudeMdPath: string, content: string): void {
   const existing = (() => {
     try {
       return fs.readFileSync(claudeMdPath, "utf-8");

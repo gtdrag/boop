@@ -88,9 +88,8 @@ export async function handleCli(
     }
 
     const { runAdversarialLoop } = await import("../review/adversarial/loop.js");
-    const { generateAdversarialSummary, toReviewPhaseResult } = await import(
-      "../review/adversarial/summary.js"
-    );
+    const { generateAdversarialSummary, toReviewPhaseResult } =
+      await import("../review/adversarial/summary.js");
     const { runEpicSignOff } = await import("../pipeline/epic-loop.js");
     const { execSync } = await import("node:child_process");
 
@@ -107,9 +106,7 @@ export async function handleCli(
         return { passed: true, output };
       } catch (error: unknown) {
         const execError = error as { stdout?: string; stderr?: string };
-        const output = [execError.stdout ?? "", execError.stderr ?? ""]
-          .filter(Boolean)
-          .join("\n");
+        const output = [execError.stdout ?? "", execError.stderr ?? ""].filter(Boolean).join("\n");
         return { passed: false, output };
       }
     };
@@ -118,8 +115,7 @@ export async function handleCli(
       projectDir: dir,
       epicNumber: state.epicNumber,
       testSuiteRunner,
-      onProgress: (iter, phase, msg) =>
-        console.log(`[boop] [iter ${iter}] ${phase}: ${msg}`),
+      onProgress: (iter, phase, msg) => console.log(`[boop] [iter ${iter}] ${phase}: ${msg}`),
     });
 
     const summary = generateAdversarialSummary(dir, state.epicNumber, loopResult);
@@ -331,7 +327,13 @@ async function startPipeline(
     console.log("[boop] Architecture saved to .boop/planning/architecture.md");
 
     console.log("[boop] Generating epics & stories...");
-    const storiesResult = await generateStories(idea, profile, prdResult.prd, archResult.architecture, { projectDir });
+    const storiesResult = await generateStories(
+      idea,
+      profile,
+      prdResult.prd,
+      archResult.architecture,
+      { projectDir },
+    );
     orch.setLastCompletedStep("stories");
     console.log("[boop] Epics & stories saved to .boop/planning/epics.md");
 

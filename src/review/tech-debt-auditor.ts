@@ -12,17 +12,8 @@ import { sendMessage, isRetryableApiError } from "../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../shared/claude-client.js";
 import { retry } from "../shared/retry.js";
 
-import type {
-  AgentResult,
-  ReviewContext,
-  ReviewFinding,
-} from "./team-orchestrator.js";
-import {
-  truncate,
-  parseFindings,
-  extractSummary,
-  collectSourceFiles,
-} from "./shared.js";
+import type { AgentResult, ReviewContext, ReviewFinding } from "./team-orchestrator.js";
+import { truncate, parseFindings, extractSummary, collectSourceFiles } from "./shared.js";
 
 // Re-export shared utilities so existing imports from this module continue to work.
 export { collectSourceFiles, parseFindings, extractSummary } from "./shared.js";
@@ -58,9 +49,7 @@ Rules:
 - Focus on actionable findings that a refactoring agent can fix
 - Each finding must be a single JSON line (no multi-line JSON)`;
 
-function buildTechDebtMessage(
-  fileContents: Array<{ path: string; content: string }>,
-): string {
+function buildTechDebtMessage(fileContents: Array<{ path: string; content: string }>): string {
   const parts: string[] = [
     "Analyze the following codebase for technical debt. For each issue found, output a JSON finding line.\n",
   ];
@@ -79,11 +68,7 @@ function buildTechDebtMessage(
 // Report generation
 // ---------------------------------------------------------------------------
 
-function generateReport(
-  findings: ReviewFinding[],
-  summary: string,
-  filesAnalyzed: number,
-): string {
+function generateReport(findings: ReviewFinding[], summary: string, filesAnalyzed: number): string {
   const parts: string[] = ["# Tech Debt Audit Report\n"];
 
   parts.push(`**Files analyzed:** ${filesAnalyzed}\n`);

@@ -96,12 +96,12 @@ npx boop --autonomous       # Run without sign-off gates
 
 Four sequential phases, each feeding into the next:
 
-| Phase | What it does | Output |
-|-------|-------------|--------|
-| **Viability** | Honest assessment — should this be built? | PROCEED / RECONSIDER / PIVOT |
-| **PRD** | Requirements from your idea + profile context | `.boop/planning/prd.md` |
-| **Architecture** | Tech decisions (auto-resolved from profile) | `.boop/planning/architecture.md` |
-| **Stories** | Epics and stories with acceptance criteria | `.boop/planning/epics.md` |
+| Phase            | What it does                                  | Output                           |
+| ---------------- | --------------------------------------------- | -------------------------------- |
+| **Viability**    | Honest assessment — should this be built?     | PROCEED / RECONSIDER / PIVOT     |
+| **PRD**          | Requirements from your idea + profile context | `.boop/planning/prd.md`          |
+| **Architecture** | Tech decisions (auto-resolved from profile)   | `.boop/planning/architecture.md` |
+| **Stories**      | Epics and stories with acceptance criteria    | `.boop/planning/epics.md`        |
 
 In interactive mode, you get a chance to review the viability assessment and decide whether to proceed. In autonomous mode (`--autonomous`), it runs straight through unless viability says RECONSIDER.
 
@@ -235,11 +235,11 @@ pnpm run build                  # Build with tsdown
 
 ## Configuration
 
-| Environment Variable | Description | Required |
-|---------------------|-------------|----------|
-| `ANTHROPIC_API_KEY` | Claude API key | Yes |
-| `BOOP_HOME` | Override `~/.boop/` directory | No |
-| `BOOP_STATE_DIR` | Override project state directory | No |
+| Environment Variable | Description                      | Required |
+| -------------------- | -------------------------------- | -------- |
+| `ANTHROPIC_API_KEY`  | Claude API key                   | Yes      |
+| `BOOP_HOME`          | Override `~/.boop/` directory    | No       |
+| `BOOP_STATE_DIR`     | Override project state directory | No       |
 
 ## Design Philosophy
 

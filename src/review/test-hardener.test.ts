@@ -131,7 +131,8 @@ Found 2 gaps.`;
 
 describe("extractSummary", () => {
   it("extracts text starting from ## Summary", () => {
-    const text = 'Some findings\n{"title":"x","severity":"low","description":"d"}\n## Summary\nAll good.';
+    const text =
+      'Some findings\n{"title":"x","severity":"low","description":"d"}\n## Summary\nAll good.';
     expect(extractSummary(text)).toBe("## Summary\nAll good.");
   });
 
@@ -202,11 +203,7 @@ describe("categorizeFiles", () => {
     const { sourceFiles, testFiles } = categorizeFiles(files);
 
     expect(sourceFiles).toEqual(["src/foo.ts", "src/bar.ts"]);
-    expect(testFiles).toEqual([
-      "src/foo.test.ts",
-      "src/bar.spec.ts",
-      "test/integration/setup.ts",
-    ]);
+    expect(testFiles).toEqual(["src/foo.test.ts", "src/bar.spec.ts", "test/integration/setup.ts"]);
   });
 
   it("treats __tests__ directory files as test files", () => {

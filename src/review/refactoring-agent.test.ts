@@ -3,11 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createRefactoringAgent,
-  parseFindings,
-  extractSummary,
-} from "./refactoring-agent.js";
+import { createRefactoringAgent, parseFindings, extractSummary } from "./refactoring-agent.js";
 import type { ReviewContext, ReviewFinding } from "./team-orchestrator.js";
 
 // ---------------------------------------------------------------------------
@@ -123,7 +119,7 @@ describe("parseFindings", () => {
 
 describe("extractSummary", () => {
   it("extracts text starting from ## Summary", () => {
-    const text = 'Findings\n## Summary\nDone.';
+    const text = "Findings\n## Summary\nDone.";
     expect(extractSummary(text)).toBe("## Summary\nDone.");
   });
 
@@ -212,9 +208,7 @@ describe("createRefactoringAgent", () => {
   it("returns fix suggestions from Claude's response", async () => {
     writeSourceFile("src/foo.ts", "code");
 
-    const findings = makeFindings([
-      { title: "Bug", severity: "high", file: "src/foo.ts" },
-    ]);
+    const findings = makeFindings([{ title: "Bug", severity: "high", file: "src/foo.ts" }]);
 
     mockSendMessage.mockResolvedValue({
       text: '{"title":"Fixed null check","severity":"high","file":"src/foo.ts","description":"Added null check before access"}\n\n## Summary\n1 fix applied.',
@@ -259,9 +253,7 @@ describe("createRefactoringAgent", () => {
   it("does not flag medium/low/info as blocking", async () => {
     writeSourceFile("src/foo.ts", "code");
 
-    const findings = makeFindings([
-      { title: "Style", severity: "low", file: "src/foo.ts" },
-    ]);
+    const findings = makeFindings([{ title: "Style", severity: "low", file: "src/foo.ts" }]);
 
     mockSendMessage.mockResolvedValue({
       text: '{"title":"Improved naming","severity":"low","file":"src/foo.ts","description":"Renamed x to count"}\n\n## Summary\n1 fix.',
@@ -309,9 +301,7 @@ describe("createRefactoringAgent", () => {
   it("always returns success=true on completion", async () => {
     writeSourceFile("src/foo.ts", "code");
 
-    const findings = makeFindings([
-      { title: "Issue", severity: "medium", file: "src/foo.ts" },
-    ]);
+    const findings = makeFindings([{ title: "Issue", severity: "medium", file: "src/foo.ts" }]);
 
     const agent = createRefactoringAgent();
     const result = await agent(makeContext(), findings);
@@ -390,9 +380,7 @@ describe("createRefactoringAgent", () => {
   it("passes clientOptions to sendMessage", async () => {
     writeSourceFile("src/foo.ts", "code");
 
-    const findings = makeFindings([
-      { title: "Issue", severity: "medium", file: "src/foo.ts" },
-    ]);
+    const findings = makeFindings([{ title: "Issue", severity: "medium", file: "src/foo.ts" }]);
 
     const agent = createRefactoringAgent({
       clientOptions: { apiKey: "test-key", model: "test-model" },
@@ -409,9 +397,7 @@ describe("createRefactoringAgent", () => {
   it("requests 8192 maxTokens", async () => {
     writeSourceFile("src/foo.ts", "code");
 
-    const findings = makeFindings([
-      { title: "Issue", severity: "medium", file: "src/foo.ts" },
-    ]);
+    const findings = makeFindings([{ title: "Issue", severity: "medium", file: "src/foo.ts" }]);
 
     const agent = createRefactoringAgent();
     await agent(makeContext(), findings);

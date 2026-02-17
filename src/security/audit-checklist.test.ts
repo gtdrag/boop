@@ -37,10 +37,7 @@ describe("runSecurityAudit", () => {
     );
 
     // Create .gitignore with required patterns
-    fs.writeFileSync(
-      path.join(projectDir, ".gitignore"),
-      ".boop/\n*.key\n.env\nnode_modules/\n",
-    );
+    fs.writeFileSync(path.join(projectDir, ".gitignore"), ".boop/\n*.key\n.env\nnode_modules/\n");
   }
 
   describe("full passing audit", () => {
@@ -73,26 +70,20 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "sandbox-policy-exists",
-      );
+      const check = report.checks.find((c) => c.id === "sandbox-policy-exists");
       expect(check?.passed).toBe(false);
     });
 
     it("fails when Docker runner module is missing", () => {
       setupProjectFiles();
-      fs.unlinkSync(
-        path.join(projectDir, "src", "sandbox", "docker-runner.ts"),
-      );
+      fs.unlinkSync(path.join(projectDir, "src", "sandbox", "docker-runner.ts"));
 
       const report = runSecurityAudit({
         projectDir,
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "docker-runner-exists",
-      );
+      const check = report.checks.find((c) => c.id === "docker-runner-exists");
       expect(check?.passed).toBe(false);
     });
   });
@@ -110,9 +101,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "credential-permissions",
-      );
+      const check = report.checks.find((c) => c.id === "credential-permissions");
       expect(check?.passed).toBe(false);
       expect(check?.details).toContain("0o644");
     });
@@ -125,9 +114,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "credential-permissions",
-      );
+      const check = report.checks.find((c) => c.id === "credential-permissions");
       expect(check?.passed).toBe(true);
     });
 
@@ -140,9 +127,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "credentials-dir-permissions",
-      );
+      const check = report.checks.find((c) => c.id === "credentials-dir-permissions");
       expect(check?.passed).toBe(false);
     });
   });
@@ -161,9 +146,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "logger-sanitization",
-      );
+      const check = report.checks.find((c) => c.id === "logger-sanitization");
       expect(check?.passed).toBe(false);
     });
 
@@ -176,9 +159,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "logger-sanitization",
-      );
+      const check = report.checks.find((c) => c.id === "logger-sanitization");
       expect(check?.passed).toBe(false);
     });
   });
@@ -193,28 +174,21 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "gitignore-credentials",
-      );
+      const check = report.checks.find((c) => c.id === "gitignore-credentials");
       expect(check?.passed).toBe(false);
     });
 
     it("fails when .gitignore is missing required patterns", () => {
       setupProjectFiles();
       // Overwrite with incomplete gitignore
-      fs.writeFileSync(
-        path.join(projectDir, ".gitignore"),
-        "node_modules/\n",
-      );
+      fs.writeFileSync(path.join(projectDir, ".gitignore"), "node_modules/\n");
 
       const report = runSecurityAudit({
         projectDir,
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "gitignore-credentials",
-      );
+      const check = report.checks.find((c) => c.id === "gitignore-credentials");
       expect(check?.passed).toBe(false);
       expect(check?.details).toContain(".boop/");
     });
@@ -234,9 +208,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "no-credential-leaks",
-      );
+      const check = report.checks.find((c) => c.id === "no-credential-leaks");
       expect(check?.passed).toBe(false);
       expect(check?.details).toContain("config.ts");
     });
@@ -255,9 +227,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "no-credential-leaks",
-      );
+      const check = report.checks.find((c) => c.id === "no-credential-leaks");
       expect(check?.passed).toBe(true);
     });
 
@@ -269,9 +239,7 @@ describe("runSecurityAudit", () => {
         credentialsDir: credDir,
       });
 
-      const check = report.checks.find(
-        (c) => c.id === "no-credential-leaks",
-      );
+      const check = report.checks.find((c) => c.id === "no-credential-leaks");
       expect(check?.passed).toBe(true);
     });
   });
@@ -294,9 +262,7 @@ describe("runSecurityAudit", () => {
         projectDir,
         credentialsDir: credDir,
       });
-      expect(report.passedChecks + report.failedChecks).toBe(
-        report.totalChecks,
-      );
+      expect(report.passedChecks + report.failedChecks).toBe(report.totalChecks);
     });
 
     it("runs 7 checks", () => {
