@@ -15,7 +15,7 @@
         "All tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/scaffolding/generator.ts. Profile-driven template generation. Reads profile fields (preferredFramework, linter, formatter, testRunner, ciProvider) and generates matching configs. Use fs.mkdirSync for directory creation, write package.json, tsconfig.json, .eslintrc/.prettierrc/biome.json, vitest/jest config, GitHub Actions/.gitlab-ci.yml as appropriate. Initialize git repo with execFileSync('git', ['init']) and initial commit. Prerequisites: 2.4 (profile schema), 3.5 (bridge converter)."
     },
     {
