@@ -6,26 +6,20 @@ import type { Story, Prd } from "../shared/types.js";
 import { buildSystemPrompt, buildStoryPrompt, runStory } from "./story-runner.js";
 
 // ---------------------------------------------------------------------------
-// Mock the claude-client module
+// Mock child_process.spawnSync for runStory tests
 // ---------------------------------------------------------------------------
 
-const mockSendMessage = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({
-    text: "Implementation complete.",
-    usage: { inputTokens: 100, outputTokens: 50 },
-    model: "claude-opus-4-6-20250929",
+const mockSpawnSync = vi.hoisted(() =>
+  vi.fn().mockReturnValue({
+    stdout: "Story implemented successfully.",
+    stderr: "",
+    status: 0,
+    error: null,
   }),
 );
 
-vi.mock("../shared/claude-client.js", () => ({
-  sendMessage: mockSendMessage,
-  isRetryableApiError: (error: unknown) => {
-    if (error && typeof error === "object" && "status" in error) {
-      const status = (error as { status: number }).status;
-      return status === 429 || status >= 500;
-    }
-    return false;
-  },
+vi.mock("node:child_process", () => ({
+  spawnSync: mockSpawnSync,
 }));
 
 // ---------------------------------------------------------------------------
@@ -36,11 +30,12 @@ let tmpDir: string;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-runner-"));
-  mockSendMessage.mockReset();
-  mockSendMessage.mockResolvedValue({
-    text: "Implementation complete.",
-    usage: { inputTokens: 100, outputTokens: 50 },
-    model: "claude-opus-4-6-20250929",
+  mockSpawnSync.mockReset();
+  mockSpawnSync.mockReturnValue({
+    stdout: "Story implemented successfully.",
+    stderr: "",
+    status: 0,
+    error: null,
   });
 });
 
@@ -114,6 +109,11 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(prd, tmpDir);
     expect(prompt).toContain("ralph/epic-5");
   });
+
+  it("instructs agent not to commit", () => {
+    const prompt = buildSystemPrompt(makePrd(), tmpDir);
+    expect(prompt).toContain("Do NOT commit");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -167,52 +167,134 @@ describe("buildStoryPrompt", () => {
 // ---------------------------------------------------------------------------
 
 describe("runStory", () => {
-  it("calls sendMessage with system prompt and story message", async () => {
-    const story = makeStory();
-    const prd = makePrd();
+  it("spawns claude with --print and --dangerously-skip-permissions", async () => {
+    await runStory(makeStory(), makePrd(), { projectDir: tmpDir });
 
-    await runStory(story, prd, { projectDir: tmpDir });
-
-    expect(mockSendMessage).toHaveBeenCalledOnce();
-
-    const [options, systemPrompt, messages] = mockSendMessage.mock.calls[0]!;
-    expect(options.maxTokens).toBe(16384);
-    expect(systemPrompt).toContain("TestProject");
-    expect(messages).toHaveLength(1);
-    expect(messages[0].role).toBe("user");
-    expect(messages[0].content).toContain("Story 1.1");
+    expect(mockSpawnSync).toHaveBeenCalledOnce();
+    const [cmd, args] = mockSpawnSync.mock.calls[0]!;
+    expect(cmd).toBe("claude");
+    expect(args).toContain("--print");
+    expect(args).toContain("--dangerously-skip-permissions");
+    expect(args).toContain("--no-session-persistence");
   });
 
-  it("returns the story and response text", async () => {
-    const story = makeStory({ id: "3.1", title: "Custom story" });
-    const result = await runStory(story, makePrd(), { projectDir: tmpDir });
+  it("pipes the combined prompt via stdin", async () => {
+    await runStory(makeStory(), makePrd({ project: "FooApp" }), { projectDir: tmpDir });
 
-    expect(result.story.id).toBe("3.1");
-    expect(result.text).toBe("Implementation complete.");
-    expect(result.response.model).toBe("claude-opus-4-6-20250929");
+    const [, , spawnOpts] = mockSpawnSync.mock.calls[0]!;
+    expect(spawnOpts.input).toContain("FooApp");
+    expect(spawnOpts.input).toContain("Story 1.1");
   });
 
-  it("uses custom client options", async () => {
+  it("runs in the project directory", async () => {
+    await runStory(makeStory(), makePrd(), { projectDir: tmpDir });
+
+    const [, , spawnOpts] = mockSpawnSync.mock.calls[0]!;
+    expect(spawnOpts.cwd).toBe(tmpDir);
+  });
+
+  it("passes --model when specified", async () => {
     await runStory(makeStory(), makePrd(), {
       projectDir: tmpDir,
-      clientOptions: { model: "claude-sonnet-4-5-20250929", maxTokens: 8192 },
+      model: "claude-sonnet-4-5-20250929",
     });
 
-    const [options] = mockSendMessage.mock.calls[0]!;
-    expect(options.model).toBe("claude-sonnet-4-5-20250929");
-    // Custom maxTokens from clientOptions overrides the runner's default
-    expect(options.maxTokens).toBe(8192);
+    const [, args] = mockSpawnSync.mock.calls[0]!;
+    expect(args).toContain("--model");
+    expect(args).toContain("claude-sonnet-4-5-20250929");
   });
 
-  it("propagates API errors when not retryable", async () => {
-    mockSendMessage.mockRejectedValue(new Error("Bad request"));
+  it("does not pass --model when not specified", async () => {
+    await runStory(makeStory(), makePrd(), { projectDir: tmpDir });
 
-    // With maxRetries: 0, the retry wrapper wraps the error in a RetryError
+    const [, args] = mockSpawnSync.mock.calls[0]!;
+    expect(args).not.toContain("--model");
+  });
+
+  it("returns the story and CLI output", async () => {
+    mockSpawnSync.mockReturnValue({
+      stdout: "Files created, tests passing.",
+      stderr: "",
+      status: 0,
+      error: null,
+    });
+
+    const result = await runStory(
+      makeStory({ id: "3.1", title: "Custom story" }),
+      makePrd(),
+      { projectDir: tmpDir },
+    );
+
+    expect(result.story.id).toBe("3.1");
+    expect(result.output).toBe("Files created, tests passing.");
+  });
+
+  it("throws descriptive error when claude is not found (ENOENT)", async () => {
+    mockSpawnSync.mockReturnValue({
+      stdout: "",
+      stderr: "",
+      status: null,
+      error: new Error("spawnSync claude ENOENT"),
+    });
+
     await expect(
-      runStory(makeStory(), makePrd(), {
-        projectDir: tmpDir,
-        retryOptions: { maxRetries: 0 },
-      }),
-    ).rejects.toThrow("All 1 attempts failed");
+      runStory(makeStory(), makePrd(), { projectDir: tmpDir }),
+    ).rejects.toThrow("Claude CLI not found");
+  });
+
+  it("throws timeout error on ETIMEDOUT", async () => {
+    mockSpawnSync.mockReturnValue({
+      stdout: "",
+      stderr: "",
+      status: null,
+      error: new Error("spawnSync ETIMEDOUT"),
+    });
+
+    await expect(
+      runStory(makeStory({ id: "2.1" }), makePrd(), { projectDir: tmpDir }),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("throws on non-zero exit code with stderr", async () => {
+    mockSpawnSync.mockReturnValue({
+      stdout: "",
+      stderr: "Authentication failed",
+      status: 1,
+      error: null,
+    });
+
+    await expect(
+      runStory(makeStory(), makePrd(), { projectDir: tmpDir }),
+    ).rejects.toThrow("exited with code 1: Authentication failed");
+  });
+
+  it("throws on non-zero exit code without stderr", async () => {
+    mockSpawnSync.mockReturnValue({
+      stdout: "",
+      stderr: "",
+      status: 2,
+      error: null,
+    });
+
+    await expect(
+      runStory(makeStory(), makePrd(), { projectDir: tmpDir }),
+    ).rejects.toThrow("exited with code 2");
+  });
+
+  it("uses custom timeout", async () => {
+    await runStory(makeStory(), makePrd(), {
+      projectDir: tmpDir,
+      timeout: 120_000,
+    });
+
+    const [, , spawnOpts] = mockSpawnSync.mock.calls[0]!;
+    expect(spawnOpts.timeout).toBe(120_000);
+  });
+
+  it("uses default timeout of 600s when not specified", async () => {
+    await runStory(makeStory(), makePrd(), { projectDir: tmpDir });
+
+    const [, , spawnOpts] = mockSpawnSync.mock.calls[0]!;
+    expect(spawnOpts.timeout).toBe(600_000);
   });
 });

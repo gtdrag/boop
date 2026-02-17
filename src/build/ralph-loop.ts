@@ -2,7 +2,7 @@
  * Ralph build loop — the core autonomous story execution engine.
  *
  * Reads a prd.json, picks the highest-priority incomplete story, runs it
- * through the Claude API via {@link runStory}, executes quality checks
+ * through the Claude CLI via {@link runStory}, executes quality checks
  * (typecheck, tests, reality check), and on success commits + marks the
  * story as done. On failure it retries once, then pauses and reports.
  */
@@ -11,7 +11,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import type { Prd, Story } from "../shared/types.js";
-import type { ClaudeClientOptions } from "../shared/claude-client.js";
 import { runStory } from "./story-runner.js";
 import {
   checkDirectory,
@@ -35,8 +34,8 @@ export interface RalphLoopOptions {
   projectDir: string;
   /** Path to prd.json (defaults to .boop/prd.json in projectDir). */
   prdPath?: string;
-  /** Claude API client options. */
-  clientOptions?: ClaudeClientOptions;
+  /** Model to use for the Claude CLI agent. */
+  model?: string;
   /** Maximum retries per story on failure. Defaults to 1. */
   maxRetries?: number;
 }
@@ -317,9 +316,9 @@ export async function runLoopIteration(
     try {
       const result = await runStory(story, prd, {
         projectDir: options.projectDir,
-        clientOptions: options.clientOptions,
+        model: options.model,
       });
-      responseText = result.text;
+      responseText = result.output;
     } catch (error: unknown) {
       const errorMsg =
         error instanceof Error ? error.message : String(error);
@@ -329,7 +328,7 @@ export async function runLoopIteration(
       return {
         outcome: "failed",
         story,
-        error: `Claude API error: ${errorMsg}`,
+        error: `Claude CLI error: ${errorMsg}`,
         allComplete: false,
       };
     }

@@ -2,20 +2,18 @@
  * Story runner for the Ralph build loop.
  *
  * Assembles the prompt for a single story (story details + progress.txt +
- * CLAUDE.md context), sends it to Claude via the Anthropic SDK, and
- * returns the response for the loop to process.
+ * CLAUDE.md context), spawns a Claude CLI agent to implement it in the
+ * project directory, and returns the result for the loop to process.
+ *
+ * The Claude CLI runs with full agentic capabilities (file editing, bash,
+ * etc.) so it can actually create files, install dependencies, and run
+ * quality checks — unlike the Messages API which only returns text.
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import type { Story, Prd } from "../shared/types.js";
-import {
-  sendMessage,
-  isRetryableApiError,
-  type ClaudeClientOptions,
-  type ClaudeResponse,
-} from "../shared/claude-client.js";
-import { retry, type RetryOptions } from "../shared/retry.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,19 +22,19 @@ import { retry, type RetryOptions } from "../shared/retry.js";
 export interface StoryRunnerOptions {
   /** Absolute path to the project root. */
   projectDir: string;
-  /** Claude API client options. */
-  clientOptions?: ClaudeClientOptions;
-  /** Retry options for the API call. */
-  retryOptions?: RetryOptions;
+  /** Model to use for the Claude CLI agent. */
+  model?: string;
+  /** Maximum agentic turns per story. Defaults to 30. */
+  maxTurns?: number;
+  /** Timeout in milliseconds. Defaults to 600_000 (10 minutes). */
+  timeout?: number;
 }
 
 export interface StoryRunResult {
   /** The story that was run. */
   story: Story;
-  /** The full Claude response. */
-  response: ClaudeResponse;
-  /** The response text content. */
-  text: string;
+  /** The Claude CLI output text. */
+  output: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,11 +54,13 @@ function readFileOrFallback(filePath: string, fallback: string): string {
 
 /**
  * Build the system prompt for story execution.
+ *
+ * Includes project context (CLAUDE.md, progress.txt, PRD summary) and
+ * agent instructions. The Claude CLI also reads CLAUDE.md from the project
+ * directory automatically, but including it here ensures the context is
+ * complete even if the file doesn't exist on disk yet.
  */
-export function buildSystemPrompt(
-  prd: Prd,
-  projectDir: string,
-): string {
+export function buildSystemPrompt(prd: Prd, projectDir: string): string {
   const claudeMd = readFileOrFallback(
     path.join(projectDir, "CLAUDE.md"),
     "(No CLAUDE.md found)",
@@ -92,8 +92,10 @@ Description: ${prd.description}
 ## Important
 
 - Implement the story described in the user message.
-- Run quality checks: typecheck, lint, test.
-- If checks pass, commit with message: feat: [Story ID] - [Story Title]
+- Install dependencies if needed (pnpm install).
+- Run quality checks after implementing: pnpm typecheck, pnpm test.
+- If quality checks fail, fix the issues and re-run until they pass.
+- Do NOT commit changes — the build system handles commits.
 - Do NOT introduce mock data, placeholder implementations, or TODO markers in production code.
 - Keep changes focused and minimal.
 `;
@@ -122,7 +124,7 @@ ${criteria}
   prompt += `
 **Priority:** ${story.priority}
 
-Please implement this story now. After implementing, run typecheck, lint, and test to verify everything passes.`;
+Please implement this story now. After implementing, run typecheck and tests to verify everything passes.`;
 
   return prompt;
 }
@@ -131,16 +133,22 @@ Please implement this story now. After implementing, run typecheck, lint, and te
 // Runner
 // ---------------------------------------------------------------------------
 
+const DEFAULT_MAX_TURNS = 30;
+const DEFAULT_TIMEOUT = 600_000; // 10 minutes
+const MAX_BUFFER = 10 * 1024 * 1024; // 10 MB
+
 /**
- * Run a single story through the Claude API.
+ * Run a single story by spawning a Claude CLI agent.
  *
- * Assembles the full prompt context (CLAUDE.md, progress.txt, PRD, story
- * details), sends it to the API with retry logic, and returns the response.
+ * The agent runs in the project directory with full agentic capabilities
+ * (file editing, bash execution, etc.) and implements the story end-to-end.
+ * It can create files, install packages, run tests, and fix issues — the
+ * loop then independently verifies quality before committing.
  *
  * @param story - The story to implement.
  * @param prd - The full PRD for project context.
  * @param options - Runner configuration.
- * @returns The story run result with Claude's response.
+ * @returns The story run result with the agent's output.
  */
 export async function runStory(
   story: Story,
@@ -150,29 +158,58 @@ export async function runStory(
   const systemPrompt = buildSystemPrompt(prd, options.projectDir);
   const userMessage = buildStoryPrompt(story);
 
-  const clientOptions: ClaudeClientOptions = {
-    maxTokens: 16384,
-    ...options.clientOptions,
-  };
+  // Combine system prompt and story prompt into a single input.
+  // The Claude CLI also reads CLAUDE.md from the project directory,
+  // so project context is doubly reinforced.
+  const fullPrompt = systemPrompt + "\n\n---\n\n" + userMessage;
 
-  const retryOptions: RetryOptions = {
-    maxRetries: 2,
-    initialDelayMs: 2000,
-    isRetryable: isRetryableApiError,
-    ...options.retryOptions,
-  };
+  const args: string[] = [
+    "--print",
+    "--dangerously-skip-permissions",
+    "--no-session-persistence",
+  ];
 
-  const response = await retry(
-    () =>
-      sendMessage(clientOptions, systemPrompt, [
-        { role: "user", content: userMessage },
-      ]),
-    retryOptions,
-  );
+  if (options.model) {
+    args.push("--model", options.model);
+  }
+
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT;
+
+  const result = spawnSync("claude", args, {
+    input: fullPrompt,
+    cwd: options.projectDir,
+    encoding: "utf-8",
+    timeout,
+    maxBuffer: MAX_BUFFER,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  // Handle spawn errors (claude not found, timeout, etc.)
+  if (result.error) {
+    const msg = result.error.message;
+    if (msg.includes("ENOENT")) {
+      throw new Error(
+        "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code",
+      );
+    }
+    if (msg.includes("ETIMEDOUT") || msg.includes("SIGTERM")) {
+      throw new Error(
+        `Claude CLI timed out after ${Math.round(timeout / 1000)}s on story ${story.id}`,
+      );
+    }
+    throw new Error(`Claude CLI error: ${msg}`);
+  }
+
+  // Handle non-zero exit code
+  if (result.status !== null && result.status !== 0) {
+    const stderr = result.stderr?.trim() ?? "";
+    throw new Error(
+      `Claude CLI exited with code ${result.status}${stderr ? `: ${stderr}` : ""}`,
+    );
+  }
 
   return {
     story,
-    response,
-    text: response.text,
+    output: result.stdout ?? "",
   };
 }

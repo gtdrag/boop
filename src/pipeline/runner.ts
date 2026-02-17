@@ -214,7 +214,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
       const result: LoopResult = await runLoopIteration({
         projectDir,
         prdPath,
-        clientOptions: { model: profile.aiModel || undefined },
+        model: profile.aiModel || undefined,
       });
 
       if (result.allComplete) {
