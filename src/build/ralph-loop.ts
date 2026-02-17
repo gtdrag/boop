@@ -18,6 +18,12 @@ import {
   formatViolations,
   type RealityCheckResult,
 } from "./reality-check.js";
+import {
+  appendProgress,
+  buildProgressEntry,
+  extractClaudeMdUpdates,
+  appendToClaudeMd,
+} from "./progress.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -235,14 +241,19 @@ export async function runLoopIteration(
 
   const maxRetries = options.maxRetries ?? 1;
 
+  const progressPath = path.join(options.projectDir, ".boop", "progress.txt");
+  const claudeMdPath = path.join(options.projectDir, "CLAUDE.md");
+
   // Attempt the story (initial + retries)
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // Run the story through Claude
+    let responseText = "";
     try {
-      await runStory(story, prd, {
+      const result = await runStory(story, prd, {
         projectDir: options.projectDir,
         clientOptions: options.clientOptions,
       });
+      responseText = result.text;
     } catch (error: unknown) {
       const errorMsg =
         error instanceof Error ? error.message : String(error);
@@ -264,6 +275,21 @@ export async function runLoopIteration(
       // Mark story as passed and save
       markStoryPassed(prd, story.id);
       savePrdFile(prd, prdPath);
+
+      // Record progress
+      const entry = buildProgressEntry(
+        story,
+        [`Completed story ${story.id}: ${story.title}`],
+        [],
+        [],
+      );
+      appendProgress(progressPath, entry);
+
+      // Extract and apply CLAUDE.md updates from agent response
+      const claudeMdUpdate = extractClaudeMdUpdates(responseText);
+      if (claudeMdUpdate) {
+        appendToClaudeMd(claudeMdPath, claudeMdUpdate);
+      }
 
       return {
         outcome: "passed",
