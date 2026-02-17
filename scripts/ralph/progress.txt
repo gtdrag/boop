@@ -87,6 +87,22 @@ Started: Mon Feb 16 19:15:19 CST 2026
 5. security-scanner
 6. qa-smoke-test
 
+### Bidirectional Messaging Pattern
+- `MessagingDispatcher` class — channel-agnostic dispatcher for sending/receiving via WhatsApp or Telegram
+- `ChannelAdapter` interface: `start()`, `stop()`, `send(OutboundMessage)`, `waitForReply(timeoutMs): InboundMessage | null`
+- Adapters created via factory functions: `createWhatsAppAdapter(config, deps?)`, `createTelegramAdapter(config, deps?)`
+- All adapter deps injectable (`WhatsAppAdapterDeps`, `TelegramAdapterDeps`) — no vi.mock needed
+- `sanitizeForMessaging()` catches credential-related text (password, secret, token, api key, etc.) and replaces with safe instruction
+- `messagingConfigFromProfile()` extracts MessagingConfig from DeveloperProfile (optional fields)
+- `createSignOffPrompt()` returns a `SignOffPromptFn`-compatible function for messaging-based epic sign-off
+- Approval keywords: "approve", "approved", "yes", "lgtm" (case-insensitive)
+- On timeout, auto-approves with instruction to use local `--review` — doesn't block pipeline
+- WhatsApp JID format: strip non-numeric from phone + `@s.whatsapp.net`
+- Profile schema extended with optional fields: notificationChannel, phoneNumber, telegramChatId, telegramBotToken, notificationTimeout
+- `PipelineEvent` notifications: planning-complete, build-started, build-complete, review-complete, sign-off-ready, epic-complete, error
+- Summary truncated to 4000 chars for messaging (WhatsApp/Telegram limits)
+- Test pattern: `state` object holds mutable `messageHandler` ref — avoids oxlint no-dupe-keys warning with getters
+
 ### Epic Sign-Off Pattern
 - `generateEpicSummary()` creates markdown summary from ReviewPhaseResult — saved to `.boop/reviews/epic-N/summary.md`
 - `runEpicSignOff()` loop: generate summary → prompt user → on rejection run fix cycle → regenerate → re-prompt
@@ -277,4 +293,33 @@ Started: Mon Feb 16 19:15:19 CST 2026
   - User feedback becomes a high-severity finding — lets the refactoring agent treat it with the same priority as code issues
   - Screenshot discovery reads .png files from QA dir — handles missing dir gracefully
   - Test suite failure in fix cycle stops early (no security/QA on broken code) — same pattern as team-orchestrator
+---
+
+## 2026-02-16 19:57 - Story 5.9
+- Implemented bidirectional messaging integration
+- Files created:
+  - src/channels/messaging.ts (MessagingDispatcher, ChannelAdapter interface, config extraction, credential sanitization)
+  - src/channels/messaging.test.ts (42 tests)
+  - src/channels/whatsapp/whatsapp.test.ts (16 tests)
+  - src/channels/telegram/telegram.test.ts (16 tests)
+- Files modified:
+  - src/channels/whatsapp/index.ts (full adapter with factory + DI)
+  - src/channels/telegram/index.ts (full adapter with factory + DI)
+  - src/profile/schema.ts (added optional notification fields)
+- **Architecture:**
+  - `MessagingDispatcher` is channel-agnostic — accepts any `ChannelAdapter` via DI or `setAdapter()`
+  - WhatsApp adapter: `createWhatsAppAdapter(config, deps?)` — Baileys-based, JID formatting, injectable deps
+  - Telegram adapter: `createTelegramAdapter(config, deps?)` — grammy-based, chat ID targeting, injectable deps
+  - Both adapters follow same pattern: connect/send/waitForReply/stop with timeout support
+  - `sanitizeForMessaging()` catches credential patterns and replaces with safe instruction
+  - `createSignOffPrompt()` returns a pipeline-compatible sign-off function
+  - Profile schema extended with optional fields (no breaking changes to defaults/onboarding)
+  - Pipeline event notifications via `notify()` method — 7 event types
+- **Learnings for future iterations:**
+  - oxlint flags duplicate keys when a getter and plain property share a name — use `state` object pattern instead
+  - Optional profile fields don't break existing defaults tests (not in Object.keys)
+  - WhatsApp JID: strip all non-numeric chars + `@s.whatsapp.net`
+  - `waitForReply(0)` with timeout=0 never times out — waits indefinitely for message or stop()
+  - Credential sanitization is simple pattern-matching — more sophisticated NLP-based detection is future work
+  - Auto-approve on timeout prevents pipeline from hanging when user doesn't respond
 ---

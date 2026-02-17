@@ -155,7 +155,7 @@
         "All tests pass"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Use OpenClaw's existing WhatsApp/Telegram adapter code (src/channels/whatsapp/, src/channels/telegram/ if they exist from Epic 1 fork, or create adapter stubs). Configure in ~/.boop/profile.yaml. Bidirectional messaging uses the gateway for both inbound and outbound. Credential handling must be secure — never transmit secrets over messaging channels. Depends on 5.8 and 1.1 (channel adapters kept from OpenClaw)."
     }
   ]
