@@ -145,6 +145,21 @@ export interface DeveloperProfile {
 
   /** Whether to run in autonomous mode by default. */
   autonomousByDefault: boolean;
+
+  /** Notification channel for bidirectional messaging. */
+  notificationChannel?: "whatsapp" | "telegram" | "none";
+
+  /** WhatsApp phone number with country code (e.g. "+1234567890"). */
+  phoneNumber?: string;
+
+  /** Telegram chat ID (numeric string from @userinfobot). */
+  telegramChatId?: string;
+
+  /** Telegram bot token from @BotFather. */
+  telegramBotToken?: string;
+
+  /** Timeout in seconds for waiting for user replies. 0 = no timeout. Defaults to 300. */
+  notificationTimeout?: number;
 }
 
 /**
