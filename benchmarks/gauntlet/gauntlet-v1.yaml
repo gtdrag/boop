@@ -1,0 +1,122 @@
+id: gauntlet-v1
+name: Graduated Gauntlet v1
+description: >
+  Six tiers of increasing project complexity. Each tier tests whether Boop
+  can plan, build, and review a progressively harder project. After each
+  tier, the system proposes self-improvements (prompt evolution, heuristics)
+  for human approval.
+
+tiers:
+  - id: t1-todo-app
+    label: "T1: To-do App"
+    level: 1
+    idea: >
+      A simple to-do list application with React and local storage.
+      Users can add, complete, and delete tasks. No backend needed.
+    stack: "React + local storage, no backend"
+    rationale: >
+      Absolute minimum — can Boop scaffold and build anything at all?
+      No server, no database, just a single-page React app.
+    successCriteria:
+      minPhaseReached: BUILDING
+      planningMustPass: true
+
+  - id: t2-notes-app
+    label: "T2: Notes App"
+    level: 2
+    idea: >
+      A notes application with React frontend, Express backend, and SQLite
+      database. Full CRUD operations: create, read, update, delete notes.
+      Notes have a title and body. Simple REST API.
+    stack: "React + Express + SQLite, CRUD"
+    rationale: >
+      Adds a backend and database layer. Tests that Boop can plan and
+      build a full-stack application with data persistence.
+    profileOverrides:
+      backendFramework: express
+      database: sqlite
+    successCriteria:
+      minPhaseReached: BUILDING
+      planningMustPass: true
+
+  - id: t3-blog-with-auth
+    label: "T3: Blog with Auth"
+    level: 3
+    idea: >
+      A blog platform with Next.js frontend, Express API, and PostgreSQL
+      database. Features: user authentication (email/password), blog post
+      CRUD, admin panel for managing posts, public-facing blog with
+      pagination. Database migrations for schema management.
+    stack: "Next.js + Express + PostgreSQL"
+    rationale: >
+      Adds authentication, database migrations, and an admin interface.
+      Tests multi-concern planning and role-based access patterns.
+    profileOverrides:
+      frontendFramework: next
+      backendFramework: express
+      database: postgresql
+    successCriteria:
+      minPhaseReached: BUILDING
+      planningMustPass: true
+
+  - id: t4-ecommerce
+    label: "T4: E-commerce Storefront"
+    level: 4
+    idea: >
+      An e-commerce storefront with Next.js, PostgreSQL, and Stripe
+      integration. Features: product catalog with categories, shopping
+      cart with session persistence, checkout flow with Stripe payments,
+      order history, inventory management, product search and filtering.
+    stack: "Next.js + PostgreSQL + Stripe"
+    rationale: >
+      Multiple domain entities, payment integration, complex state
+      management. Tests whether Boop can handle real business logic
+      and third-party API integration.
+    profileOverrides:
+      frontendFramework: next
+      database: postgresql
+    successCriteria:
+      minPhaseReached: REVIEWING
+      planningMustPass: true
+
+  - id: t5-realtime-dashboard
+    label: "T5: Real-time Dashboard"
+    level: 5
+    idea: >
+      A real-time analytics dashboard with Next.js, WebSocket server,
+      and interactive charts. Features: live data streaming via WebSockets,
+      multiple chart types (line, bar, pie) with recharts, dashboard
+      layout with drag-and-drop widgets, data source configuration,
+      alert thresholds with notifications, historical data views.
+    stack: "Next.js + WebSockets + charts"
+    rationale: >
+      Live data, complex UI state, bidirectional communication.
+      Tests real-time architecture and complex frontend patterns.
+    profileOverrides:
+      frontendFramework: next
+      database: postgresql
+    successCriteria:
+      minPhaseReached: REVIEWING
+      planningMustPass: true
+
+  - id: t6-saas-starter
+    label: "T6: SaaS Starter"
+    level: 6
+    idea: >
+      A SaaS starter kit with Next.js, PostgreSQL, multi-tenant
+      architecture, and Stripe billing. Features: organization-based
+      multi-tenancy with data isolation, subscription plans (free, pro,
+      enterprise), usage-based billing with Stripe, team member
+      invitation and role management, API key management, audit logging,
+      admin super-panel for managing all tenants.
+    stack: "Next.js + PostgreSQL + multi-tenant + billing"
+    rationale: >
+      The full complexity test. Multi-tenancy, billing integration,
+      role hierarchies, and audit trails. If Boop can plan and build
+      this coherently, it can handle real production workloads.
+    profileOverrides:
+      frontendFramework: next
+      database: postgresql
+    successCriteria:
+      minPhaseReached: REVIEWING
+      planningMustPass: true

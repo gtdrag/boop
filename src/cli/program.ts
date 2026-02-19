@@ -15,6 +15,7 @@ import {
 } from "../config/index.js";
 import type { DeveloperProfile } from "../shared/types.js";
 import { registerBenchmarkCommands } from "../benchmark/commands.js";
+import { registerGauntletCommands } from "../gauntlet/commands.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -35,6 +36,7 @@ export function buildProgram(): Command {
     });
 
   registerBenchmarkCommands(program);
+  registerGauntletCommands(program);
 
   return program;
 }

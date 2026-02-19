@@ -226,6 +226,7 @@ describe("test co-location", () => {
     "security",
     "sandbox",
     "channels",
+    "gauntlet",
   ];
 
   it("every boop source file has a co-located .test.ts file", () => {
