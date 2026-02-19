@@ -14,6 +14,66 @@ Boop chains three systems into a single automated pipeline:
 
 The whole thing is wrapped in nested loops:
 
+```mermaid
+graph TD
+    %% Global Inputs
+    Idea[User Idea] --> PlanPhase
+    Profile[(Developer Profile\nStack, CI/CD, DB)] -.-> PlanPhase
+    Profile -.-> ScaffoldPhase
+
+    %% Phase 1: Planning
+    subgraph PlanPhase [1. Planning Phase]
+        V[Viability Assessment] -- Proceed --> PRD[PRD Generation]
+        PRD --> Arch[Architecture Decisions]
+        Arch --> Epics[Epic & Story Breakdown]
+    end
+
+    PlanPhase --> ScaffoldPhase[2. Scaffolding\nGenerate Repo & Configs]
+    ScaffoldPhase --> ProjectLoop
+
+    %% Phase 2 & 3: The Nested Execution Loops
+    subgraph ProjectLoop [3. The Project Loop]
+        direction TB
+        NextEpic{More Epics?}
+
+        subgraph EpicLoop [The Epic Loop]
+            direction TB
+            NextStory{More Stories?}
+
+            subgraph StoryLoop [The Story Loop - Ralph]
+                Impl[Implement Story] --> Gates[Quality Gates:\nTypecheck, Lint, Test]
+                Gates -- Fail --> Impl
+                Gates -- Pass --> Commit[Git Commit]
+            end
+
+            NextStory -- Yes --> StoryLoop
+            Commit --> NextStory
+
+            NextStory -- No --> ReviewAgents
+
+            subgraph ReviewLoop [Adversarial Review]
+                ReviewAgents[Parallel Review Agents:\nCode, Security, Tech Debt, QA]
+                ReviewAgents --> Verifier[Verify Findings vs Code]
+                Verifier --> Fixer[Refactor / Fix Code]
+                Fixer -- Verify Fixes\nMax 3 Iterations --> ReviewAgents
+            end
+        end
+
+        Epics --> NextEpic
+        NextEpic -- Yes --> EpicLoop
+        ReviewLoop --> EpicSignOff[Epic Sign-off]
+        EpicSignOff --> NextEpic
+    end
+
+    %% Phase 4: Wrap Up
+    ProjectLoop -- Project Complete --> Deploy[4. Deployment\nVercel, Docker, etc.]
+    Deploy --> Retro[5. Retrospective\nAnalyze Pipeline Efficiency]
+    Retro --> Memory[(Save Learnings to\nGlobal Memory)]
+```
+
+<details>
+<summary>Text version (for terminals)</summary>
+
 ```
 ┌─ PROJECT LOOP ──────────────────────────────────────────────┐
 │  idea → viability → plan → build → deploy → retrospective   │
@@ -31,6 +91,8 @@ The whole thing is wrapped in nested loops:
 │  └────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 Pipeline state is persisted to `.boop/state.yaml` after every transition. If the process dies, `npx boop --resume` picks up exactly where it left off.
 
