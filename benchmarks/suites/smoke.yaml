@@ -1,0 +1,17 @@
+id: smoke
+name: Smoke Test
+description: Single trivial idea, dry-run mode. Validates the benchmark harness wiring end-to-end.
+mode: dry-run
+cases:
+  - id: smoke-1
+    label: Trivial CRUD API
+    idea: a simple task management API with CRUD operations
+    complexity: trivial
+    stopAfter: PLANNING
+    expectations:
+      - metric: viability_recommendation
+        expected: PROCEED
+      - metric: success
+        expected: true
+      - metric: phase_reached
+        expected: stories

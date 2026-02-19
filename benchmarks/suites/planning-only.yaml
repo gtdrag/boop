@@ -1,0 +1,33 @@
+id: planning-only
+name: Planning Phase Benchmark
+description: Three ideas at different complexity levels, stops after PLANNING. Tests that the planning chain handles varying complexity.
+mode: dry-run
+cases:
+  - id: plan-trivial
+    label: Trivial - Static Site
+    idea: a personal blog with markdown posts and syntax highlighting
+    complexity: trivial
+    stopAfter: PLANNING
+    expectations:
+      - metric: success
+        expected: true
+
+  - id: plan-simple
+    label: Simple - REST API
+    idea: a bookmark manager API with tagging, search, and browser extension support
+    complexity: simple
+    stopAfter: PLANNING
+    expectations:
+      - metric: success
+        expected: true
+      - metric: phase_reached
+        expected: stories
+
+  - id: plan-moderate
+    label: Moderate - Real-time App
+    idea: a collaborative whiteboard app with real-time cursor tracking, shape drawing, and room-based sessions using WebSockets
+    complexity: moderate
+    stopAfter: PLANNING
+    expectations:
+      - metric: success
+        expected: true

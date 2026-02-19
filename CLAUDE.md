@@ -137,6 +137,17 @@ boop/
 │   │   ├── generator.ts
 │   │   └── defaults/
 │   │
+│   ├── benchmark/                   # Benchmark harness
+│   │   ├── types.ts                 # Suite, case, result, metrics interfaces
+│   │   ├── metrics-collector.ts     # Per-phase timing/token/retry accumulator
+│   │   ├── mock-provider.ts         # Canned Claude responses for dry-run
+│   │   ├── suite-loader.ts          # YAML suite parser and validator
+│   │   ├── runner.ts                # Execute cases against pipeline
+│   │   ├── scorecard.ts             # JSON + markdown report generation
+│   │   ├── history.ts               # Persist/load runs to ~/.boop/benchmarks/
+│   │   ├── compare.ts               # Diff runs, detect regressions
+│   │   └── commands.ts              # CLI subcommand registration
+│   │
 │   └── shared/                      # Shared utilities
 │       ├── logger.ts
 │       ├── retry.ts
@@ -151,6 +162,11 @@ boop/
 │   ├── templates/
 │   └── checklists/
 │
+├── benchmarks/                      # Benchmark suite definitions + fixtures
+│   ├── suites/                      # YAML suite files (smoke, planning-only)
+│   └── fixtures/
+│       └── mock-responses/          # Canned responses for dry-run mode
+│
 └── test/
     ├── unit/
     ├── integration/
@@ -163,6 +179,9 @@ User-side directories (created at runtime):
 ~/.boop/
 ├── profile.yaml
 ├── memory/
+├── benchmarks/                      # Benchmark run history
+│   ├── index.json
+│   └── runs/
 └── logs/
 
 <project>/.boop/
@@ -195,10 +214,10 @@ User-side directories (created at runtime):
 ## Pipeline State Machine
 
 ```
-IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → COMPLETE
+IDLE → PLANNING → BRIDGING → SCAFFOLDING → BUILDING → REVIEWING → SIGN_OFF → DEPLOYING → RETROSPECTIVE → COMPLETE
 ```
 
-SCAFFOLDING runs once per project (first epic only). State persisted to `.boop/state.yaml`.
+SCAFFOLDING runs once per project (first epic only). DEPLOYING requires cloudProvider config. State persisted to `.boop/state.yaml`.
 
 ## Architecture Reference
 

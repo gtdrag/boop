@@ -24,6 +24,18 @@
 - Structural invariant tests (architecture rules, naming, test co-location, state machine)
 - Integration test suite (full pipeline flow with mocked externals)
 
+### Benchmark Harness (`boop benchmark`)
+
+- `boop benchmark run [suite]` — run a suite against the pipeline with per-phase metrics (timing, tokens, retries, success/fail)
+- `boop benchmark list` — list available suites or past runs (`--runs`)
+- `boop benchmark compare <baseline> [current]` — diff two runs, detect regressions (duration >50%, tokens >30%, status changes)
+- Dry-run mode: mock responses from fixtures, free, validates wiring (~seconds)
+- Live mode: real Claude API calls, accurate metrics, costs money
+- Scorecard output: JSON (machine-readable) + markdown (human-readable)
+- Run persistence to `~/.boop/benchmarks/` with index for fast listing
+- Built-in suites: `smoke` (1 trivial case), `planning-only` (3 cases at varying complexity)
+- Exit codes for CI: 0 = all pass / no regressions, 1 = failures / regressions
+
 ---
 
 ## Planned Features

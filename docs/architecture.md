@@ -110,6 +110,17 @@ boop/
 │   │   ├── analyzer.ts             # Build history analysis engine
 │   │   └── reporter.ts             # Retrospective report generation
 │   │
+│   ├── benchmark/                   # Benchmark harness
+│   │   ├── types.ts                # Suite, case, result, metrics interfaces
+│   │   ├── metrics-collector.ts    # Per-phase timing/token/retry accumulator
+│   │   ├── mock-provider.ts        # Canned Claude responses for dry-run mode
+│   │   ├── suite-loader.ts         # YAML suite parser and validator
+│   │   ├── runner.ts               # Execute cases against pipeline (dry-run or live)
+│   │   ├── scorecard.ts            # JSON + markdown report generation
+│   │   ├── history.ts              # Persist/load runs to ~/.boop/benchmarks/
+│   │   ├── compare.ts              # Diff runs, detect regressions
+│   │   └── commands.ts             # CLI subcommand registration
+│   │
 │   └── shared/                      # Shared utilities
 │       ├── logger.ts               # JSON + human-readable logging
 │       ├── retry.ts                # Auto-retry with configurable limits
@@ -124,6 +135,11 @@ boop/
 │   ├── templates/                   # PRD template, story template, etc.
 │   └── checklists/                  # Validation checklists
 │
+├── benchmarks/                      # Benchmark suite definitions + fixtures
+│   ├── suites/                     # YAML suite files (smoke, planning-only)
+│   └── fixtures/
+│       └── mock-responses/         # Canned responses for dry-run mode
+│
 └── test/
     ├── unit/
     ├── integration/
@@ -136,6 +152,9 @@ boop/
 ~/.boop/
 ├── profile.yaml                     # Developer profile
 ├── memory/                          # Cross-project memory (future)
+├── benchmarks/                      # Benchmark run history
+│   ├── index.json                  # Run metadata index
+│   └── runs/                       # Individual run results (JSON + markdown)
 └── logs/                            # JSON log files
 
 <project>/.boop/

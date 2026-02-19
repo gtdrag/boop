@@ -14,6 +14,7 @@ import {
   runOnboarding,
 } from "../config/index.js";
 import type { DeveloperProfile } from "../shared/types.js";
+import { registerBenchmarkCommands } from "../benchmark/commands.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -32,6 +33,8 @@ export function buildProgram(): Command {
     .action(async (idea: string | undefined, opts: CliOptions) => {
       await handleCli(idea, opts);
     });
+
+  registerBenchmarkCommands(program);
 
   return program;
 }

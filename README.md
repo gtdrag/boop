@@ -88,6 +88,15 @@ npx boop --status           # Check current pipeline state
 npx boop --review           # Review and sign off on latest epic
 npx boop --resume           # Resume an interrupted pipeline
 npx boop --autonomous       # Run without sign-off gates
+
+# Benchmarking
+npx boop benchmark run [suite]          # Run a benchmark suite (default: smoke)
+npx boop benchmark run smoke --dry-run  # Dry-run with mock responses (free, fast)
+npx boop benchmark run smoke --live     # Live run with real Claude API (costs money)
+npx boop benchmark run smoke --json     # Output raw JSON to stdout
+npx boop benchmark list                 # List available suites
+npx boop benchmark list --runs          # List past benchmark runs
+npx boop benchmark compare <base> [cur] # Compare two runs, detect regressions
 ```
 
 ## Pipeline Stages
@@ -150,7 +159,11 @@ After all stories in an epic are done, an adversarial review loop runs:
 
 Each iteration typically finds fewer issues than the last. The loop converges when all findings are resolved or the max iteration count is reached.
 
-### Sign-Off and Retrospective
+### Deployment
+
+After sign-off, Boop deploys the project based on your developer profile's `cloudProvider` setting. Supports Vercel, Railway, Fly.io via CLI, Docker builds, and Claude agent fallback for AWS/GCP/Azure. Skipped if `cloudProvider` is set to `none`.
+
+### Retrospective
 
 After the final epic, a retrospective analyzes the full build history:
 
@@ -161,6 +174,22 @@ After the final epic, a retrospective analyzes the full build history:
 
 Learnings are saved to `~/.boop/memory/` as structured YAML, so the next project Boop builds benefits from what this one taught it.
 
+### Benchmarking
+
+The benchmark harness validates the pipeline against a suite of test ideas:
+
+```bash
+npx boop benchmark run smoke --dry-run
+```
+
+- **Dry-run mode** uses canned mock responses — free, fast (~seconds), validates wiring
+- **Live mode** calls real Claude API — accurate metrics, costs money
+- Captures per-phase metrics: timing, tokens, retries, success/fail
+- Generates a scorecard (JSON + markdown) and persists to `~/.boop/benchmarks/`
+- Supports run comparison with regression detection (duration, tokens, status changes)
+
+Built-in suites: `smoke` (1 trivial case, validates harness), `planning-only` (3 cases at different complexity levels).
+
 ## Project Structure
 
 ```
@@ -168,6 +197,9 @@ Learnings are saved to `~/.boop/memory/` as structured YAML, so the next project
 ├── profile.yaml                # Developer profile
 ├── credentials/                # API keys (mode 0600)
 ├── memory/                     # Cross-project learnings
+├── benchmarks/                 # Benchmark run history
+│   ├── index.json              # Run metadata index
+│   └── runs/                   # Individual run results (JSON + markdown)
 └── logs/                       # JSON log files
 
 <your-project>/.boop/           # Per-project (created by Boop)
@@ -229,7 +261,7 @@ See [docs/roadmap.md](docs/roadmap.md) for full details on planned features.
 pnpm install                    # Install dependencies
 pnpm run dev                    # Run in development mode
 pnpm run check                  # Format + typecheck + lint
-pnpm run test                   # Run tests (1,264 tests)
+pnpm run test                   # Run tests (1,345 tests)
 pnpm run build                  # Build with tsdown
 ```
 
