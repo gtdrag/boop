@@ -132,3 +132,43 @@ Started: Mon Feb 16 20:30:55 CST 2026
   - When credential file doesn't exist, audit passes (env var fallback is a valid configuration)
   - Logger sanitization check looks for both "export function sanitize(" and usage of "sanitize(" — both must exist
 ---
+
+## 2026-02-19 - Story 6.6
+- Implemented project retrospective and self-improvement analysis
+- Created `src/retrospective/analyzer.ts` — analyzes build history, review findings, iteration counts
+- Created `src/retrospective/reporter.ts` — generates retrospective.md and cross-project memory YAML
+- Created `src/retrospective/analyzer.test.ts` — 23 unit tests
+- Created `src/retrospective/reporter.test.ts` — 22 unit tests
+- Wired RETROSPECTIVE phase into pipeline runner between SIGN_OFF and COMPLETE
+- **What was implemented:**
+  - RetrospectiveData type with per-epic stats, pattern analysis, prompt quality metrics
+  - analyzeProject() walks .boop/reviews/, progress.txt, git log for build metrics
+  - generateReport() produces retrospective.md with statistics tables, failure patterns, suggestions
+  - saveMemory() persists learnings to ~/.boop/memory/ as structured YAML
+  - Pipeline runner calls retrospective after sign-off, non-fatal on failure
+---
+
+## 2026-02-19 - Epics 7-8: Self-Improvement Loop (10 stories)
+- Implemented complete self-improvement system across 12 new files in `src/evolution/`
+- **Stories completed:**
+  - 7.1: Stack matcher + outcome injection logic (stack-matcher.ts, outcome-injector.ts)
+  - 7.2: Wired outcome injection into planning (viability.ts, prd.ts, architecture.ts, stories.ts, orchestrator.ts)
+  - 7.3: Architecture decisions core (arch-decisions.ts — store, merge, query, format, extract)
+  - 7.4: Arch decision extraction + pipeline integration (runner.ts RETROSPECTIVE section)
+  - 8.1: Prompt version history (prompt-history.ts — save, load, rollback, list versions)
+  - 8.2: Prompt evolution core (prompt-evolver.ts — generate proposals, validate via benchmark, promote)
+  - 8.3: Evolution pipeline integration (runner.ts, profile schema autoEvolvePrompts flag)
+  - 8.4: Consolidation core (consolidator.ts — heuristics with staleness decay)
+  - 8.5: Consolidation pipeline integration + heuristic injection into planning prompts
+- **Files created:** 12 (6 source + 6 test files in src/evolution/)
+- **Files modified:** 9 (4 planning modules, orchestrator, runner, profile schema, benchmark commands, structural test)
+- **New tests:** 75 evolution tests, 1497 total passing
+- Also includes adversarial review infrastructure: approval-gate.ts, review-rules.ts, risk-policy.ts + tests
+- **Learnings for future iterations:**
+  - extractStackKeywords must be defensive — profile fields can be undefined in test mocks
+  - planning/ now legitimately imports from review/ (ReviewRule type) — structural test updated
+  - All evolution features are backward-compatible: optional params, missing YAML = empty store, failures are non-fatal
+  - Consolidation uses staleness decay: confidence drops 0.05/month, pruned below 0.3
+  - Prompt evolution gated on profile.autoEvolvePrompts (default false) + baseline benchmark existence
+  - Team-based parallel implementation effective: 3 agents built independent stories simultaneously
+---
