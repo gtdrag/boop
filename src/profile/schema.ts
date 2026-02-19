@@ -166,6 +166,9 @@ export interface DeveloperProfile {
 
   /** Timeout in seconds for waiting for user replies. 0 = no timeout. Defaults to 300. */
   notificationTimeout?: number;
+
+  /** Whether to run prompt evolution after retrospective. Defaults to false. */
+  autoEvolvePrompts?: boolean;
 }
 
 /**

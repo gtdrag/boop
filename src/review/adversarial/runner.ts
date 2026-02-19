@@ -15,8 +15,10 @@ import { promisify } from "node:util";
 import { sendMessage, isRetryableApiError } from "../../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../../shared/claude-client.js";
 import { retry } from "../../shared/retry.js";
-import type { ReviewFinding, FindingSeverity } from "../team-orchestrator.js";
+import type { ReviewFinding } from "../team-orchestrator.js";
 import { truncate, parseFindings, readFileContent } from "../shared.js";
+import type { ReviewRule } from "./review-rules.js";
+import { buildRulesPromptSection } from "./review-rules.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,6 +59,10 @@ export interface AdversarialRunnerOptions {
   clientOptions?: ClaudeClientOptions;
   /** Max retries per API call. */
   maxRetries?: number;
+  /** Subset of agents to run. Defaults to all three. */
+  agents?: AdversarialAgentType[];
+  /** Review rules to inject into agent prompts. */
+  reviewRules?: ReviewRule[];
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +237,7 @@ async function runSingleAgent(
   files: Array<{ path: string; content: string }>,
   clientOptions: ClaudeClientOptions,
   maxRetries: number,
+  reviewRules?: ReviewRule[],
 ): Promise<AdversarialAgentResult> {
   if (files.length === 0) {
     return {
@@ -241,7 +248,16 @@ async function runSingleAgent(
     };
   }
 
-  const systemPrompt = AGENT_PROMPTS[agentType];
+  let systemPrompt = AGENT_PROMPTS[agentType];
+
+  // Append review rules context if available
+  if (reviewRules && reviewRules.length > 0) {
+    const rulesSection = buildRulesPromptSection(reviewRules, agentType);
+    if (rulesSection) {
+      systemPrompt += "\n" + rulesSection;
+    }
+  }
+
   const userMessage = buildUserMessage(files);
 
   const response = await retry(
@@ -272,7 +288,14 @@ async function runSingleAgent(
 export async function runAdversarialAgents(
   options: AdversarialRunnerOptions,
 ): Promise<AdversarialAgentResult[]> {
-  const { projectDir, baseBranch = "main", clientOptions = {}, maxRetries = 2 } = options;
+  const {
+    projectDir,
+    baseBranch = "main",
+    clientOptions = {},
+    maxRetries = 2,
+    agents: agentSubset,
+    reviewRules,
+  } = options;
 
   // Get changed files and read their content
   const changedPaths = await getChangedFiles(projectDir, baseBranch);
@@ -281,13 +304,13 @@ export async function runAdversarialAgents(
     content: readFileContent(projectDir, p),
   }));
 
-  // Run all three agents in parallel
-  const agents: AdversarialAgentType[] = ["code-quality", "test-coverage", "security"];
+  // Use caller-provided agent subset or default to all three
+  const agents: AdversarialAgentType[] = agentSubset ?? ["code-quality", "test-coverage", "security"];
 
   const results = await Promise.all(
     agents.map(async (agentType) => {
       try {
-        return await runSingleAgent(agentType, files, clientOptions, maxRetries);
+        return await runSingleAgent(agentType, files, clientOptions, maxRetries, reviewRules);
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         return {

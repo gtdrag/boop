@@ -25,6 +25,7 @@ import { generateAnalyticsDefaults } from "../scaffolding/defaults/analytics.js"
 import { generateAccessibilityDefaults } from "../scaffolding/defaults/accessibility.js";
 import { generateSecurityHeaderDefaults } from "../scaffolding/defaults/security-headers.js";
 import { generateDeploymentDefaults } from "../scaffolding/defaults/deployment.js";
+import { generateRiskPolicyDefaults } from "../scaffolding/defaults/risk-policy.js";
 import { runLoopIteration } from "../build/ralph-loop.js";
 import type { LoopResult } from "../build/ralph-loop.js";
 import type { TestSuiteResult, ReviewPhaseResult } from "../review/team-orchestrator.js";
@@ -33,6 +34,19 @@ import { createTestHardener } from "../review/test-hardener.js";
 import { createSecurityScanner } from "../review/security-scanner.js";
 import { createQaSmokeTest } from "../review/qa-smoke-test.js";
 import { runAdversarialLoop } from "../review/adversarial/loop.js";
+import { getChangedFiles } from "../review/adversarial/runner.js";
+import { loadRiskPolicy, resolveRiskTier } from "../review/adversarial/risk-policy.js";
+import {
+  createInteractiveApprovalGate,
+  createMessagingApprovalGate,
+} from "../review/adversarial/approval-gate.js";
+import type { ApprovalGateFn } from "../review/adversarial/approval-gate.js";
+import {
+  loadReviewRules,
+  extractRuleCandidates,
+  mergeRules,
+  saveReviewRules,
+} from "../review/adversarial/review-rules.js";
 import { generateAdversarialSummary, toReviewPhaseResult } from "../review/adversarial/summary.js";
 import { runEpicSignOff } from "./epic-loop.js";
 import type { SignOffDecision, EpicSummary } from "./epic-loop.js";
@@ -44,6 +58,22 @@ import {
   saveMemory,
   formatSummary,
 } from "../retrospective/reporter.js";
+import {
+  loadDecisionStore,
+  saveDecisionStore,
+  mergeDecisions,
+  extractDecisions,
+} from "../evolution/arch-decisions.js";
+import {
+  loadHeuristicStore,
+  saveHeuristicStore,
+  consolidate,
+  applyDecay,
+} from "../evolution/consolidator.js";
+import { runEvolution } from "../evolution/prompt-evolver.js";
+import { getLatestRun, loadResult } from "../benchmark/history.js";
+import { runSuite } from "../benchmark/runner.js";
+import { loadSuiteByName, resolveSuitesDir } from "../benchmark/suite-loader.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,6 +113,7 @@ function applyScaffoldingDefaults(
     ...generateAccessibilityDefaults(profile),
     ...generateSecurityHeaderDefaults(profile),
     ...generateDeploymentDefaults(profile),
+    ...generateRiskPolicyDefaults(profile),
   ];
 
   for (const file of allFiles) {
@@ -279,6 +310,42 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
 
       let reviewResult: ReviewPhaseResult;
       try {
+        // Load risk policy and review rules
+        const riskPolicy = loadRiskPolicy(projectDir);
+        const reviewRules = loadReviewRules();
+
+        // Resolve risk tier from changed files
+        let tierOptions: {
+          maxIterations?: number;
+          minFixSeverity?: "critical" | "high" | "medium" | "low";
+          agents?: ("code-quality" | "test-coverage" | "security")[];
+        } = {};
+
+        let requireApproval = false;
+
+        if (riskPolicy) {
+          const changedFiles = await getChangedFiles(projectDir);
+          const resolved = resolveRiskTier(riskPolicy, changedFiles);
+          onProgress?.(
+            "REVIEWING",
+            `Risk tier: ${resolved.tierName} (${resolved.tier.maxIterations} iterations, ${resolved.tier.agents.length} agents)`,
+          );
+          tierOptions = {
+            maxIterations: resolved.tier.maxIterations,
+            minFixSeverity: resolved.tier.minFixSeverity,
+            agents: resolved.tier.agents,
+          };
+          requireApproval = resolved.tier.requireApproval ?? false;
+        }
+
+        // Wire approval gate when risk tier requires it and not in autonomous mode
+        let approvalGate: ApprovalGateFn | undefined;
+        if (requireApproval && !autonomous) {
+          approvalGate = messaging.enabled
+            ? createMessagingApprovalGate(messaging)
+            : createInteractiveApprovalGate();
+        }
+
         const loopResult = await runAdversarialLoop({
           projectDir,
           epicNumber,
@@ -286,10 +353,29 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
           model: profile.aiModel || undefined,
           onProgress: (iter, phase, msg) =>
             onProgress?.("REVIEWING", `[iter ${iter}] ${phase}: ${msg}`),
+          ...tierOptions,
+          reviewRules: reviewRules.length > 0 ? reviewRules : undefined,
+          approvalGate,
         });
 
         generateAdversarialSummary(projectDir, epicNumber, loopResult);
         reviewResult = toReviewPhaseResult(epicNumber, loopResult);
+
+        // Extract rule candidates and persist for future reviews
+        try {
+          const candidates = extractRuleCandidates(loopResult, projectName);
+          if (candidates.length > 0) {
+            const merged = mergeRules(reviewRules, candidates);
+            const savedPath = saveReviewRules(merged);
+            onProgress?.("REVIEWING", `Saved ${candidates.length} review rules to ${savedPath}`);
+          }
+        } catch (ruleError: unknown) {
+          // Non-fatal: log and continue
+          onProgress?.(
+            "REVIEWING",
+            `Warning: failed to save review rules: ${formatError(ruleError)}`,
+          );
+        }
       } catch (error: unknown) {
         console.error(`[boop] Review failed for epic ${epicNumber}: ${formatError(error)}`);
         console.error("[boop] Pipeline paused in REVIEWING. Resume with: boop --resume");
@@ -410,6 +496,81 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
       const summary = formatSummary(retroData);
       console.log();
       console.log(summary);
+
+      // --- Architecture decision extraction ---
+      try {
+        const archPath = path.join(projectDir, ".boop", "planning", "architecture.md");
+        const archText = fs.existsSync(archPath) ? fs.readFileSync(archPath, "utf-8") : null;
+        if (archText) {
+          const newDecisions = await extractDecisions(retroData, archText, profile);
+          if (newDecisions.length > 0) {
+            const store = loadDecisionStore();
+            store.decisions = mergeDecisions(store.decisions, newDecisions);
+            const savedPath = saveDecisionStore(store);
+            onProgress?.("RETROSPECTIVE", `Saved ${newDecisions.length} arch decisions to ${savedPath}`);
+          }
+        }
+      } catch (error: unknown) {
+        onProgress?.("RETROSPECTIVE", `Warning: arch decision extraction failed: ${formatError(error)}`);
+      }
+
+      // --- Prompt evolution (opt-in) ---
+      if (profile.autoEvolvePrompts) {
+        try {
+          const baselineEntry = getLatestRun("smoke");
+          if (baselineEntry) {
+            const baselineResult = loadResult(baselineEntry.runId);
+            if (baselineResult) {
+              const promptsDir = path.resolve(projectDir, "prompts");
+              const suitesDir = resolveSuitesDir(projectDir);
+              const smokeSuite = loadSuiteByName("smoke", suitesDir);
+
+              const result = await runEvolution(
+                baselineResult,
+                ["viability", "prd", "architecture", "stories"],
+                {
+                  promptsDir,
+                  runBenchmark: () => runSuite(smokeSuite, { mode: "dry-run", projectRoot: projectDir }),
+                },
+              );
+              onProgress?.("RETROSPECTIVE", `Prompt evolution: promoted ${result.promoted.length}, rejected ${result.rejected.length}`);
+            }
+          }
+        } catch (error: unknown) {
+          onProgress?.("RETROSPECTIVE", `Warning: prompt evolution failed: ${formatError(error)}`);
+        }
+      }
+
+      // --- Cross-project consolidation (every 7 days) ---
+      try {
+        const hStore = loadHeuristicStore();
+        const now = new Date();
+        const lastConsolidation = hStore.lastConsolidation ? new Date(hStore.lastConsolidation) : null;
+        const daysSince = lastConsolidation
+          ? (now.getTime() - lastConsolidation.getTime()) / (1000 * 60 * 60 * 24)
+          : Infinity;
+
+        if (daysSince >= 7 || hStore.heuristics.length === 0) {
+          const rules = loadReviewRules();
+          const archStore = loadDecisionStore();
+
+          const result = await consolidate(memoryEntries, rules, archStore.decisions, hStore);
+
+          // Apply decay and save
+          const allHeuristics = [...hStore.heuristics.filter((h) => !result.pruned.includes(h.id)), ...result.added];
+          const decayed = applyDecay(allHeuristics);
+          const updatedStore = {
+            ...hStore,
+            heuristics: decayed,
+            lastConsolidation: now.toISOString(),
+          };
+          saveHeuristicStore(updatedStore);
+
+          onProgress?.("RETROSPECTIVE", `Consolidated ${result.added.length} new heuristics, pruned ${result.pruned.length}`);
+        }
+      } catch (error: unknown) {
+        onProgress?.("RETROSPECTIVE", `Warning: consolidation failed: ${formatError(error)}`);
+      }
     } catch (error: unknown) {
       console.error(`[boop] Retrospective failed: ${formatError(error)}`);
       console.error("[boop] Pipeline paused in RETROSPECTIVE. Resume with: boop --resume");

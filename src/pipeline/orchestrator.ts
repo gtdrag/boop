@@ -27,6 +27,9 @@ import { retry } from "../shared/retry.js";
 import { isRetryableApiError } from "../shared/claude-client.js";
 import { createMessagingDispatcher, messagingConfigFromProfile } from "../channels/messaging.js";
 import type { MessagingDispatcher, PipelineEvent } from "../channels/messaging.js";
+import { loadReviewRules } from "../review/adversarial/review-rules.js";
+import { loadDecisionStore, queryRelevantDecisions } from "../evolution/arch-decisions.js";
+import { loadHeuristicStore, queryForPhase } from "../evolution/consolidator.js";
 
 /** Result of the full planning chain. */
 export interface PlanningResult {
@@ -279,10 +282,25 @@ export class PipelineOrchestrator {
       );
     }
 
+    // Load evolution data for prompt augmentation
+    const reviewRules = loadReviewRules();
+    const archStore = loadDecisionStore();
+    const relevantDecisions = queryRelevantDecisions(archStore, profile);
+    const heuristicStore = loadHeuristicStore();
+    const viabilityHeuristics = queryForPhase(heuristicStore, "viability", profile);
+    const prdHeuristics = queryForPhase(heuristicStore, "prd", profile);
+    const archHeuristics = queryForPhase(heuristicStore, "architecture", profile);
+    const storiesHeuristics = queryForPhase(heuristicStore, "stories", profile);
+
     // --- Viability ---
     const viability = await this.runPlanningSubPhase<ViabilityResult>(
       "viability",
-      () => assessViability(idea, profile, { projectDir: this.projectDir }),
+      () =>
+        assessViability(idea, profile, {
+          projectDir: this.projectDir,
+          reviewRules: reviewRules.length > 0 ? reviewRules : undefined,
+          heuristics: viabilityHeuristics.length > 0 ? viabilityHeuristics : undefined,
+        }),
       onProgress,
     );
 
@@ -303,14 +321,25 @@ export class PipelineOrchestrator {
     // --- PRD ---
     const prd = await this.runPlanningSubPhase<PrdResult>(
       "prd",
-      () => generatePrd(idea, profile, viability.assessment, { projectDir: this.projectDir }),
+      () =>
+        generatePrd(idea, profile, viability.assessment, {
+          projectDir: this.projectDir,
+          reviewRules: reviewRules.length > 0 ? reviewRules : undefined,
+          heuristics: prdHeuristics.length > 0 ? prdHeuristics : undefined,
+        }),
       onProgress,
     );
 
     // --- Architecture ---
     const architecture = await this.runPlanningSubPhase<ArchitectureResult>(
       "architecture",
-      () => generateArchitecture(idea, profile, prd.prd, { projectDir: this.projectDir }),
+      () =>
+        generateArchitecture(idea, profile, prd.prd, {
+          projectDir: this.projectDir,
+          reviewRules: reviewRules.length > 0 ? reviewRules : undefined,
+          archDecisions: relevantDecisions.length > 0 ? relevantDecisions : undefined,
+          heuristics: archHeuristics.length > 0 ? archHeuristics : undefined,
+        }),
       onProgress,
     );
 
@@ -320,6 +349,8 @@ export class PipelineOrchestrator {
       () =>
         generateStories(idea, profile, prd.prd, architecture.architecture, {
           projectDir: this.projectDir,
+          reviewRules: reviewRules.length > 0 ? reviewRules : undefined,
+          heuristics: storiesHeuristics.length > 0 ? storiesHeuristics : undefined,
         }),
       onProgress,
     );

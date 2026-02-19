@@ -429,6 +429,191 @@ describe("runAdversarialLoop", () => {
     expect(mockFix).toHaveBeenCalledTimes(1);
   });
 
+  // -------------------------------------------------------------------------
+  // Approval gate
+  // -------------------------------------------------------------------------
+
+  it("approval gate: approve — fixer runs normally", async () => {
+    const finding = makeFinding("cq-1", "high");
+
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [finding], report: "Found 1", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+
+    mockVerify.mockReturnValueOnce({
+      verified: [finding],
+      discarded: [],
+      stats: { total: 1, verified: 1, discarded: 0 },
+    });
+
+    mockFix.mockResolvedValueOnce({
+      results: [{ finding, fixed: true, commitSha: "abc", attempts: 1 }],
+      fixed: [finding],
+      unfixed: [],
+      finalTestResult: { passed: true, output: "All pass" },
+    });
+
+    // Iteration 2: clean
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [], report: "Clean", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+    mockVerify.mockReturnValueOnce({
+      verified: [],
+      discarded: [],
+      stats: { total: 0, verified: 0, discarded: 0 },
+    });
+
+    const gate = vi.fn().mockResolvedValue({ action: "approve" });
+
+    const result = await runAdversarialLoop({
+      projectDir: tmpDir,
+      epicNumber: 1,
+      testSuiteRunner: passingTestRunner,
+      approvalGate: gate,
+    });
+
+    expect(gate).toHaveBeenCalledOnce();
+    expect(mockFix).toHaveBeenCalledWith([finding], expect.anything());
+    expect(result.totalFixed).toBe(1);
+    expect(result.converged).toBe(true);
+  });
+
+  it("approval gate: filter — only approved subset passed to fixer", async () => {
+    const f1 = makeFinding("cq-1", "high");
+    const f2 = makeFinding("sec-1", "high");
+
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [f1], report: "Found 1", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [f2], report: "Found 1", success: true },
+    ]);
+
+    mockVerify.mockReturnValueOnce({
+      verified: [f1, f2],
+      discarded: [],
+      stats: { total: 2, verified: 2, discarded: 0 },
+    });
+
+    mockFix.mockResolvedValueOnce({
+      results: [{ finding: f1, fixed: true, commitSha: "abc", attempts: 1 }],
+      fixed: [f1],
+      unfixed: [],
+      finalTestResult: { passed: true, output: "All pass" },
+    });
+
+    // Iteration 2: clean
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [], report: "Clean", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+    mockVerify.mockReturnValueOnce({
+      verified: [],
+      discarded: [],
+      stats: { total: 0, verified: 0, discarded: 0 },
+    });
+
+    // Only approve cq-1, reject sec-1
+    const gate = vi.fn().mockResolvedValue({ action: "filter", approvedIds: ["cq-1"] });
+
+    const result = await runAdversarialLoop({
+      projectDir: tmpDir,
+      epicNumber: 1,
+      testSuiteRunner: passingTestRunner,
+      approvalGate: gate,
+    });
+
+    // Fixer only got cq-1
+    expect(mockFix).toHaveBeenCalledWith([f1], expect.anything());
+    // sec-1 was deferred
+    expect(result.deferredFindings).toEqual(expect.arrayContaining([f2]));
+    expect(result.converged).toBe(true);
+  });
+
+  it("approval gate: skip — iteration skipped, next iteration runs", async () => {
+    const finding = makeFinding("cq-1", "high");
+
+    // Iteration 1: findings exist, but gate skips
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [finding], report: "Found 1", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+    mockVerify.mockReturnValueOnce({
+      verified: [finding],
+      discarded: [],
+      stats: { total: 1, verified: 1, discarded: 0 },
+    });
+
+    // Iteration 2: clean
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [], report: "Clean", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+    mockVerify.mockReturnValueOnce({
+      verified: [],
+      discarded: [],
+      stats: { total: 0, verified: 0, discarded: 0 },
+    });
+
+    const gate = vi.fn().mockResolvedValue({ action: "skip" });
+
+    const result = await runAdversarialLoop({
+      projectDir: tmpDir,
+      epicNumber: 1,
+      maxIterations: 3,
+      testSuiteRunner: passingTestRunner,
+      approvalGate: gate,
+    });
+
+    // Fixer should NOT have been called (skipped)
+    expect(mockFix).not.toHaveBeenCalled();
+    // Gate called only once (iteration 1 had findings, iteration 2 had none)
+    expect(gate).toHaveBeenCalledOnce();
+    // Iteration 2 converged
+    expect(result.iterations).toHaveLength(2);
+    expect(result.converged).toBe(true);
+  });
+
+  it("approval gate: abort — loop exits with 'human-aborted'", async () => {
+    const finding = makeFinding("cq-1", "high");
+
+    mockRunAgents.mockResolvedValueOnce([
+      { agent: "code-quality", findings: [finding], report: "Found 1", success: true },
+      { agent: "test-coverage", findings: [], report: "Clean", success: true },
+      { agent: "security", findings: [], report: "Clean", success: true },
+    ]);
+    mockVerify.mockReturnValueOnce({
+      verified: [finding],
+      discarded: [],
+      stats: { total: 1, verified: 1, discarded: 0 },
+    });
+
+    const gate = vi.fn().mockResolvedValue({ action: "abort" });
+
+    const result = await runAdversarialLoop({
+      projectDir: tmpDir,
+      epicNumber: 1,
+      testSuiteRunner: passingTestRunner,
+      approvalGate: gate,
+    });
+
+    expect(result.exitReason).toBe("human-aborted");
+    expect(result.converged).toBe(false);
+    expect(result.iterations).toHaveLength(1);
+    // Fixer should NOT have been called
+    expect(mockFix).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Progress callback
+  // -------------------------------------------------------------------------
+
   it("calls progress callback at each phase", async () => {
     const progress = vi.fn();
 

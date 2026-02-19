@@ -19,9 +19,12 @@ import type { ContextSnapshot } from "../../shared/context-snapshot.js";
 import { runAdversarialAgents } from "./runner.js";
 import type {
   AdversarialAgentResult,
+  AdversarialAgentType,
   AdversarialFinding,
   AdversarialRunnerOptions,
 } from "./runner.js";
+import type { ReviewRule } from "./review-rules.js";
+import type { ApprovalGateFn } from "./approval-gate.js";
 import { verifyFindings } from "./verifier.js";
 import type { VerificationResult } from "./verifier.js";
 import { fixFindings } from "./fixer.js";
@@ -52,7 +55,7 @@ export interface AdversarialLoopResult {
   /** Whether the loop converged (zero findings). */
   converged: boolean;
   /** Why the loop exited. */
-  exitReason: "converged" | "max-iterations" | "stuck" | "test-failure" | "diverging";
+  exitReason: "converged" | "max-iterations" | "stuck" | "test-failure" | "diverging" | "human-aborted";
   /** Total findings across all iterations. */
   totalFindings: number;
   /** Total findings auto-fixed. */
@@ -88,6 +91,12 @@ export interface AdversarialLoopOptions {
    * Defaults to "high" (only critical + high get auto-fixed).
    */
   minFixSeverity?: "critical" | "high" | "medium" | "low";
+  /** Subset of agents to run (from risk tier). Defaults to all three. */
+  agents?: AdversarialAgentType[];
+  /** Review rules to inject into agent prompts. */
+  reviewRules?: ReviewRule[];
+  /** Optional human approval gate before fixing. */
+  approvalGate?: ApprovalGateFn;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +229,9 @@ export async function runAdversarialLoop(
     model,
     onProgress,
     minFixSeverity = "high",
+    agents: agentSubset,
+    reviewRules,
+    approvalGate,
   } = options;
 
   const iterations: IterationResult[] = [];
@@ -238,6 +250,8 @@ export async function runAdversarialLoop(
       projectDir,
       epicNumber,
       baseBranch,
+      agents: agentSubset,
+      reviewRules,
     };
     const agentResults = await runAdversarialAgents(runnerOptions);
     const allFindings = agentResults.flatMap((r) => r.findings);
@@ -261,7 +275,7 @@ export async function runAdversarialLoop(
     );
 
     // Step 2b: Severity gate — only auto-fix critical + high
-    const [fixable, deferred] = partitionBySeverity(verification.verified, minFixSeverity);
+    let [fixable, deferred] = partitionBySeverity(verification.verified, minFixSeverity);
     allDeferredFindings.push(...deferred);
 
     if (deferred.length > 0) {
@@ -270,6 +284,65 @@ export async function runAdversarialLoop(
         "verify",
         `Deferred ${deferred.length} ${minFixSeverity === "high" ? "medium/low" : "low"} findings to summary`,
       );
+    }
+
+    // Step 2c: Human approval gate (optional)
+    if (approvalGate && fixable.length > 0) {
+      onProgress?.(i, "approval", `Awaiting approval for ${fixable.length} findings...`);
+
+      const decision = await approvalGate({
+        iteration: i,
+        maxIterations,
+        fixable,
+        deferred,
+      });
+
+      if (decision.action === "abort") {
+        exitReason = "human-aborted";
+        onProgress?.(i, "approval", "Human aborted the review loop");
+
+        const iterResult: IterationResult = {
+          iteration: i,
+          agentResults,
+          verification,
+          fixResult: null,
+          testsPass: true,
+          unresolvedIds: [],
+        };
+        iterations.push(iterResult);
+        saveIterationArtifacts(projectDir, epicNumber, iterResult);
+        break;
+      }
+
+      if (decision.action === "skip") {
+        onProgress?.(i, "approval", "Human skipped this iteration's fixes");
+
+        const iterResult: IterationResult = {
+          iteration: i,
+          agentResults,
+          verification,
+          fixResult: null,
+          testsPass: true,
+          unresolvedIds: fixable.map((f) => f.id),
+        };
+        iterations.push(iterResult);
+        saveIterationArtifacts(projectDir, epicNumber, iterResult);
+        continue;
+      }
+
+      if (decision.action === "filter") {
+        const approvedSet = new Set(decision.approvedIds);
+        const rejected = fixable.filter((f) => !approvedSet.has(f.id));
+        fixable = fixable.filter((f) => approvedSet.has(f.id));
+        allDeferredFindings.push(...rejected);
+        onProgress?.(
+          i,
+          "approval",
+          `Approved ${fixable.length} findings, deferred ${rejected.length}`,
+        );
+      }
+
+      // "approve" falls through — fix all fixable
     }
 
     // Step 3: Divergence detection — if verified finding count is increasing,

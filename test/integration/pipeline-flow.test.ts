@@ -28,6 +28,16 @@ const {
   mockBuildMemoryEntries,
   mockSaveMemory,
   mockFormatSummary,
+  mockGetChangedFiles,
+  mockLoadRiskPolicy,
+  mockResolveRiskTier,
+  mockLoadReviewRules,
+  mockExtractRuleCandidates,
+  mockMergeRules,
+  mockSaveReviewRules,
+  mockGenerateRiskPolicyDefaults,
+  mockCreateInteractiveApprovalGate,
+  mockCreateMessagingApprovalGate,
 } = vi.hoisted(() => ({
   mockRunLoopIteration: vi.fn(),
   mockRunAdversarialLoop: vi.fn(),
@@ -41,6 +51,16 @@ const {
   mockBuildMemoryEntries: vi.fn(),
   mockSaveMemory: vi.fn(),
   mockFormatSummary: vi.fn(),
+  mockGetChangedFiles: vi.fn(),
+  mockLoadRiskPolicy: vi.fn(),
+  mockResolveRiskTier: vi.fn(),
+  mockLoadReviewRules: vi.fn(),
+  mockExtractRuleCandidates: vi.fn(),
+  mockMergeRules: vi.fn(),
+  mockSaveReviewRules: vi.fn(),
+  mockGenerateRiskPolicyDefaults: vi.fn(),
+  mockCreateInteractiveApprovalGate: vi.fn(),
+  mockCreateMessagingApprovalGate: vi.fn(),
 }));
 
 // ---- Module mocks ----
@@ -56,6 +76,27 @@ vi.mock("../../src/review/adversarial/loop.js", () => ({
 vi.mock("../../src/review/adversarial/summary.js", () => ({
   generateAdversarialSummary: mockGenerateAdversarialSummary,
   toReviewPhaseResult: mockToReviewPhaseResult,
+}));
+
+vi.mock("../../src/review/adversarial/runner.js", () => ({
+  getChangedFiles: mockGetChangedFiles,
+}));
+vi.mock("../../src/review/adversarial/risk-policy.js", () => ({
+  loadRiskPolicy: mockLoadRiskPolicy,
+  resolveRiskTier: mockResolveRiskTier,
+}));
+vi.mock("../../src/review/adversarial/review-rules.js", () => ({
+  loadReviewRules: mockLoadReviewRules,
+  extractRuleCandidates: mockExtractRuleCandidates,
+  mergeRules: mockMergeRules,
+  saveReviewRules: mockSaveReviewRules,
+}));
+vi.mock("../../src/scaffolding/defaults/risk-policy.js", () => ({
+  generateRiskPolicyDefaults: mockGenerateRiskPolicyDefaults,
+}));
+vi.mock("../../src/review/adversarial/approval-gate.js", () => ({
+  createInteractiveApprovalGate: mockCreateInteractiveApprovalGate,
+  createMessagingApprovalGate: mockCreateMessagingApprovalGate,
 }));
 
 vi.mock("../../src/pipeline/epic-loop.js", async (importOriginal) => {
@@ -212,6 +253,15 @@ describe("Pipeline integration flow", () => {
     mockBuildMemoryEntries.mockReturnValue([]);
     mockSaveMemory.mockReturnValue(undefined);
     mockFormatSummary.mockReturnValue("Pipeline complete.");
+
+    // Risk policy + review rules: no policy file, no existing rules
+    mockLoadRiskPolicy.mockReturnValue(null);
+    mockLoadReviewRules.mockReturnValue([]);
+    mockGetChangedFiles.mockResolvedValue([]);
+    mockExtractRuleCandidates.mockReturnValue([]);
+    mockMergeRules.mockReturnValue([]);
+    mockSaveReviewRules.mockReturnValue("/tmp/rules.yaml");
+    mockGenerateRiskPolicyDefaults.mockReturnValue([]);
   });
 
   afterEach(() => {

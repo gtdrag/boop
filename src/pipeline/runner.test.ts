@@ -35,6 +35,16 @@ const {
   mockSaveMemory,
   mockFormatSummary,
   mockDeploy,
+  mockGetChangedFiles,
+  mockLoadRiskPolicy,
+  mockResolveRiskTier,
+  mockLoadReviewRules,
+  mockExtractRuleCandidates,
+  mockMergeRules,
+  mockSaveReviewRules,
+  mockGenerateRiskPolicyDefaults,
+  mockCreateInteractiveApprovalGate,
+  mockCreateMessagingApprovalGate,
 } = vi.hoisted(() => ({
   mockParseStoryMarkdown: vi.fn(),
   mockConvertToPrd: vi.fn(),
@@ -61,6 +71,16 @@ const {
   mockSaveMemory: vi.fn(),
   mockFormatSummary: vi.fn(),
   mockDeploy: vi.fn(),
+  mockGetChangedFiles: vi.fn(),
+  mockLoadRiskPolicy: vi.fn(),
+  mockResolveRiskTier: vi.fn(),
+  mockLoadReviewRules: vi.fn(),
+  mockExtractRuleCandidates: vi.fn(),
+  mockMergeRules: vi.fn(),
+  mockSaveReviewRules: vi.fn(),
+  mockGenerateRiskPolicyDefaults: vi.fn(),
+  mockCreateInteractiveApprovalGate: vi.fn(),
+  mockCreateMessagingApprovalGate: vi.fn(),
 }));
 
 // Runner's direct dependencies
@@ -89,6 +109,9 @@ vi.mock("../scaffolding/defaults/security-headers.js", () => ({
 vi.mock("../scaffolding/defaults/deployment.js", () => ({
   generateDeploymentDefaults: mockGenerateDeploymentDefaults,
 }));
+vi.mock("../scaffolding/defaults/risk-policy.js", () => ({
+  generateRiskPolicyDefaults: mockGenerateRiskPolicyDefaults,
+}));
 vi.mock("../deployment/deployer.js", () => ({
   deploy: mockDeploy,
 }));
@@ -97,6 +120,23 @@ vi.mock("../build/ralph-loop.js", () => ({
 }));
 vi.mock("../review/adversarial/loop.js", () => ({
   runAdversarialLoop: mockRunAdversarialLoop,
+}));
+vi.mock("../review/adversarial/runner.js", () => ({
+  getChangedFiles: mockGetChangedFiles,
+}));
+vi.mock("../review/adversarial/risk-policy.js", () => ({
+  loadRiskPolicy: mockLoadRiskPolicy,
+  resolveRiskTier: mockResolveRiskTier,
+}));
+vi.mock("../review/adversarial/review-rules.js", () => ({
+  loadReviewRules: mockLoadReviewRules,
+  extractRuleCandidates: mockExtractRuleCandidates,
+  mergeRules: mockMergeRules,
+  saveReviewRules: mockSaveReviewRules,
+}));
+vi.mock("../review/adversarial/approval-gate.js", () => ({
+  createInteractiveApprovalGate: mockCreateInteractiveApprovalGate,
+  createMessagingApprovalGate: mockCreateMessagingApprovalGate,
 }));
 vi.mock("../review/adversarial/summary.js", () => ({
   generateAdversarialSummary: mockGenerateAdversarialSummary,
@@ -286,6 +326,13 @@ describe("runFullPipeline", () => {
     mockGenerateAccessibilityDefaults.mockReturnValue([]);
     mockGenerateSecurityHeaderDefaults.mockReturnValue([]);
     mockGenerateDeploymentDefaults.mockReturnValue([]);
+    mockGenerateRiskPolicyDefaults.mockReturnValue([]);
+    mockLoadRiskPolicy.mockReturnValue(null);
+    mockLoadReviewRules.mockReturnValue([]);
+    mockGetChangedFiles.mockResolvedValue([]);
+    mockExtractRuleCandidates.mockReturnValue([]);
+    mockMergeRules.mockReturnValue([]);
+    mockSaveReviewRules.mockReturnValue("/tmp/rules.yaml");
     mockDeploy.mockResolvedValue({
       success: true,
       url: "https://test.vercel.app",
@@ -798,10 +845,12 @@ describe("runFullPipeline", () => {
       "// analytics",
     );
 
-    // onProgress reported the warning
-    const warnings = progress.filter(([, msg]) => msg.includes("Warning:"));
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]![1]).toContain("blocked/seo.ts");
+    // onProgress reported the scaffolding warning
+    const scaffoldWarnings = progress.filter(
+      ([phase, msg]) => phase === "SCAFFOLDING" && msg.includes("Warning:"),
+    );
+    expect(scaffoldWarnings).toHaveLength(1);
+    expect(scaffoldWarnings[0]![1]).toContain("blocked/seo.ts");
 
     // Pipeline still reached COMPLETE
     expect(orch.getState().phase).toBe("COMPLETE");

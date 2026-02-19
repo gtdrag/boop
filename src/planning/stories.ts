@@ -9,6 +9,10 @@ import path from "node:path";
 import { sendMessage, isRetryableApiError, retry } from "../shared/index.js";
 import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
+import type { ReviewRule } from "../review/adversarial/review-rules.js";
+import type { Heuristic } from "../evolution/consolidator.js";
+import { augmentPrompt } from "../evolution/outcome-injector.js";
+import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
 import { formatProfileContext } from "./viability.js";
 
 export interface StoriesResult {
@@ -25,6 +29,10 @@ export interface StoriesOptions {
   promptDir?: string;
   /** Project directory for saving output. Defaults to cwd. */
   projectDir?: string;
+  /** Review rules to inject as lessons from past reviews. */
+  reviewRules?: ReviewRule[];
+  /** Validated heuristics to inject from cross-project consolidation. */
+  heuristics?: Heuristic[];
 }
 
 const PROMPTS_DIR = fs.existsSync(path.resolve(import.meta.dirname, "prompts", "stories"))
@@ -107,7 +115,13 @@ export async function generateStories(
   architecture: string,
   options: StoriesOptions = {},
 ): Promise<StoriesResult> {
-  const systemPrompt = loadSystemPrompt(options.promptDir);
+  let systemPrompt = loadSystemPrompt(options.promptDir);
+  if (options.reviewRules && options.reviewRules.length > 0) {
+    systemPrompt = augmentPrompt(systemPrompt, options.reviewRules, "stories", profile);
+  }
+  if (options.heuristics && options.heuristics.length > 0) {
+    systemPrompt += "\n" + formatHeuristicsForPrompt(options.heuristics);
+  }
   const userMessage = buildUserMessage(idea, profile, prd, architecture);
   const projectDir = options.projectDir ?? process.cwd();
 

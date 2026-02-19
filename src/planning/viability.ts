@@ -10,6 +10,10 @@ import path from "node:path";
 import { sendMessage, isRetryableApiError, retry } from "../shared/index.js";
 import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
+import type { ReviewRule } from "../review/adversarial/review-rules.js";
+import type { Heuristic } from "../evolution/consolidator.js";
+import { augmentPrompt } from "../evolution/outcome-injector.js";
+import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
 
 /** Recommendation from the viability assessment. */
 export type ViabilityRecommendation = "PROCEED" | "CONCERNS" | "RECONSIDER";
@@ -32,6 +36,10 @@ export interface ViabilityOptions {
   promptDir?: string;
   /** Project directory for saving output. Defaults to cwd. */
   projectDir?: string;
+  /** Review rules to inject as lessons from past reviews. */
+  reviewRules?: ReviewRule[];
+  /** Validated heuristics to inject from cross-project consolidation. */
+  heuristics?: Heuristic[];
 }
 
 /** Resolve prompts dir — works from both src/planning/ and dist/ (bundled). */
@@ -129,7 +137,13 @@ export async function assessViability(
   profile: DeveloperProfile,
   options: ViabilityOptions = {},
 ): Promise<ViabilityResult> {
-  const systemPrompt = loadSystemPrompt(options.promptDir);
+  let systemPrompt = loadSystemPrompt(options.promptDir);
+  if (options.reviewRules && options.reviewRules.length > 0) {
+    systemPrompt = augmentPrompt(systemPrompt, options.reviewRules, "viability", profile);
+  }
+  if (options.heuristics && options.heuristics.length > 0) {
+    systemPrompt += "\n" + formatHeuristicsForPrompt(options.heuristics);
+  }
   const userMessage = buildUserMessage(idea, profile);
   const projectDir = options.projectDir ?? process.cwd();
 

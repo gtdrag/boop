@@ -10,6 +10,12 @@ import path from "node:path";
 import { sendMessage, isRetryableApiError, retry } from "../shared/index.js";
 import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
+import type { ReviewRule } from "../review/adversarial/review-rules.js";
+import type { ArchDecision } from "../evolution/arch-decisions.js";
+import type { Heuristic } from "../evolution/consolidator.js";
+import { augmentPrompt } from "../evolution/outcome-injector.js";
+import { formatDecisionsForPrompt } from "../evolution/arch-decisions.js";
+import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
 import { formatProfileContext } from "./viability.js";
 
 export interface ArchitectureResult {
@@ -26,6 +32,12 @@ export interface ArchitectureOptions {
   promptDir?: string;
   /** Project directory for saving output. Defaults to cwd. */
   projectDir?: string;
+  /** Review rules to inject as lessons from past reviews. */
+  reviewRules?: ReviewRule[];
+  /** Past architecture decisions relevant to the developer's stack. */
+  archDecisions?: ArchDecision[];
+  /** Validated heuristics to inject from cross-project consolidation. */
+  heuristics?: Heuristic[];
 }
 
 const PROMPTS_DIR = fs.existsSync(path.resolve(import.meta.dirname, "prompts", "architecture"))
@@ -98,7 +110,16 @@ export async function generateArchitecture(
   prd: string,
   options: ArchitectureOptions = {},
 ): Promise<ArchitectureResult> {
-  const systemPrompt = loadSystemPrompt(options.promptDir);
+  let systemPrompt = loadSystemPrompt(options.promptDir);
+  if (options.reviewRules && options.reviewRules.length > 0) {
+    systemPrompt = augmentPrompt(systemPrompt, options.reviewRules, "architecture", profile);
+  }
+  if (options.archDecisions && options.archDecisions.length > 0) {
+    systemPrompt += "\n" + formatDecisionsForPrompt(options.archDecisions);
+  }
+  if (options.heuristics && options.heuristics.length > 0) {
+    systemPrompt += "\n" + formatHeuristicsForPrompt(options.heuristics);
+  }
   const userMessage = buildUserMessage(idea, profile, prd);
   const projectDir = options.projectDir ?? process.cwd();
 

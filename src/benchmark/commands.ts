@@ -3,11 +3,13 @@
  *
  * Registers `boop benchmark run|list|compare` subcommands.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { Command } from "commander";
 import { loadSuiteByName, resolveSuitesDir, listAvailableSuites } from "./suite-loader.js";
 import { runSuite } from "./runner.js";
 import { toJson, toMarkdown } from "./scorecard.js";
-import { saveResult, loadResult, loadIndex, getLatestRun } from "./history.js";
+import { saveResult, loadResult, loadIndex, getLatestRun, resolveBenchmarksDir } from "./history.js";
 import { compareRuns, comparisonToMarkdown } from "./compare.js";
 import type { BenchmarkMode } from "./types.js";
 
@@ -173,6 +175,60 @@ export function registerBenchmarkCommands(program: Command, projectRoot?: string
 
       // Exit code: 1 if regressions detected
       if (comparison.regressions.length > 0) {
+        process.exitCode = 1;
+      }
+    });
+
+  // --- benchmark baseline ---
+  benchmark
+    .command("baseline")
+    .description("Run a suite and mark the result as the blessed baseline")
+    .argument("[suite]", "suite name (default: smoke)", "smoke")
+    .option("--dry-run", "use mock responses (free, fast)")
+    .option("--live", "use real Claude API (costs money)")
+    .action(async (suiteName: string, opts: { dryRun?: boolean; live?: boolean }) => {
+      let mode: BenchmarkMode | undefined;
+      if (opts.dryRun) mode = "dry-run";
+      if (opts.live) mode = "live";
+
+      const suitesDir = resolveSuitesDir(root);
+
+      let suite;
+      try {
+        suite = loadSuiteByName(suiteName, suitesDir);
+      } catch {
+        console.error(`[boop] Suite "${suiteName}" not found.`);
+        process.exitCode = 1;
+        return;
+      }
+
+      const effectiveMode = mode ?? suite.mode;
+      console.log(`[boop] Running baseline suite "${suite.name}" (${effectiveMode})...`);
+
+      const result = await runSuite(suite, {
+        mode: effectiveMode,
+        projectRoot: root,
+        onProgress: (caseId, phase, status) => {
+          console.log(`  [${caseId}] ${phase}: ${status}`);
+        },
+      });
+
+      const runId = saveResult(result);
+
+      // Save as blessed baseline
+      const benchDir = resolveBenchmarksDir();
+      fs.mkdirSync(benchDir, { recursive: true });
+      const baselinePath = path.join(benchDir, "baseline.json");
+      fs.writeFileSync(
+        baselinePath,
+        JSON.stringify({ suiteId: suite.id, runId }, null, 2),
+        "utf-8",
+      );
+
+      console.log(toMarkdown(result));
+      console.log(`[boop] Baseline saved: ${runId}`);
+
+      if (result.summary.failed > 0) {
         process.exitCode = 1;
       }
     });
