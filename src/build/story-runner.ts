@@ -121,6 +121,26 @@ Description: ${prd.description}
 - Do NOT commit changes — the build system handles commits.
 - Do NOT introduce mock data, placeholder implementations, or TODO markers in production code.
 - Keep changes focused and minimal.
+
+## TypeScript Import Rules
+
+This project uses \`"moduleResolution": "NodeNext"\` in tsconfig.json.
+All relative imports MUST include explicit \`.js\` file extensions, even for \`.ts\` source files.
+
+**Correct:**
+\`\`\`typescript
+import { foo } from "./utils.js";
+import { Bar } from "../types/bar.js";
+import type { Baz } from "./baz.js";
+\`\`\`
+
+**Wrong (will fail typecheck):**
+\`\`\`typescript
+import { foo } from "./utils";
+import { Bar } from "../types/bar";
+\`\`\`
+
+This applies to ALL relative imports — source files, test files, and type imports. Package imports (e.g. \`import React from "react"\`) do NOT need extensions.
 `;
 }
 
