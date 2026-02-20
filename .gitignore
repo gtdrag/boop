@@ -6,5 +6,7 @@ dist/
 .DS_Store
 coverage/
 .boop/
+.gauntlet-workspace/
+evolution-log.yaml
 *.key
 .vercel
