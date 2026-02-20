@@ -56,6 +56,32 @@ The gauntlet validates each heuristic release before shipping to customers: "Eve
 
 **Validate that Boop can actually build something.** None of this matters until the pipeline produces real, working software end-to-end. Run the gauntlet. See the output. Then decide.
 
+## Input Modes
+
+### Idea Mode (current)
+"Build me a to-do app" — one-liner, pipeline generates everything from scratch.
+
+### Blueprint Mode (planned)
+Drop in a detailed spec or PRD. Pipeline skips viability/PRD generation, parses it, goes straight to architecture + stories + build.
+
+### Brownfield Mode (planned)
+Point Boop at an existing repo. It reads the codebase, understands patterns, finds or generates PRDs based on what's there and what's missing, and picks up where the project left off — epic by epic. Like onboarding a new developer who can actually read.
+
+### Conversational Front Door (planned)
+Instead of a cold-start one-liner, Boop starts with a BMAD-style brainstorming conversation: "What problem are you solving? Who's the user? What exists already?" Back and forth, shaping the idea collaboratively. Then when you say "go," it switches to autonomous mode and builds. **Collaborative at the front, autonomous at the back.**
+
+Key insight: if Boop owns the flow from the first brainstorm, every artifact is born in the exact structured format downstream phases consume. No lossy parsing, no translation tax between phases. The brainstorm produces typed data that flows straight through planning → bridging → building → review.
+
+## Gauntlet as Model Benchmark
+
+The gauntlet tiers are a benchmark for LLM capability, not just Boop quality. Same tiers, same tests, different model — instant comparison. As new models release, rerun the gauntlet and see where the ceiling moves:
+
+- Model A: ceiling at T3 (auth breaks it)
+- Model B: ceiling at T4 (handles auth, struggles with payments)
+- Model C: T5
+
+All scaffolding improvements, prompt tuning, and structured data work carries forward. Each new model just hits *its* ceiling faster. The report card (`docs/report-card.md`) tracks the trajectory.
+
 ## Open Questions
 
 - Open source or closed?
