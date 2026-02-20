@@ -101,6 +101,11 @@ export function ensureBranch(branchName: string, cwd: string): string {
     return `Already on branch '${branchName}'`;
   }
 
+  // Auto-commit any dirty files before switching branches.
+  // The pipeline leaves .boop/ state files and build artifacts uncommitted
+  // between epics — these must be committed before branch checkout.
+  autoCommitDirtyFiles(cwd);
+
   if (branchExists(branchName, cwd)) {
     const result = runGit(["checkout", branchName], cwd);
     if (!result.success) {
@@ -116,6 +121,18 @@ export function ensureBranch(branchName: string, cwd: string): string {
     throw new Error(`Failed to create branch '${branchName}': ${result.output}`);
   }
   return `Created and switched to new branch '${branchName}' from ${base}`;
+}
+
+/**
+ * Auto-commit all dirty files in the working tree.
+ * Used before branch switches to prevent checkout failures.
+ */
+function autoCommitDirtyFiles(cwd: string): void {
+  const status = runGit(["status", "--porcelain"], cwd);
+  if (!status.success || status.output.trim().length === 0) return;
+
+  runGit(["add", "-A"], cwd);
+  runGit(["commit", "-m", "chore: auto-commit before branch switch"], cwd);
 }
 
 // ---------------------------------------------------------------------------
