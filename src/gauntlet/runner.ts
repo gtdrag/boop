@@ -76,6 +76,11 @@ export async function runGauntlet(options: GauntletRunOptions): Promise<Gauntlet
 
     onProgress?.(tier.id, `Tier ${tier.level} ${tierResult.success ? "passed" : "failed"} — reached ${tierResult.phaseReached}`);
 
+    // Log errors so they're visible in console output
+    for (const err of tierResult.errors) {
+      onProgress?.(tier.id, `ERROR: ${err}`);
+    }
+
     // Approval gate
     if (approvalCallback) {
       const report = generateTierReport(tierResult);
@@ -163,6 +168,10 @@ export async function runTier(
     const { PipelineOrchestrator } = await import("../pipeline/orchestrator.js");
 
     const orch = new PipelineOrchestrator(tierProjectDir, profile);
+
+    // Reset pipeline state so planning can start fresh.
+    // A previous crashed run may have left state.yaml mid-build.
+    orch.reset();
 
     onProgress?.(tier.id, "Running planning...");
 

@@ -22,6 +22,7 @@ const mockGetState = vi.fn().mockReturnValue({ phase: "PLANNING" });
 vi.mock("../pipeline/orchestrator.js", () => {
   return {
     PipelineOrchestrator: class MockOrchestrator {
+      reset = vi.fn();
       runPlanning = mockRunPlanning;
       getState = mockGetState;
     },
