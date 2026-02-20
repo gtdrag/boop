@@ -152,7 +152,12 @@ export async function runTier(
   const tierProjectDir = path.join(workspaceDir, `gauntlet-${tier.id}`);
   const errors: string[] = [];
 
-  // Create isolated project directory
+  // Clean and create isolated project directory.
+  // A previous crashed run may have left stale files that conflict
+  // with branch checkouts and scaffolding.
+  if (fs.existsSync(tierProjectDir)) {
+    fs.rmSync(tierProjectDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(tierProjectDir, { recursive: true });
 
   // Merge profile with tier overrides
