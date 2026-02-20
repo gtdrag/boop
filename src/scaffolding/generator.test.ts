@@ -282,16 +282,27 @@ describe("package.json generation", () => {
 // ---------------------------------------------------------------------------
 
 describe("tsconfig.json generation", () => {
-  it("creates tsconfig.json for TypeScript projects", () => {
-    const profile = makeProfile({ languages: ["typescript"] });
+  it("creates tsconfig.json for TypeScript projects with frontend framework", () => {
+    const profile = makeProfile({ languages: ["typescript"], frontendFramework: "next" });
     scaffoldProject(profile, tmpDir, { skipGitInit: true });
 
     expect(fileExists("tsconfig.json")).toBe(true);
     const tsconfig = readJson("tsconfig.json");
     const opts = tsconfig.compilerOptions as Record<string, unknown>;
     expect(opts.strict).toBe(true);
-    expect(opts.module).toBe("NodeNext");
+    expect(opts.module).toBe("ESNext");
+    expect(opts.moduleResolution).toBe("bundler");
     expect(opts.target).toBe("es2023");
+  });
+
+  it("creates tsconfig.json with NodeNext for backend-only projects", () => {
+    const profile = makeProfile({ languages: ["typescript"], frontendFramework: "none" });
+    scaffoldProject(profile, tmpDir, { skipGitInit: true });
+
+    const tsconfig = readJson("tsconfig.json");
+    const opts = tsconfig.compilerOptions as Record<string, unknown>;
+    expect(opts.module).toBe("NodeNext");
+    expect(opts.moduleResolution).toBe("NodeNext");
   });
 
   it("skips tsconfig.json for non-TypeScript projects", () => {

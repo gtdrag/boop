@@ -29,6 +29,13 @@ vi.mock("../planning/stories.js", () => ({
   generateStories: mockGenerateStories,
 }));
 
+// Prevent tests from loading review rules saved by gauntlet runs
+vi.mock("../review/adversarial/review-rules.js", () => ({
+  loadReviewRules: () => [],
+  saveReviewRules: vi.fn(),
+  mergeReviewRules: vi.fn(),
+}));
+
 const TEST_PROFILE: DeveloperProfile = {
   name: "Test Dev",
   languages: ["typescript"],
@@ -480,7 +487,7 @@ describe("PipelineOrchestrator", () => {
         "test app",
         TEST_PROFILE,
         PRD_RESULT.prd,
-        { projectDir: tmpDir },
+        expect.objectContaining({ projectDir: tmpDir }),
       );
     });
 
@@ -493,7 +500,7 @@ describe("PipelineOrchestrator", () => {
         TEST_PROFILE,
         PRD_RESULT.prd,
         ARCHITECTURE_RESULT.architecture,
-        { projectDir: tmpDir },
+        expect.objectContaining({ projectDir: tmpDir }),
       );
     });
 

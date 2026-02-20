@@ -65,6 +65,12 @@ function buildPackageJson(projectName: string, profile: DeveloperProfile): Recor
     scripts.typecheck = "tsc --noEmit";
   }
 
+  // Tailwind CSS for frontend projects
+  if (profile.frontendFramework !== "none") {
+    devDeps.tailwindcss = "^4.0.0";
+    devDeps["@tailwindcss/postcss"] = "^4.0.0";
+  }
+
   // Frontend framework
   switch (profile.frontendFramework) {
     case "next":
@@ -414,6 +420,45 @@ workflows:
 }
 
 // ---------------------------------------------------------------------------
+// Tailwind / PostCSS config generation
+// ---------------------------------------------------------------------------
+
+function buildPostCssConfig(
+  profile: DeveloperProfile,
+): { filename: string; content: string } | null {
+  if (profile.frontendFramework === "none") return null;
+
+  return {
+    filename: "postcss.config.mjs",
+    content: `export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+`,
+  };
+}
+
+function buildGlobalsCss(
+  profile: DeveloperProfile,
+): { filepath: string; content: string } | null {
+  switch (profile.frontendFramework) {
+    case "next":
+      return { filepath: "src/app/globals.css", content: "@import \"tailwindcss\";\n" };
+    case "vite-react":
+    case "vite-vue":
+      return { filepath: "src/index.css", content: "@import \"tailwindcss\";\n" };
+    case "remix":
+    case "astro":
+    case "sveltekit":
+    case "nuxt":
+      return { filepath: "src/styles/globals.css", content: "@import \"tailwindcss\";\n" };
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Gitignore
 // ---------------------------------------------------------------------------
 
@@ -530,14 +575,36 @@ export function scaffoldProject(
     }
   }
 
-  // --- 7. Generate .gitignore ---
+  // --- 7. Generate PostCSS config (Tailwind) ---
+  const postCssConfig = buildPostCssConfig(profile);
+  if (postCssConfig) {
+    const postCssPath = path.join(projectDir, postCssConfig.filename);
+    if (!fs.existsSync(postCssPath)) {
+      fs.writeFileSync(postCssPath, postCssConfig.content, "utf-8");
+      createdFiles.push(postCssConfig.filename);
+    }
+  }
+
+  // --- 8. Generate globals CSS (Tailwind base import) ---
+  const globalsCss = buildGlobalsCss(profile);
+  if (globalsCss) {
+    const cssDir = path.dirname(path.join(projectDir, globalsCss.filepath));
+    fs.mkdirSync(cssDir, { recursive: true });
+    const cssPath = path.join(projectDir, globalsCss.filepath);
+    if (!fs.existsSync(cssPath)) {
+      fs.writeFileSync(cssPath, globalsCss.content, "utf-8");
+      createdFiles.push(globalsCss.filepath);
+    }
+  }
+
+  // --- 9. Generate .gitignore ---
   const gitignorePath = path.join(projectDir, ".gitignore");
   if (!fs.existsSync(gitignorePath)) {
     fs.writeFileSync(gitignorePath, buildGitignore(), "utf-8");
     createdFiles.push(".gitignore");
   }
 
-  // --- 8. Initialize git repo ---
+  // --- 10. Initialize git repo ---
   let gitInitialized = false;
   if (!options?.skipGitInit) {
     const gitDir = path.join(projectDir, ".git");
