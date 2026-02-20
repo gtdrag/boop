@@ -124,23 +124,12 @@ Description: ${prd.description}
 
 ## TypeScript Import Rules
 
-This project uses \`"moduleResolution": "NodeNext"\` in tsconfig.json.
-All relative imports MUST include explicit \`.js\` file extensions, even for \`.ts\` source files.
+Check the project's tsconfig.json for the \`moduleResolution\` setting:
 
-**Correct:**
-\`\`\`typescript
-import { foo } from "./utils.js";
-import { Bar } from "../types/bar.js";
-import type { Baz } from "./baz.js";
-\`\`\`
+- If \`"moduleResolution": "NodeNext"\` — all relative imports MUST include explicit \`.js\` file extensions (e.g. \`from "./utils.js"\`).
+- If \`"moduleResolution": "bundler"\` — do NOT use file extensions on relative imports (e.g. \`from "./utils"\`). This is the standard for Next.js, Vite, Remix, and other bundled projects.
 
-**Wrong (will fail typecheck):**
-\`\`\`typescript
-import { foo } from "./utils";
-import { Bar } from "../types/bar";
-\`\`\`
-
-This applies to ALL relative imports — source files, test files, and type imports. Package imports (e.g. \`import React from "react"\`) do NOT need extensions.
+Follow whichever convention the tsconfig specifies. Package imports (e.g. \`from "react"\`) never need extensions.
 `;
 }
 

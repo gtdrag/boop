@@ -201,11 +201,15 @@ function buildPackageJson(projectName: string, profile: DeveloperProfile): Recor
 function buildTsConfig(profile: DeveloperProfile): Record<string, unknown> | null {
   if (profile.languages[0] !== "typescript") return null;
 
+  // Frontend frameworks use bundlers (webpack/vite/turbopack) which need
+  // moduleResolution: "bundler". Pure Node.js backends use "NodeNext".
+  const useBundler = profile.frontendFramework !== "none";
+
   const config: Record<string, unknown> = {
     compilerOptions: {
       target: "es2023",
-      module: "NodeNext",
-      moduleResolution: "NodeNext",
+      module: useBundler ? "ESNext" : "NodeNext",
+      moduleResolution: useBundler ? "bundler" : "NodeNext",
       strict: true,
       esModuleInterop: true,
       skipLibCheck: true,
