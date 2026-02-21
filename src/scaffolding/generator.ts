@@ -468,6 +468,7 @@ dist/
 .env
 .env.local
 *.log
+logs/
 .DS_Store
 coverage/
 .boop/

@@ -57,6 +57,13 @@ Use this checklist to validate that architecture decisions are complete, justifi
 - [ ] Input validation strategy specified
 - [ ] Security measures match PRD security requirements
 
+## Logging & Observability
+
+- [ ] Structured logger used (`src/lib/logger.ts` — auto-scaffolded)
+- [ ] Log levels defined (debug, info, warn, error)
+- [ ] File output for backend projects (`logs/app.jsonl`)
+- [ ] Sensitive data excluded from logs
+
 ## Overall Quality
 
 - [ ] Pragmatic for MVP (not over-engineered)

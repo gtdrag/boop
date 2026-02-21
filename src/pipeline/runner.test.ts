@@ -43,6 +43,7 @@ const {
   mockMergeRules,
   mockSaveReviewRules,
   mockGenerateRiskPolicyDefaults,
+  mockGenerateLoggingDefaults,
   mockCreateInteractiveApprovalGate,
   mockCreateMessagingApprovalGate,
 } = vi.hoisted(() => ({
@@ -79,6 +80,7 @@ const {
   mockMergeRules: vi.fn(),
   mockSaveReviewRules: vi.fn(),
   mockGenerateRiskPolicyDefaults: vi.fn(),
+  mockGenerateLoggingDefaults: vi.fn(),
   mockCreateInteractiveApprovalGate: vi.fn(),
   mockCreateMessagingApprovalGate: vi.fn(),
 }));
@@ -111,6 +113,9 @@ vi.mock("../scaffolding/defaults/deployment.js", () => ({
 }));
 vi.mock("../scaffolding/defaults/risk-policy.js", () => ({
   generateRiskPolicyDefaults: mockGenerateRiskPolicyDefaults,
+}));
+vi.mock("../scaffolding/defaults/logging.js", () => ({
+  generateLoggingDefaults: mockGenerateLoggingDefaults,
 }));
 vi.mock("../deployment/deployer.js", () => ({
   deploy: mockDeploy,
@@ -327,6 +332,7 @@ describe("runFullPipeline", () => {
     mockGenerateSecurityHeaderDefaults.mockReturnValue([]);
     mockGenerateDeploymentDefaults.mockReturnValue([]);
     mockGenerateRiskPolicyDefaults.mockReturnValue([]);
+    mockGenerateLoggingDefaults.mockReturnValue([]);
     mockLoadRiskPolicy.mockReturnValue(null);
     mockLoadReviewRules.mockReturnValue([]);
     mockGetChangedFiles.mockResolvedValue([]);

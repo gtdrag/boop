@@ -26,6 +26,7 @@ import { generateAccessibilityDefaults } from "../scaffolding/defaults/accessibi
 import { generateSecurityHeaderDefaults } from "../scaffolding/defaults/security-headers.js";
 import { generateDeploymentDefaults } from "../scaffolding/defaults/deployment.js";
 import { generateRiskPolicyDefaults } from "../scaffolding/defaults/risk-policy.js";
+import { generateLoggingDefaults } from "../scaffolding/defaults/logging.js";
 import { runLoopIteration } from "../build/ralph-loop.js";
 import type { LoopResult } from "../build/ralph-loop.js";
 import type { TestSuiteResult, ReviewPhaseResult } from "../review/team-orchestrator.js";
@@ -114,6 +115,7 @@ function applyScaffoldingDefaults(
     ...generateSecurityHeaderDefaults(profile),
     ...generateDeploymentDefaults(profile),
     ...generateRiskPolicyDefaults(profile),
+    ...generateLoggingDefaults(profile),
   ];
 
   for (const file of allFiles) {

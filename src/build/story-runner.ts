@@ -122,6 +122,18 @@ Description: ${prd.description}
 - Do NOT introduce mock data, placeholder implementations, or TODO markers in production code.
 - Keep changes focused and minimal.
 
+## Logging
+
+This project includes a structured logger at \`src/lib/logger.ts\`. Use it throughout:
+
+- Create a module-scoped logger at the top of every file: \`const log = createLogger("module-name")\`
+- Log function entry with key parameters at debug level
+- Log all external calls (API, DB, file I/O) at info level with timing
+- Log state transitions and business logic decisions at info level
+- Log errors with full context (error message, relevant IDs, what was attempted)
+- Use levels: debug (flow/variables), info (actions/events), warn (recoverable), error (failures)
+- Never log secrets, tokens, or passwords
+
 ## TypeScript Import Rules
 
 Check the project's tsconfig.json for the \`moduleResolution\` setting:
