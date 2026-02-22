@@ -209,11 +209,11 @@ describe("prd", () => {
       expect(fs.readFileSync(savedPath, "utf-8")).toContain("Product Requirements Document");
     });
 
-    it("uses profile aiModel for the API call", async () => {
+    it("uses Sonnet model via model router for planning", async () => {
       mockSendMessage.mockResolvedValueOnce({
         text: SAMPLE_PRD,
         usage: { inputTokens: 50, outputTokens: 100 },
-        model: "claude-opus-4-6",
+        model: "claude-sonnet-4-5-20250929",
       });
 
       await generatePrd("test idea", TEST_PROFILE, SAMPLE_VIABILITY, {
@@ -222,7 +222,7 @@ describe("prd", () => {
 
       expect(mockSendMessage).toHaveBeenCalledOnce();
       const callArgs = mockSendMessage.mock.calls[0]!;
-      expect(callArgs[0].model).toBe("claude-opus-4-6");
+      expect(callArgs[0].model).toBe("claude-sonnet-4-5-20250929");
     });
 
     it("includes viability assessment in the user message", async () => {
@@ -274,11 +274,11 @@ describe("prd", () => {
       expect(callArgs[0].maxTokens).toBe(8192);
     });
 
-    it("passes system prompt from the prompts directory", async () => {
+    it("passes system prompt as cacheable blocks", async () => {
       mockSendMessage.mockResolvedValueOnce({
         text: SAMPLE_PRD,
         usage: { inputTokens: 50, outputTokens: 100 },
-        model: "claude-opus-4-6",
+        model: "claude-sonnet-4-5-20250929",
       });
 
       await generatePrd("idea", TEST_PROFILE, SAMPLE_VIABILITY, {
@@ -287,7 +287,9 @@ describe("prd", () => {
 
       const callArgs = mockSendMessage.mock.calls[0]!;
       const systemPrompt = callArgs[1];
-      expect(systemPrompt).toContain("PRD Generation");
+      expect(Array.isArray(systemPrompt)).toBe(true);
+      expect(systemPrompt[0].text).toContain("PRD Generation");
+      expect(systemPrompt[0].cache_control).toEqual({ type: "ephemeral" });
     });
   });
 });

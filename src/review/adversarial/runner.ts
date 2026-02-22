@@ -15,6 +15,7 @@ import { promisify } from "node:util";
 import { sendMessage, isRetryableApiError } from "../../shared/claude-client.js";
 import type { ClaudeClientOptions } from "../../shared/claude-client.js";
 import { retry } from "../../shared/retry.js";
+import { buildCacheableSystemPrompt } from "../../shared/system-prompt-builder.js";
 import type { ReviewFinding } from "../team-orchestrator.js";
 import { truncate, parseFindings, readFileContent } from "../shared.js";
 import type { ReviewRule } from "./review-rules.js";
@@ -248,16 +249,18 @@ async function runSingleAgent(
     };
   }
 
-  let systemPrompt = AGENT_PROMPTS[agentType];
+  const basePrompt = AGENT_PROMPTS[agentType];
+  const dynamic: string[] = [];
 
   // Append review rules context if available
   if (reviewRules && reviewRules.length > 0) {
     const rulesSection = buildRulesPromptSection(reviewRules, agentType);
     if (rulesSection) {
-      systemPrompt += "\n" + rulesSection;
+      dynamic.push(rulesSection);
     }
   }
 
+  const systemPrompt = buildCacheableSystemPrompt(basePrompt, dynamic.length ? dynamic : undefined);
   const userMessage = buildUserMessage(files);
 
   const response = await retry(

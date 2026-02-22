@@ -185,6 +185,23 @@ describe("cli strategy", () => {
     expect(result.error).toContain("exited with code 1");
   });
 
+  it("extracts URL even on non-zero exit code", async () => {
+    mockGetProviderConfig.mockReturnValue(cliConfig);
+    mockSpawn.mockReturnValue(
+      fakeSpawnSuccess(
+        "https://my-app-abc123.vercel.app\nInspect: https://vercel.com/...",
+        "Error: Command \"pnpm build\" exited with 1",
+        1,
+      ),
+    );
+
+    const result = await deploy(baseOptions);
+
+    expect(result.success).toBe(false);
+    expect(result.url).toBe("https://my-app-abc123.vercel.app");
+    expect(result.error).toContain("exited with code 1");
+  });
+
   it("handles ENOENT (CLI not installed)", async () => {
     mockGetProviderConfig.mockReturnValue(cliConfig);
     mockSpawn.mockReturnValue(fakeSpawnError("spawn npx ENOENT"));

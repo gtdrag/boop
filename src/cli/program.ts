@@ -5,6 +5,8 @@
  * Derived from OpenClaw's CLI framework (MIT license).
  */
 import { Command } from "commander";
+import fs from "node:fs";
+import path from "node:path";
 import { VERSION } from "../version.js";
 import { PipelineOrchestrator, PlanningPhaseError } from "../pipeline/orchestrator.js";
 import {
@@ -13,9 +15,22 @@ import {
   loadProfileFromDisk,
   runOnboarding,
 } from "../config/index.js";
+import { DEFAULT_PROFILE } from "../profile/defaults.js";
 import type { DeveloperProfile } from "../shared/types.js";
 import { registerBenchmarkCommands } from "../benchmark/commands.js";
 import { registerGauntletCommands } from "../gauntlet/commands.js";
+
+/**
+ * Resolve the project directory from CLI flag, explicit param, or cwd.
+ * Creates the directory if it doesn't exist.
+ */
+function resolveProjectDir(cliFlag?: string, explicitParam?: string): string {
+  const dir = cliFlag ? path.resolve(cliFlag) : explicitParam ?? process.cwd();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -31,6 +46,7 @@ export function buildProgram(): Command {
     .option("--resume", "resume an interrupted pipeline")
     .option("--autonomous", "run in fully autonomous mode (no prompts)")
     .option("--sandbox", "run build agents inside Docker containers for isolation")
+    .option("--project-dir <path>", "project directory (created if it doesn't exist)")
     .action(async (idea: string | undefined, opts: CliOptions) => {
       await handleCli(idea, opts);
     });
@@ -48,6 +64,7 @@ export interface CliOptions {
   resume?: boolean;
   autonomous?: boolean;
   sandbox?: boolean;
+  projectDir?: string;
 }
 
 export async function handleCli(
@@ -57,6 +74,9 @@ export async function handleCli(
   /** Override global config dir for testing. */
   globalConfigDir?: string,
 ): Promise<void> {
+  // Resolve project directory: --project-dir flag > explicit param > cwd
+  const resolvedProjectDir = resolveProjectDir(opts.projectDir, projectDir);
+
   // Initialize global ~/.boop/ directory structure on every run
   const { needsOnboarding, stateDir } = initGlobalConfig(globalConfigDir);
 
@@ -70,22 +90,29 @@ export async function handleCli(
   }
 
   if (needsOnboarding) {
-    await runOnboarding(stateDir);
+    if (opts.autonomous) {
+      // In autonomous mode, skip interactive onboarding and use defaults
+      console.log("[boop] No profile found — using default profile for autonomous mode.");
+    } else {
+      await runOnboarding(stateDir);
+    }
   }
 
-  // Load profile for pipeline operations
-  const profile = loadProfileFromDisk(stateDir);
+  // Load profile for pipeline operations (fall back to defaults in autonomous mode)
+  let profile = loadProfileFromDisk(stateDir);
+  if (!profile && opts.autonomous) {
+    profile = { ...DEFAULT_PROFILE, name: "autonomous" };
+  }
 
   if (opts.status) {
-    const orch = new PipelineOrchestrator(projectDir ?? process.cwd(), profile ?? undefined);
+    const orch = new PipelineOrchestrator(resolvedProjectDir, profile ?? undefined);
     console.log(orch.formatStatus());
     return;
   }
 
   if (opts.review) {
-    const dir = projectDir ?? process.cwd();
     const { loadState } = await import("../pipeline/state.js");
-    const state = loadState(dir);
+    const state = loadState(resolvedProjectDir);
 
     if (!state || state.phase !== "REVIEWING" || state.epicNumber === 0) {
       console.log("[boop] No active epic in REVIEWING phase. Nothing to review.");
@@ -103,7 +130,7 @@ export async function handleCli(
     const testSuiteRunner = async () => {
       try {
         const output = execSync("pnpm test", {
-          cwd: dir,
+          cwd: resolvedProjectDir,
           encoding: "utf-8",
           stdio: ["pipe", "pipe", "pipe"],
           timeout: 300_000,
@@ -117,17 +144,17 @@ export async function handleCli(
     };
 
     const loopResult = await runAdversarialLoop({
-      projectDir: dir,
+      projectDir: resolvedProjectDir,
       epicNumber: state.epicNumber,
       testSuiteRunner,
       onProgress: (iter, phase, msg) => console.log(`[boop] [iter ${iter}] ${phase}: ${msg}`),
     });
 
-    const summary = generateAdversarialSummary(dir, state.epicNumber, loopResult);
+    const summary = generateAdversarialSummary(resolvedProjectDir, state.epicNumber, loopResult);
     const reviewResult = toReviewPhaseResult(state.epicNumber, loopResult);
 
     const signOffResult = await runEpicSignOff({
-      projectDir: dir,
+      projectDir: resolvedProjectDir,
       epicNumber: state.epicNumber,
       reviewResult,
     });
@@ -143,7 +170,7 @@ export async function handleCli(
   }
 
   if (opts.resume) {
-    const orch = new PipelineOrchestrator(projectDir ?? process.cwd(), profile ?? undefined);
+    const orch = new PipelineOrchestrator(resolvedProjectDir, profile ?? undefined);
     const context = orch.formatResumeContext();
     console.log(context);
 
@@ -166,7 +193,7 @@ export async function handleCli(
       console.log("[boop] No developer profile found. Please run onboarding first.");
       return;
     }
-    await startPipeline(idea, profile, projectDir ?? process.cwd(), opts.autonomous, opts.sandbox);
+    await startPipeline(idea, profile, resolvedProjectDir, opts.autonomous, opts.sandbox);
     return;
   }
 

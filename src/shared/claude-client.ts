@@ -6,6 +6,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createCredentialStore } from "../security/credentials.js";
+import type { SystemPromptBlock } from "./system-prompt-builder.js";
 
 const DEFAULT_MODEL = "claude-opus-4-6";
 const DEFAULT_MAX_TOKENS = 4096;
@@ -31,6 +32,10 @@ export interface ClaudeResponse {
   usage: {
     inputTokens: number;
     outputTokens: number;
+    /** Tokens used to create a new cache entry (first call with this prompt). */
+    cacheCreationInputTokens?: number;
+    /** Tokens read from an existing cache entry (subsequent calls). */
+    cacheReadInputTokens?: number;
   };
   /** The model that was used. */
   model: string;
@@ -52,23 +57,32 @@ export function createAnthropicClient(apiKey?: string): Anthropic {
  * Send a message to Claude and get a text response.
  *
  * @param options - Client options (API key, model, max tokens)
- * @param systemPrompt - System prompt to set Claude's behavior
+ * @param systemPrompt - System prompt as a string (no caching) or SystemPromptBlock[] (with caching)
  * @param messages - Conversation messages
  * @returns The text response from Claude
  */
 export async function sendMessage(
   options: ClaudeClientOptions,
-  systemPrompt: string,
+  systemPrompt: string | SystemPromptBlock[],
   messages: ClaudeMessage[],
 ): Promise<ClaudeResponse> {
   const client = createAnthropicClient(options.apiKey);
   const model = options.model ?? DEFAULT_MODEL;
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
 
+  // Convert SystemPromptBlock[] to Anthropic API format, or pass string as-is
+  const system = Array.isArray(systemPrompt)
+    ? systemPrompt.map((block) => ({
+        type: "text" as const,
+        text: block.text,
+        ...(block.cache_control ? { cache_control: block.cache_control } : {}),
+      }))
+    : systemPrompt;
+
   const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
-    system: systemPrompt,
+    system,
     messages: messages.map((m) => ({
       role: m.role,
       content: m.content,
@@ -78,11 +92,16 @@ export async function sendMessage(
   const textBlock = response.content.find((block) => block.type === "text");
   const text = textBlock?.type === "text" ? textBlock.text : "";
 
+  // Extract cache metrics from response usage (if present)
+  const rawUsage = response.usage as unknown as Record<string, unknown>;
+
   return {
     text,
     usage: {
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
+      cacheCreationInputTokens: (rawUsage.cache_creation_input_tokens as number) ?? undefined,
+      cacheReadInputTokens: (rawUsage.cache_read_input_tokens as number) ?? undefined,
     },
     model: response.model,
   };

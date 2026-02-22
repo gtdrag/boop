@@ -7,7 +7,13 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { sendMessage, isRetryableApiError, retry } from "../shared/index.js";
+import {
+  sendMessage,
+  isRetryableApiError,
+  retry,
+  resolveModel,
+  buildCacheableSystemPrompt,
+} from "../shared/index.js";
 import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
 import type { ReviewRule } from "../review/adversarial/review-rules.js";
@@ -110,21 +116,23 @@ export async function generateArchitecture(
   prd: string,
   options: ArchitectureOptions = {},
 ): Promise<ArchitectureResult> {
-  let systemPrompt = loadSystemPrompt(options.promptDir);
+  const basePrompt = loadSystemPrompt(options.promptDir);
+  const dynamic: string[] = [];
   if (options.reviewRules && options.reviewRules.length > 0) {
-    systemPrompt = augmentPrompt(systemPrompt, options.reviewRules, "architecture", profile);
+    dynamic.push(augmentPrompt("", options.reviewRules, "architecture", profile));
   }
   if (options.archDecisions && options.archDecisions.length > 0) {
-    systemPrompt += "\n" + formatDecisionsForPrompt(options.archDecisions);
+    dynamic.push(formatDecisionsForPrompt(options.archDecisions));
   }
   if (options.heuristics && options.heuristics.length > 0) {
-    systemPrompt += "\n" + formatHeuristicsForPrompt(options.heuristics);
+    dynamic.push(formatHeuristicsForPrompt(options.heuristics));
   }
+  const systemPrompt = buildCacheableSystemPrompt(basePrompt, dynamic.length ? dynamic : undefined);
   const userMessage = buildUserMessage(idea, profile, prd);
   const projectDir = options.projectDir ?? process.cwd();
 
   const clientOptions: ClaudeClientOptions = {
-    model: profile.aiModel || undefined,
+    model: resolveModel("planning", profile),
     maxTokens: 8192,
     ...options.clientOptions,
   };

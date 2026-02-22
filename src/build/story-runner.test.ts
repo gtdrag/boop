@@ -114,6 +114,12 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(makePrd(), tmpDir);
     expect(prompt).toContain("Do NOT commit");
   });
+
+  it("instructs agent to use lazy initialization for env-dependent resources", () => {
+    const prompt = buildSystemPrompt(makePrd(), tmpDir);
+    expect(prompt).toContain("Never throw errors or crash at module load time");
+    expect(prompt).toContain("lazy initialization");
+  });
 });
 
 // ---------------------------------------------------------------------------

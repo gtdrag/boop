@@ -15,15 +15,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import type { DeveloperProfile } from "../shared/types.js";
+import { resolveModel } from "../shared/model-router.js";
 import type { PipelineOrchestrator } from "./orchestrator.js";
 import { parseStoryMarkdown } from "../bridge/parser.js";
 import { convertToPrd, savePrd } from "../bridge/converter.js";
 import type { ProjectMetadata } from "../bridge/converter.js";
 import { scaffoldProject } from "../scaffolding/generator.js";
 import { generateSeoDefaults } from "../scaffolding/defaults/seo.js";
-import { generateAnalyticsDefaults } from "../scaffolding/defaults/analytics.js";
+import { generateAnalyticsDefaults, getAnalyticsDeps } from "../scaffolding/defaults/analytics.js";
 import { generateAccessibilityDefaults } from "../scaffolding/defaults/accessibility.js";
-import { generateSecurityHeaderDefaults } from "../scaffolding/defaults/security-headers.js";
+import {
+  generateSecurityHeaderDefaults,
+  getSecurityDeps,
+} from "../scaffolding/defaults/security-headers.js";
 import { generateDeploymentDefaults } from "../scaffolding/defaults/deployment.js";
 import { generateRiskPolicyDefaults } from "../scaffolding/defaults/risk-policy.js";
 import { generateLoggingDefaults } from "../scaffolding/defaults/logging.js";
@@ -127,6 +131,40 @@ function applyScaffoldingDefaults(
       const msg = error instanceof Error ? error.message : String(error);
       onProgress?.("SCAFFOLDING", `Warning: failed to write ${file.filepath}: ${msg}`);
     }
+  }
+}
+
+/**
+ * Merge dependencies from scaffolding defaults (analytics, security) into
+ * the project's package.json. The default generators create files that
+ * import these packages, so they must be present for typecheck/build to pass.
+ */
+function mergeDefaultDeps(
+  profile: DeveloperProfile,
+  projectDir: string,
+  onProgress?: PipelineRunnerOptions["onProgress"],
+): void {
+  const pkgPath = path.join(projectDir, "package.json");
+  if (!fs.existsSync(pkgPath)) return;
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    const deps = pkg.dependencies ?? {};
+    const devDeps = pkg.devDependencies ?? {};
+
+    const analyticsDeps = getAnalyticsDeps(profile);
+    const securityDeps = getSecurityDeps(profile);
+
+    Object.assign(deps, analyticsDeps.dependencies, securityDeps.dependencies);
+    Object.assign(devDeps, analyticsDeps.devDependencies, securityDeps.devDependencies);
+
+    pkg.dependencies = deps;
+    pkg.devDependencies = devDeps;
+
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    onProgress?.("SCAFFOLDING", `Warning: failed to merge default deps: ${msg}`);
   }
 }
 
@@ -261,6 +299,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
 
         scaffoldProject(profile, projectDir);
         applyScaffoldingDefaults(profile, projectDir, onProgress);
+        mergeDefaultDeps(profile, projectDir, onProgress);
         orch.completeScaffolding();
 
         onProgress?.("SCAFFOLDING", "Scaffolding complete");
@@ -278,7 +317,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
         const result: LoopResult = await runLoopIteration({
           projectDir,
           prdPath,
-          model: profile.aiModel || undefined,
+          model: resolveModel("building", profile),
           epicNumber,
           sandboxed,
         });
@@ -352,7 +391,7 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
           projectDir,
           epicNumber,
           testSuiteRunner: createTestSuiteRunner(projectDir),
-          model: profile.aiModel || undefined,
+          model: resolveModel("review", profile),
           onProgress: (iter, phase, msg) =>
             onProgress?.("REVIEWING", `[iter ${iter}] ${phase}: ${msg}`),
           ...tierOptions,

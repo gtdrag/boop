@@ -149,6 +149,9 @@ export interface DeveloperProfile {
   /** AI model preference. */
   aiModel: string;
 
+  /** Per-phase model overrides for cost optimization. */
+  modelOverrides?: ModelOverrides;
+
   /** Whether to run in autonomous mode by default. */
   autonomousByDefault: boolean;
 
@@ -169,6 +172,14 @@ export interface DeveloperProfile {
 
   /** Whether to run prompt evolution after retrospective. Defaults to false. */
   autoEvolvePrompts?: boolean;
+}
+
+/** Per-phase model overrides for cost optimization. */
+export interface ModelOverrides {
+  planning?: string;
+  building?: string;
+  review?: string;
+  retrospective?: string;
 }
 
 /**

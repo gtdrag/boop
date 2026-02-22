@@ -27,8 +27,8 @@ describe("backend project", () => {
     expect(files[0]!.content).toContain("logs/app.jsonl");
   });
 
-  it("includes LOG_LEVEL env var handling", () => {
-    const profile = makeProfile({ backendFramework: "express" });
+  it("includes LOG_LEVEL and LOG_FILE env var handling", () => {
+    const profile = makeProfile({ backendFramework: "express", frontendFramework: "none" });
     const files = generateLoggingDefaults(profile);
 
     expect(files[0]!.content).toContain("LOG_LEVEL");
@@ -41,14 +41,15 @@ describe("backend project", () => {
 // ---------------------------------------------------------------------------
 
 describe("full-stack project", () => {
-  it("generates backend logger variant (with file output)", () => {
+  it("generates frontend-safe logger (no node: imports that break webpack)", () => {
     const profile = makeProfile({ backendFramework: "express", frontendFramework: "next" });
     const files = generateLoggingDefaults(profile);
 
     expect(files).toHaveLength(1);
     expect(files[0]!.filepath).toBe("src/lib/logger.ts");
-    expect(files[0]!.content).toContain("node:fs");
-    expect(files[0]!.content).toContain("appendFileSync");
+    expect(files[0]!.content).not.toContain("node:fs");
+    expect(files[0]!.content).not.toContain("appendFileSync");
+    expect(files[0]!.content).toContain("createLogger");
   });
 });
 
@@ -95,7 +96,7 @@ describe("non-project", () => {
 
 describe("logger content", () => {
   it("backend logger exports Logger interface", () => {
-    const profile = makeProfile({ backendFramework: "express" });
+    const profile = makeProfile({ backendFramework: "express", frontendFramework: "none" });
     const files = generateLoggingDefaults(profile);
 
     expect(files[0]!.content).toContain("export interface Logger");
@@ -111,7 +112,7 @@ describe("logger content", () => {
   });
 
   it("backend logger has all four log methods", () => {
-    const profile = makeProfile({ backendFramework: "express" });
+    const profile = makeProfile({ backendFramework: "express", frontendFramework: "none" });
     const files = generateLoggingDefaults(profile);
     const content = files[0]!.content;
 

@@ -77,6 +77,10 @@ function buildPackageJson(projectName: string, profile: DeveloperProfile): Recor
       deps.next = "^15.0.0";
       deps.react = "^19.0.0";
       deps["react-dom"] = "^19.0.0";
+      if (isTypeScript) {
+        devDeps["@types/react"] = "^19.0.0";
+        devDeps["@types/react-dom"] = "^19.0.0";
+      }
       scripts.dev = "next dev";
       scripts.build = "next build";
       scripts.start = "next start";
@@ -84,6 +88,10 @@ function buildPackageJson(projectName: string, profile: DeveloperProfile): Recor
     case "remix":
       deps["@remix-run/node"] = "^2.0.0";
       deps["@remix-run/react"] = "^2.0.0";
+      if (isTypeScript) {
+        devDeps["@types/react"] = "^19.0.0";
+        devDeps["@types/react-dom"] = "^19.0.0";
+      }
       scripts.dev = "remix dev";
       scripts.build = "remix build";
       break;
@@ -105,6 +113,10 @@ function buildPackageJson(projectName: string, profile: DeveloperProfile): Recor
     case "vite-react":
       deps.react = "^19.0.0";
       deps["react-dom"] = "^19.0.0";
+      if (isTypeScript) {
+        devDeps["@types/react"] = "^19.0.0";
+        devDeps["@types/react-dom"] = "^19.0.0";
+      }
       devDeps.vite = "^6.0.0";
       scripts.dev = "vite";
       scripts.build = "vite build";

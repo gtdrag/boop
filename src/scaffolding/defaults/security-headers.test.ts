@@ -127,6 +127,32 @@ describe("security headers for generic projects", () => {
 // All header types include required headers
 // ---------------------------------------------------------------------------
 
+describe("CSP includes unsafe-inline for frontend frameworks", () => {
+  it("Next.js CSP has unsafe-inline for script-src and style-src", () => {
+    const profile = makeProfile({ frontendFramework: "next" });
+    const files = generateSecurityHeaderDefaults(profile);
+    const content = files[0]!.content;
+    expect(content).toContain("script-src 'self' 'unsafe-inline'");
+    expect(content).toContain("style-src 'self' 'unsafe-inline'");
+  });
+
+  it("Express CSP has unsafe-inline for script-src and style-src", () => {
+    const profile = makeProfile({ frontendFramework: "vite-react", backendFramework: "express" });
+    const files = generateSecurityHeaderDefaults(profile);
+    const content = files[0]!.content;
+    expect(content).toContain("script-src 'self' 'unsafe-inline'");
+    expect(content).toContain("style-src 'self' 'unsafe-inline'");
+  });
+
+  it("Generic CSP has unsafe-inline for script-src and style-src", () => {
+    const profile = makeProfile({ frontendFramework: "astro", backendFramework: "none" });
+    const files = generateSecurityHeaderDefaults(profile);
+    const content = files[0]!.content;
+    expect(content).toContain("script-src 'self' 'unsafe-inline'");
+    expect(content).toContain("style-src 'self' 'unsafe-inline'");
+  });
+});
+
 describe("all header configs include required headers", () => {
   const requiredHeaders = [
     "Content-Security-Policy",

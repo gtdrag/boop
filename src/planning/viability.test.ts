@@ -198,11 +198,11 @@ describe("viability", () => {
       expect(fs.readFileSync(savedPath, "utf-8")).toContain("Viability Assessment");
     });
 
-    it("uses profile aiModel for the API call", async () => {
+    it("uses Sonnet model via model router for planning", async () => {
       mockSendMessage.mockResolvedValueOnce({
         text: "**CONCERNS**",
         usage: { inputTokens: 50, outputTokens: 100 },
-        model: "claude-opus-4-6",
+        model: "claude-sonnet-4-5-20250929",
       });
 
       await assessViability("test idea", TEST_PROFILE, {
@@ -211,7 +211,7 @@ describe("viability", () => {
 
       expect(mockSendMessage).toHaveBeenCalledOnce();
       const callArgs = mockSendMessage.mock.calls[0]!;
-      expect(callArgs[0].model).toBe("claude-opus-4-6");
+      expect(callArgs[0].model).toBe("claude-sonnet-4-5-20250929");
     });
 
     it("includes profile context in the user message", async () => {

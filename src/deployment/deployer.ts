@@ -165,21 +165,21 @@ function runCliDeploy(
         return;
       }
 
+      // Extract URL from output (even on failure — deploy may have partially succeeded)
+      const urlMatch = stdout.match(command.urlPattern) ?? stderr.match(command.urlPattern);
+      const url = urlMatch ? urlMatch[0] : null;
+
       // Handle non-zero exit code
       if (code !== null && code !== 0) {
         settle({
           success: false,
-          url: null,
+          url,
           output: fullOutput,
           error: `${command.displayName} exited with code ${code}${stderr ? `: ${stderr.slice(0, 500)}` : ""}`,
           provider: command.displayName,
         });
         return;
       }
-
-      // Extract URL from output
-      const urlMatch = stdout.match(command.urlPattern) ?? stderr.match(command.urlPattern);
-      const url = urlMatch ? urlMatch[0] : null;
 
       settle({
         success: true,

@@ -6,7 +6,13 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { sendMessage, isRetryableApiError, retry } from "../shared/index.js";
+import {
+  sendMessage,
+  isRetryableApiError,
+  retry,
+  resolveModel,
+  buildCacheableSystemPrompt,
+} from "../shared/index.js";
 import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
 import type { ReviewRule } from "../review/adversarial/review-rules.js";
@@ -115,18 +121,20 @@ export async function generateStories(
   architecture: string,
   options: StoriesOptions = {},
 ): Promise<StoriesResult> {
-  let systemPrompt = loadSystemPrompt(options.promptDir);
+  const basePrompt = loadSystemPrompt(options.promptDir);
+  const dynamic: string[] = [];
   if (options.reviewRules && options.reviewRules.length > 0) {
-    systemPrompt = augmentPrompt(systemPrompt, options.reviewRules, "stories", profile);
+    dynamic.push(augmentPrompt("", options.reviewRules, "stories", profile));
   }
   if (options.heuristics && options.heuristics.length > 0) {
-    systemPrompt += "\n" + formatHeuristicsForPrompt(options.heuristics);
+    dynamic.push(formatHeuristicsForPrompt(options.heuristics));
   }
+  const systemPrompt = buildCacheableSystemPrompt(basePrompt, dynamic.length ? dynamic : undefined);
   const userMessage = buildUserMessage(idea, profile, prd, architecture);
   const projectDir = options.projectDir ?? process.cwd();
 
   const clientOptions: ClaudeClientOptions = {
-    model: profile.aiModel || undefined,
+    model: resolveModel("planning", profile),
     maxTokens: 8192,
     ...options.clientOptions,
   };

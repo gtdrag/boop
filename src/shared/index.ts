@@ -26,3 +26,7 @@ export { retry, RetryError } from "./retry.js";
 export type { RetryOptions } from "./retry.js";
 export { createAnthropicClient, sendMessage, isRetryableApiError } from "./claude-client.js";
 export type { ClaudeClientOptions, ClaudeMessage, ClaudeResponse } from "./claude-client.js";
+export { resolveModel } from "./model-router.js";
+export type { PipelinePhaseGroup } from "./model-router.js";
+export { buildCacheableSystemPrompt } from "./system-prompt-builder.js";
+export type { SystemPromptBlock } from "./system-prompt-builder.js";

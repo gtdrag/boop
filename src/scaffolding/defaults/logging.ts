@@ -188,7 +188,10 @@ export function generateLoggingDefaults(profile: DeveloperProfile): GeneratedFil
     return [];
   }
 
-  const content = hasBackend ? buildBackendLogger() : buildFrontendLogger();
+  // Full-stack projects (frontend + backend) must use the frontend-safe logger
+  // because Next.js/webpack will bundle src/lib/logger.ts into client code
+  // and choke on node:fs / node:path imports.
+  const content = hasFrontend ? buildFrontendLogger() : buildBackendLogger();
 
   return [{ filepath: "src/lib/logger.ts", content }];
 }

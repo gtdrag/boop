@@ -134,6 +134,36 @@ This project includes a structured logger at \`src/lib/logger.ts\`. Use it throu
 - Use levels: debug (flow/variables), info (actions/events), warn (recoverable), error (failures)
 - Never log secrets, tokens, or passwords
 
+## Environment Variables & Module-Level Side Effects
+
+Never throw errors or crash at module load time when an environment variable is missing.
+SSR/SSG frameworks (Next.js, Nuxt, Astro) import server modules during the build step to
+collect page data — if a module throws at import time, the production build fails.
+
+Instead of:
+\`\`\`ts
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error("DATABASE_URL required"); // ← breaks next build
+const db = createClient(url);
+export { db };
+\`\`\`
+
+Use lazy initialization:
+\`\`\`ts
+let _db: ReturnType<typeof createClient> | null = null;
+export function getDb() {
+  if (!_db) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL required");
+    _db = createClient(url);
+  }
+  return _db;
+}
+\`\`\`
+
+This applies to any resource that depends on runtime env vars: databases, API clients,
+cache connections, etc. The throw is fine — just defer it to first actual use, not import time.
+
 ## TypeScript Import Rules
 
 Check the project's tsconfig.json for the \`moduleResolution\` setting:
