@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DeveloperProfile } from "../shared/types.js";
 import {
   buildUserMessage,
+  extractStackSummary,
   generateArchitecture,
   loadPrd,
   loadSystemPrompt,
@@ -101,7 +102,19 @@ const SAMPLE_ARCHITECTURE = `# Architecture Document
 
 ## Escalated Decisions
 
-No escalated decisions — all choices resolved from developer profile.`;
+No escalated decisions — all choices resolved from developer profile.
+
+\`\`\`json:stack-summary
+{
+  "frontend": { "framework": "next", "styling": "tailwind" },
+  "backend": { "framework": "express", "apiPattern": "REST" },
+  "database": { "primary": "postgresql", "orm": "prisma" },
+  "infrastructure": { "cloudProvider": "vercel", "ciCd": "github-actions" },
+  "auth": { "strategy": "JWT" },
+  "requiredServices": ["database"],
+  "requiredCredentials": ["VERCEL_TOKEN", "NEON_API_KEY"]
+}
+\`\`\``;
 
 // Use vi.hoisted() so the mock fn is available before vi.mock hoisting
 const { mockSendMessage } = vi.hoisted(() => ({
@@ -317,6 +330,81 @@ describe("architecture", () => {
       expect(Array.isArray(systemPrompt)).toBe(true);
       expect(systemPrompt[0].text).toContain("Architecture Generation");
       expect(systemPrompt[0].cache_control).toEqual({ type: "ephemeral" });
+    });
+
+    it("extracts stackSummary from response", async () => {
+      mockSendMessage.mockResolvedValueOnce({
+        text: SAMPLE_ARCHITECTURE,
+        usage: { inputTokens: 800, outputTokens: 1200 },
+        model: "claude-opus-4-6",
+      });
+
+      const result = await generateArchitecture("idea", TEST_PROFILE, SAMPLE_PRD, {
+        projectDir: tmpDir,
+      });
+
+      expect(result.stackSummary).not.toBeNull();
+      expect(result.stackSummary!.frontend?.framework).toBe("next");
+      expect(result.stackSummary!.database?.primary).toBe("postgresql");
+      expect(result.stackSummary!.infrastructure?.cloudProvider).toBe("vercel");
+    });
+
+    it("returns null stackSummary when response has no JSON block", async () => {
+      const noJsonArch = "# Architecture\n\nJust plain text, no JSON block.";
+      mockSendMessage.mockResolvedValueOnce({
+        text: noJsonArch,
+        usage: { inputTokens: 50, outputTokens: 50 },
+        model: "claude-opus-4-6",
+      });
+
+      const result = await generateArchitecture("idea", TEST_PROFILE, SAMPLE_PRD, {
+        projectDir: tmpDir,
+      });
+
+      expect(result.stackSummary).toBeNull();
+    });
+  });
+
+  describe("extractStackSummary", () => {
+    it("parses a valid json:stack-summary block", () => {
+      const md = `# Architecture\n\n\`\`\`json:stack-summary\n{"frontend": {"framework": "next"}}\n\`\`\``;
+      const result = extractStackSummary(md);
+      expect(result).not.toBeNull();
+      expect(result!.frontend?.framework).toBe("next");
+    });
+
+    it("returns null for missing block", () => {
+      expect(extractStackSummary("# Architecture\nNo JSON here")).toBeNull();
+    });
+
+    it("returns null for malformed JSON", () => {
+      const md = '```json:stack-summary\n{broken json\n```';
+      expect(extractStackSummary(md)).toBeNull();
+    });
+
+    it("extracts all fields from a complete block", () => {
+      const json = JSON.stringify({
+        frontend: { framework: "remix", styling: "css-modules" },
+        backend: { framework: "hono", apiPattern: "tRPC" },
+        database: { primary: "sqlite", orm: "drizzle" },
+        infrastructure: { cloudProvider: "fly", ciCd: "github-actions" },
+        auth: { strategy: "session" },
+        requiredServices: ["database", "cache"],
+        requiredCredentials: ["FLY_API_TOKEN"],
+      });
+      const md = `Some text\n\n\`\`\`json:stack-summary\n${json}\n\`\`\`\n\nMore text`;
+      const result = extractStackSummary(md);
+
+      expect(result!.frontend?.framework).toBe("remix");
+      expect(result!.backend?.apiPattern).toBe("tRPC");
+      expect(result!.database?.orm).toBe("drizzle");
+      expect(result!.requiredServices).toEqual(["database", "cache"]);
+      expect(result!.requiredCredentials).toEqual(["FLY_API_TOKEN"]);
+    });
+
+    it("ignores regular json blocks (not tagged stack-summary)", () => {
+      const md = '```json\n{"key": "value"}\n```';
+      expect(extractStackSummary(md)).toBeNull();
     });
   });
 });

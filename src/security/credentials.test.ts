@@ -8,7 +8,10 @@ import {
   scanFileForCredentials,
   getEnvVarName,
   getDefaultCredentialsDir,
+  getRequiredCredentials,
+  validateCredential,
 } from "./credentials.js";
+import type { DeveloperProfile } from "../profile/schema.js";
 
 describe("createCredentialStore", () => {
   let tmpDir: string;
@@ -17,12 +20,26 @@ describe("createCredentialStore", () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-cred-test-"));
     credDir = path.join(tmpDir, "credentials");
+    // Ensure no env vars leak from the real environment
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.NEON_API_KEY;
+    delete process.env.VERCEL_TOKEN;
+    delete process.env.VERCEL_ORG_ID;
+    delete process.env.VERCEL_PROJECT_ID;
+    delete process.env.SENTRY_DSN;
+    delete process.env.POSTHOG_KEY;
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     // Clean up env vars
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.NEON_API_KEY;
+    delete process.env.VERCEL_TOKEN;
+    delete process.env.VERCEL_ORG_ID;
+    delete process.env.VERCEL_PROJECT_ID;
+    delete process.env.SENTRY_DSN;
+    delete process.env.POSTHOG_KEY;
   });
 
   describe("save and load", () => {
@@ -218,6 +235,15 @@ describe("getEnvVarName", () => {
   it("returns ANTHROPIC_API_KEY for anthropic", () => {
     expect(getEnvVarName("anthropic")).toBe("ANTHROPIC_API_KEY");
   });
+
+  it("returns correct env var names for all provider keys", () => {
+    expect(getEnvVarName("neon")).toBe("NEON_API_KEY");
+    expect(getEnvVarName("vercel")).toBe("VERCEL_TOKEN");
+    expect(getEnvVarName("vercel-org")).toBe("VERCEL_ORG_ID");
+    expect(getEnvVarName("vercel-project")).toBe("VERCEL_PROJECT_ID");
+    expect(getEnvVarName("sentry")).toBe("SENTRY_DSN");
+    expect(getEnvVarName("posthog")).toBe("POSTHOG_KEY");
+  });
 });
 
 describe("getDefaultCredentialsDir", () => {
@@ -225,5 +251,154 @@ describe("getDefaultCredentialsDir", () => {
     const dir = getDefaultCredentialsDir();
     expect(dir).toContain(".boop");
     expect(dir).toContain("credentials");
+  });
+});
+
+describe("new provider credential keys", () => {
+  let tmpDir: string;
+  let credDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "boop-cred-prov-"));
+    credDir = path.join(tmpDir, "credentials");
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    delete process.env.NEON_API_KEY;
+    delete process.env.VERCEL_TOKEN;
+  });
+
+  it("saves and loads neon credential", () => {
+    const store = createCredentialStore(credDir);
+    store.save("neon", "neon-key-123");
+    expect(store.load("neon")).toBe("neon-key-123");
+  });
+
+  it("saves and loads vercel credential", () => {
+    const store = createCredentialStore(credDir);
+    store.save("vercel", "vercel-token-abc");
+    expect(store.load("vercel")).toBe("vercel-token-abc");
+  });
+
+  it("loads neon from env var", () => {
+    process.env.NEON_API_KEY = "neon-from-env";
+    const store = createCredentialStore(credDir);
+    expect(store.load("neon")).toBe("neon-from-env");
+  });
+
+  it("loads vercel from env var", () => {
+    process.env.VERCEL_TOKEN = "vercel-from-env";
+    const store = createCredentialStore(credDir);
+    expect(store.load("vercel")).toBe("vercel-from-env");
+  });
+
+  it("checks existence for sentry credential", () => {
+    const store = createCredentialStore(credDir);
+    expect(store.exists("sentry")).toBe(false);
+    store.save("sentry", "https://key@sentry.io/123");
+    expect(store.exists("sentry")).toBe(true);
+  });
+});
+
+describe("getRequiredCredentials", () => {
+  const baseProfile: DeveloperProfile = {
+    name: "Test Dev",
+    languages: ["typescript"],
+    frontendFramework: "next",
+    backendFramework: "express",
+    database: "none",
+    cloudProvider: "none",
+    styling: "tailwind",
+    stateManagement: "zustand",
+    analytics: "none",
+    ciCd: "github-actions",
+    packageManager: "pnpm",
+    testRunner: "vitest",
+    linter: "oxlint",
+    projectStructure: "single-repo",
+    errorTracker: "none",
+    aiModel: "claude-opus-4-6",
+    autonomousByDefault: false,
+  };
+
+  it("always includes anthropic", () => {
+    const keys = getRequiredCredentials(baseProfile);
+    expect(keys).toContain("anthropic");
+  });
+
+  it("includes vercel when cloudProvider is vercel", () => {
+    const keys = getRequiredCredentials({ ...baseProfile, cloudProvider: "vercel" });
+    expect(keys).toContain("vercel");
+  });
+
+  it("includes neon when database is postgresql", () => {
+    const keys = getRequiredCredentials({ ...baseProfile, database: "postgresql" });
+    expect(keys).toContain("neon");
+  });
+
+  it("includes sentry when errorTracker is sentry", () => {
+    const keys = getRequiredCredentials({ ...baseProfile, errorTracker: "sentry" });
+    expect(keys).toContain("sentry");
+  });
+
+  it("includes posthog when analytics is posthog", () => {
+    const keys = getRequiredCredentials({ ...baseProfile, analytics: "posthog" });
+    expect(keys).toContain("posthog");
+  });
+
+  it("returns only anthropic for minimal stack", () => {
+    const keys = getRequiredCredentials(baseProfile);
+    expect(keys).toEqual(["anthropic"]);
+  });
+
+  it("returns all keys for full stack", () => {
+    const fullProfile = {
+      ...baseProfile,
+      cloudProvider: "vercel" as const,
+      database: "postgresql" as const,
+      errorTracker: "sentry" as const,
+      analytics: "posthog" as const,
+    };
+    const keys = getRequiredCredentials(fullProfile);
+    expect(keys).toEqual(["anthropic", "vercel", "neon", "sentry", "posthog"]);
+  });
+});
+
+describe("validateCredential", () => {
+  it("returns null for valid anthropic key", () => {
+    expect(validateCredential("anthropic", "sk-ant-api03-abcdef1234567890abcdef")).toBeNull();
+  });
+
+  it("returns error for anthropic key without sk-ant- prefix", () => {
+    const error = validateCredential("anthropic", "bad-key");
+    expect(error).toContain("sk-ant-");
+  });
+
+  it("returns error for empty value", () => {
+    const error = validateCredential("vercel", "");
+    expect(error).toContain("cannot be empty");
+  });
+
+  it("returns error for whitespace-only value", () => {
+    const error = validateCredential("neon", "   ");
+    expect(error).toContain("cannot be empty");
+  });
+
+  it("returns null for valid sentry DSN", () => {
+    expect(validateCredential("sentry", "https://key123@o123.ingest.sentry.io/456")).toBeNull();
+  });
+
+  it("returns error for invalid sentry DSN", () => {
+    const error = validateCredential("sentry", "not-a-dsn");
+    expect(error).toContain("URL");
+  });
+
+  it("returns null for arbitrary vercel token (no format check)", () => {
+    expect(validateCredential("vercel", "some-vercel-token")).toBeNull();
+  });
+
+  it("returns null for arbitrary neon key (no format check)", () => {
+    expect(validateCredential("neon", "neon-api-key-123")).toBeNull();
   });
 });

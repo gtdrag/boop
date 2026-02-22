@@ -46,6 +46,8 @@ const {
   mockGenerateLoggingDefaults,
   mockCreateInteractiveApprovalGate,
   mockCreateMessagingApprovalGate,
+  mockProvisionNeonDatabase,
+  mockSetVercelEnvVar,
 } = vi.hoisted(() => ({
   mockParseStoryMarkdown: vi.fn(),
   mockConvertToPrd: vi.fn(),
@@ -83,6 +85,8 @@ const {
   mockGenerateLoggingDefaults: vi.fn(),
   mockCreateInteractiveApprovalGate: vi.fn(),
   mockCreateMessagingApprovalGate: vi.fn(),
+  mockProvisionNeonDatabase: vi.fn(),
+  mockSetVercelEnvVar: vi.fn(),
 }));
 
 // Runner's direct dependencies
@@ -119,6 +123,10 @@ vi.mock("../scaffolding/defaults/logging.js", () => ({
 }));
 vi.mock("../deployment/deployer.js", () => ({
   deploy: mockDeploy,
+}));
+vi.mock("../deployment/database-provisioner.js", () => ({
+  provisionNeonDatabase: mockProvisionNeonDatabase,
+  setVercelEnvVar: mockSetVercelEnvVar,
 }));
 vi.mock("../build/ralph-loop.js", () => ({
   runLoopIteration: mockRunLoopIteration,
@@ -345,6 +353,12 @@ describe("runFullPipeline", () => {
       output: "Deployed!",
       provider: "Vercel",
     });
+    mockProvisionNeonDatabase.mockReturnValue({
+      success: true,
+      projectId: "proj-test",
+      connectionString: "postgresql://user:pass@host/db",
+    });
+    mockSetVercelEnvVar.mockReturnValue({ success: true });
 
     mockRunLoopIteration
       .mockResolvedValueOnce({ outcome: "passed", story: { id: "1.1" }, allComplete: false })
@@ -813,6 +827,96 @@ describe("runFullPipeline", () => {
     const resultPath = path.join(tmpDir, ".boop", "deploy-result.json");
     const result = JSON.parse(fs.readFileSync(resultPath, "utf-8"));
     expect(result.output.length).toBeLessThanOrEqual(2000);
+  });
+
+  // -------------------------------------------------------------------------
+  // Database provisioning
+  // -------------------------------------------------------------------------
+
+  it("provisions Neon database before deploy when database is postgresql", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(mockProvisionNeonDatabase).toHaveBeenCalledWith(
+      expect.objectContaining({ projectName: expect.any(String) }),
+    );
+    expect(mockSetVercelEnvVar).toHaveBeenCalledWith(
+      "DATABASE_URL",
+      "postgresql://user:pass@host/db",
+      tmpDir,
+    );
+  });
+
+  it("skips database provisioning when database is not postgresql", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const noDbProfile = { ...TEST_PROFILE, database: "sqlite" as const };
+    const orch = new PipelineOrchestrator(tmpDir, noDbProfile);
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: noDbProfile,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(mockProvisionNeonDatabase).not.toHaveBeenCalled();
+  });
+
+  it("continues deploy when database provisioning fails", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockProvisionNeonDatabase.mockReturnValue({
+      success: false,
+      projectId: null,
+      connectionString: null,
+      error: "API key invalid",
+    });
+
+    const progress: Array<[string, string]> = [];
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+      onProgress: (phase, msg) => progress.push([phase, msg]),
+    });
+
+    // Deploy still called despite provisioning failure
+    expect(mockDeploy).toHaveBeenCalled();
+    // Warning was reported
+    const warnings = progress.filter(([, msg]) => msg.includes("provisioning failed"));
+    expect(warnings.length).toBeGreaterThanOrEqual(1);
+    // Pipeline completed
+    expect(orch.getState().phase).toBe("COMPLETE");
+  });
+
+  it("skips setVercelEnvVar when cloud provider is not vercel", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const railwayProfile = { ...TEST_PROFILE, cloudProvider: "railway" as const };
+    const orch = new PipelineOrchestrator(tmpDir, railwayProfile);
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: railwayProfile,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(mockProvisionNeonDatabase).toHaveBeenCalled();
+    expect(mockSetVercelEnvVar).not.toHaveBeenCalled();
   });
 
   // -------------------------------------------------------------------------

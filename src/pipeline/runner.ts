@@ -469,6 +469,37 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
       orch.transition("DEPLOYING");
       onProgress?.("DEPLOYING", `Deploying project...`);
 
+      // Provision database if needed (non-blocking)
+      if (profile.database === "postgresql") {
+        try {
+          const { provisionNeonDatabase, setVercelEnvVar } =
+            await import("../deployment/database-provisioner.js");
+          onProgress?.("DEPLOYING", "Provisioning Neon PostgreSQL database...");
+
+          const dbResult = provisionNeonDatabase({
+            projectName: projectName,
+          });
+
+          if (dbResult.success && dbResult.connectionString) {
+            onProgress?.("DEPLOYING", "Database provisioned successfully");
+            process.env.DATABASE_URL = dbResult.connectionString;
+
+            if (profile.cloudProvider === "vercel") {
+              const envResult = setVercelEnvVar("DATABASE_URL", dbResult.connectionString, projectDir);
+              if (envResult.success) {
+                onProgress?.("DEPLOYING", "DATABASE_URL set on Vercel project");
+              } else {
+                onProgress?.("DEPLOYING", `Warning: ${envResult.error}`);
+              }
+            }
+          } else {
+            onProgress?.("DEPLOYING", `Warning: database provisioning failed: ${dbResult.error}`);
+          }
+        } catch (error: unknown) {
+          onProgress?.("DEPLOYING", `Warning: database provisioning error: ${formatError(error)}`);
+        }
+      }
+
       try {
         const { deploy } = await import("../deployment/deployer.js");
         const deployResult = await deploy({

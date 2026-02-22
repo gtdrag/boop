@@ -38,11 +38,22 @@ vi.mock("../planning/prd.js", () => ({
 // Mock the architecture module to avoid real API calls
 vi.mock("../planning/architecture.js", () => ({
   generateArchitecture: mockGenerateArchitecture,
+  extractStackSummary: vi.fn().mockReturnValue(null),
 }));
 
 // Mock the stories module to avoid real API calls
 vi.mock("../planning/stories.js", () => ({
   generateStories: mockGenerateStories,
+}));
+
+// Mock the stack review module to avoid credential checks in tests
+vi.mock("../pipeline/stack-review.js", () => ({
+  runStackReview: vi.fn().mockResolvedValue({
+    profile: {},
+    approved: true,
+    credentialsReady: ["anthropic"],
+    credentialsMissing: [],
+  }),
 }));
 
 // Mock @clack/prompts to avoid interactive prompts hanging tests

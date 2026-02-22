@@ -64,6 +64,7 @@ function vercelConfig(): ProviderConfig {
   if (process.env.VERCEL_TOKEN) env.VERCEL_TOKEN = process.env.VERCEL_TOKEN;
   if (process.env.VERCEL_ORG_ID) env.VERCEL_ORG_ID = process.env.VERCEL_ORG_ID;
   if (process.env.VERCEL_PROJECT_ID) env.VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID;
+  if (process.env.DATABASE_URL) env.DATABASE_URL = process.env.DATABASE_URL;
 
   return {
     strategy: "cli",

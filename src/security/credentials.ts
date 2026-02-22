@@ -9,12 +9,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import type { DeveloperProfile } from "../profile/schema.js";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type CredentialKey = "anthropic";
+export type CredentialKey =
+  | "anthropic"
+  | "neon"
+  | "vercel"
+  | "vercel-org"
+  | "vercel-project"
+  | "sentry"
+  | "posthog";
 
 export interface CredentialStore {
   /** Load a credential by key. Returns the value or null if not found. */
@@ -50,6 +58,12 @@ const REQUIRED_MODE = 0o600;
  */
 const ENV_VAR_MAP: Record<CredentialKey, string> = {
   anthropic: "ANTHROPIC_API_KEY",
+  neon: "NEON_API_KEY",
+  vercel: "VERCEL_TOKEN",
+  "vercel-org": "VERCEL_ORG_ID",
+  "vercel-project": "VERCEL_PROJECT_ID",
+  sentry: "SENTRY_DSN",
+  posthog: "POSTHOG_KEY",
 };
 
 /**
@@ -57,6 +71,12 @@ const ENV_VAR_MAP: Record<CredentialKey, string> = {
  */
 const FILE_MAP: Record<CredentialKey, string> = {
   anthropic: "anthropic.key",
+  neon: "neon.key",
+  vercel: "vercel.key",
+  "vercel-org": "vercel-org.key",
+  "vercel-project": "vercel-project.key",
+  sentry: "sentry.key",
+  posthog: "posthog.key",
 };
 
 /**
@@ -169,6 +189,59 @@ export function createCredentialStore(credentialsDir: string = CREDENTIALS_DIR):
       }
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Profile → required credentials mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine which credentials a profile's stack choices require.
+ * Always includes "anthropic". Adds provider-specific keys based on
+ * the profile's cloudProvider, database, errorTracker, and analytics.
+ */
+export function getRequiredCredentials(profile: DeveloperProfile): CredentialKey[] {
+  const keys: CredentialKey[] = ["anthropic"];
+
+  if (profile.cloudProvider === "vercel") {
+    keys.push("vercel");
+  }
+  if (profile.database === "postgresql") {
+    keys.push("neon");
+  }
+  if (profile.errorTracker === "sentry") {
+    keys.push("sentry");
+  }
+  if (profile.analytics === "posthog") {
+    keys.push("posthog");
+  }
+
+  return keys;
+}
+
+/**
+ * Basic format validation for credential values.
+ * Returns null if valid, or an error message if invalid.
+ */
+export function validateCredential(key: CredentialKey, value: string): string | null {
+  if (!value || !value.trim()) {
+    return `${key} credential cannot be empty`;
+  }
+
+  switch (key) {
+    case "anthropic":
+      if (!value.startsWith("sk-ant-")) {
+        return "Anthropic API key should start with sk-ant-";
+      }
+      break;
+    case "sentry":
+      if (!value.startsWith("https://") || !value.includes("@")) {
+        return "Sentry DSN should be a URL like https://<key>@<host>/<id>";
+      }
+      break;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------

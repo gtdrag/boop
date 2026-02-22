@@ -109,3 +109,23 @@ Structure your response exactly as follows:
 - If the profile stack is a poor fit for a specific PRD requirement, note the conflict clearly in Escalated Decisions
 - Project structure should follow the conventions of the chosen framework
 - Every decision should have a brief rationale connecting it to a profile choice or PRD requirement
+
+## Stack Summary (Required)
+
+At the end of your response, include a machine-readable stack summary in a fenced JSON block tagged `json:stack-summary`. This is used by the pipeline to present the tech stack for user review.
+
+````
+```json:stack-summary
+{
+  "frontend": { "framework": "next", "styling": "tailwind" },
+  "backend": { "framework": "express", "apiPattern": "REST" },
+  "database": { "primary": "postgresql", "orm": "drizzle" },
+  "infrastructure": { "cloudProvider": "vercel", "ciCd": "github-actions" },
+  "auth": { "strategy": "JWT" },
+  "requiredServices": ["database"],
+  "requiredCredentials": ["VERCEL_TOKEN", "NEON_API_KEY"]
+}
+```
+````
+
+Populate each field from your architecture decisions. `requiredServices` lists external services needed (e.g. "database", "cache", "search"). `requiredCredentials` lists environment variable names the user will need to provide for deployment.

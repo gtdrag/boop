@@ -415,6 +415,7 @@ describe("PipelineOrchestrator", () => {
     const ARCHITECTURE_RESULT = {
       architecture: "# Architecture\nTest architecture",
       usage: { inputTokens: 300, outputTokens: 400 },
+      stackSummary: null,
     };
 
     const STORIES_RESULT = {

@@ -259,12 +259,22 @@ async function startPipeline(
       console.log(`[boop] Recommendation: ${result.viability.recommendation}`);
       console.log("[boop] Planning complete. All outputs saved to .boop/planning/");
 
+      // Stack review — validate credentials before proceeding
+      const { runStackReview } = await import("../pipeline/stack-review.js");
+      const stackReview = await runStackReview({
+        profile,
+        stackSummary: result.architecture.stackSummary,
+        autonomous: true,
+        onProgress: (msg) => console.log(`[boop] ${msg}`),
+      });
+      const effectiveProfile = stackReview.profile;
+
       // Continue into the full pipeline
       const { runFullPipeline } = await import("../pipeline/runner.js");
       await runFullPipeline({
         orchestrator: orch,
         projectDir,
-        profile,
+        profile: effectiveProfile,
         storiesMarkdown: result.stories.stories,
         autonomous: true,
         sandboxed,
@@ -374,12 +384,28 @@ async function startPipeline(
 
     console.log("[boop] Planning complete. All outputs saved to .boop/planning/");
 
+    // Stack review — let user review stack and collect credentials
+    const { runStackReview } = await import("../pipeline/stack-review.js");
+    const { extractStackSummary } = await import("../planning/architecture.js");
+    const stackSummary = extractStackSummary(archResult.architecture);
+    const stackReview = await runStackReview({
+      profile,
+      stackSummary,
+      autonomous: false,
+      onProgress: (msg) => console.log(`[boop] ${msg}`),
+    });
+    if (!stackReview.approved) {
+      console.log("[boop] Stack review cancelled. Pipeline stopped.");
+      return;
+    }
+    const effectiveProfile = stackReview.profile;
+
     // Continue into the full pipeline
     const { runFullPipeline } = await import("../pipeline/runner.js");
     await runFullPipeline({
       orchestrator: orch,
       projectDir,
-      profile,
+      profile: effectiveProfile,
       storiesMarkdown: storiesResult.stories,
       autonomous: false,
       sandboxed,

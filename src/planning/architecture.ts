@@ -24,11 +24,42 @@ import { formatDecisionsForPrompt } from "../evolution/arch-decisions.js";
 import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
 import { formatProfileContext } from "./viability.js";
 
+/** Machine-readable stack summary extracted from architecture output. */
+export interface StackSummary {
+  frontend?: { framework?: string; styling?: string };
+  backend?: { framework?: string; apiPattern?: string };
+  database?: { primary?: string; orm?: string };
+  infrastructure?: { cloudProvider?: string; ciCd?: string };
+  auth?: { strategy?: string };
+  requiredServices?: string[];
+  requiredCredentials?: string[];
+}
+
+/**
+ * Extract the stack summary JSON block from architecture markdown.
+ *
+ * Looks for a fenced code block tagged `json:stack-summary`.
+ * Returns null if the block is missing or malformed.
+ */
+export function extractStackSummary(markdown: string): StackSummary | null {
+  const pattern = /```json:stack-summary\s*\n([\s\S]*?)```/;
+  const match = pattern.exec(markdown);
+  if (!match?.[1]) return null;
+
+  try {
+    return JSON.parse(match[1]) as StackSummary;
+  } catch {
+    return null;
+  }
+}
+
 export interface ArchitectureResult {
   /** The generated architecture markdown text. */
   architecture: string;
   /** Token usage from the API call. */
   usage: ClaudeResponse["usage"];
+  /** Structured stack summary extracted from the architecture output. */
+  stackSummary: StackSummary | null;
 }
 
 export interface ArchitectureOptions {
@@ -151,5 +182,6 @@ export async function generateArchitecture(
   return {
     architecture: response.text,
     usage: response.usage,
+    stackSummary: extractStackSummary(response.text),
   };
 }
