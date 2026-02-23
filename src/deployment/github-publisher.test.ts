@@ -4,9 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Hoisted mocks
 // ---------------------------------------------------------------------------
 
-const { mockExecFileSync, mockExecSync } = vi.hoisted(() => ({
+const { mockExecFileSync } = vi.hoisted(() => ({
   mockExecFileSync: vi.fn(),
-  mockExecSync: vi.fn(),
 }));
 
 const { mockLoad } = vi.hoisted(() => ({
@@ -15,7 +14,6 @@ const { mockLoad } = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => ({
   execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
 }));
 
 vi.mock("../security/credentials.js", () => ({
@@ -50,8 +48,8 @@ describe("publishToGitHub", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("gh CLI not found");
-    // Should not attempt any git commands
-    expect(mockExecSync).not.toHaveBeenCalled();
+    // Only the gh --version call should have been made
+    expect(mockExecFileSync).toHaveBeenCalledTimes(1);
   });
 
   it("returns error when GH_TOKEN is missing", async () => {
@@ -67,28 +65,26 @@ describe("publishToGitHub", () => {
   });
 
   it("creates repo and pushes all branches on success", async () => {
-    // gh --version succeeds
-    mockExecFileSync
-      .mockReturnValueOnce("gh version 2.40.0\n")
-      // gh repo create succeeds
-      .mockReturnValueOnce("https://github.com/user/my-app\n");
-
     mockLoad.mockReturnValue("ghp_test_token_12345678");
 
-    mockExecSync
-      // git remote get-url origin — no origin yet
+    mockExecFileSync
+      // 1. gh --version
+      .mockReturnValueOnce("gh version 2.40.0\n")
+      // 2. git remote get-url origin — no origin yet
       .mockImplementationOnce(() => {
         throw new Error("fatal: No such remote 'origin'");
       })
-      // git branch --format
+      // 3. gh repo create
+      .mockReturnValueOnce("https://github.com/user/my-app\n")
+      // 4. git branch --format
       .mockReturnValueOnce("main\nepic-1\nepic-2\n")
-      // git push main
+      // 5. git push main
       .mockReturnValueOnce("Everything up-to-date\n")
-      // git push epic-1
+      // 6. git push epic-1
       .mockReturnValueOnce("branch epic-1 set up\n")
-      // git push epic-2
+      // 7. git push epic-2
       .mockReturnValueOnce("branch epic-2 set up\n")
-      // git remote get-url origin (final)
+      // 8. git remote get-url origin (final)
       .mockReturnValueOnce("https://github.com/user/my-app.git\n");
 
     const { publishToGitHub } = await import("./github-publisher.js");
@@ -104,25 +100,26 @@ describe("publishToGitHub", () => {
     expect(result.output).toContain("Pushed epic-1");
     expect(result.output).toContain("Pushed epic-2");
 
-    // Verify gh repo create was called with correct args
-    const createCall = mockExecFileSync.mock.calls[1]!;
+    // Verify gh repo create was called with correct args (call index 2)
+    const createCall = mockExecFileSync.mock.calls[2]!;
     expect(createCall[0]).toBe("gh");
     expect(createCall[1]).toContain("--private");
     expect(createCall[1]).toContain("--description");
   });
 
   it("skips repo creation when origin already exists", async () => {
-    mockExecFileSync.mockReturnValueOnce("gh version 2.40.0\n");
     mockLoad.mockReturnValue("ghp_test_token_12345678");
 
-    mockExecSync
-      // git remote get-url origin — exists
+    mockExecFileSync
+      // 1. gh --version
+      .mockReturnValueOnce("gh version 2.40.0\n")
+      // 2. git remote get-url origin — exists
       .mockReturnValueOnce("https://github.com/user/my-app.git\n")
-      // git branch --format
+      // 3. git branch --format
       .mockReturnValueOnce("main\n")
-      // git push main
+      // 4. git push main
       .mockReturnValueOnce("Everything up-to-date\n")
-      // git remote get-url origin (final)
+      // 5. git remote get-url origin (final)
       .mockReturnValueOnce("https://github.com/user/my-app.git\n");
 
     const { publishToGitHub } = await import("./github-publisher.js");
@@ -130,22 +127,25 @@ describe("publishToGitHub", () => {
 
     expect(result.success).toBe(true);
     expect(result.output).toContain("origin remote already exists");
-    // gh repo create should NOT have been called (only gh --version)
-    expect(mockExecFileSync).toHaveBeenCalledTimes(1);
+    // gh --version + git remote (origin check) + git branch + git push + git remote (final) = 5
+    // No gh repo create call
+    expect(mockExecFileSync).toHaveBeenCalledTimes(5);
   });
 
   it("handles gh repo create failure gracefully", async () => {
+    mockLoad.mockReturnValue("ghp_test_token_12345678");
+
     mockExecFileSync
+      // 1. gh --version
       .mockReturnValueOnce("gh version 2.40.0\n")
+      // 2. git remote get-url origin — no origin
+      .mockImplementationOnce(() => {
+        throw new Error("No such remote");
+      })
+      // 3. gh repo create — fails
       .mockImplementationOnce(() => {
         throw new Error("HTTP 422: name already exists");
       });
-
-    mockLoad.mockReturnValue("ghp_test_token_12345678");
-
-    mockExecSync.mockImplementationOnce(() => {
-      throw new Error("No such remote");
-    });
 
     const { publishToGitHub } = await import("./github-publisher.js");
     const result = publishToGitHub({ projectDir: "/tmp/test", repoName: "my-app" });
@@ -156,26 +156,26 @@ describe("publishToGitHub", () => {
   });
 
   it("continues when one branch push fails", async () => {
-    mockExecFileSync
-      .mockReturnValueOnce("gh version 2.40.0\n")
-      .mockReturnValueOnce("https://github.com/user/my-app\n");
-
     mockLoad.mockReturnValue("ghp_test_token_12345678");
 
-    mockExecSync
-      // git remote get-url origin — no origin
+    mockExecFileSync
+      // 1. gh --version
+      .mockReturnValueOnce("gh version 2.40.0\n")
+      // 2. git remote get-url origin — no origin
       .mockImplementationOnce(() => {
         throw new Error("No such remote");
       })
-      // git branch --format
+      // 3. gh repo create
+      .mockReturnValueOnce("https://github.com/user/my-app\n")
+      // 4. git branch --format
       .mockReturnValueOnce("main\nbroken-branch\n")
-      // git push main
+      // 5. git push main
       .mockReturnValueOnce("done\n")
-      // git push broken-branch — fails
+      // 6. git push broken-branch — fails
       .mockImplementationOnce(() => {
         throw new Error("rejected: non-fast-forward");
       })
-      // git remote get-url origin (final)
+      // 7. git remote get-url origin (final)
       .mockReturnValueOnce("https://github.com/user/my-app.git\n");
 
     const { publishToGitHub } = await import("./github-publisher.js");
@@ -187,22 +187,22 @@ describe("publishToGitHub", () => {
   });
 
   it("normalizes SSH URLs to HTTPS", async () => {
-    mockExecFileSync
-      .mockReturnValueOnce("gh version 2.40.0\n")
-      .mockReturnValueOnce("git@github.com:user/my-app.git\n");
-
     mockLoad.mockReturnValue("ghp_test_token_12345678");
 
-    mockExecSync
-      // git remote get-url origin — no origin
+    mockExecFileSync
+      // 1. gh --version
+      .mockReturnValueOnce("gh version 2.40.0\n")
+      // 2. git remote get-url origin — no origin
       .mockImplementationOnce(() => {
         throw new Error("No such remote");
       })
-      // git branch --format
+      // 3. gh repo create
+      .mockReturnValueOnce("git@github.com:user/my-app.git\n")
+      // 4. git branch --format
       .mockReturnValueOnce("main\n")
-      // git push main
+      // 5. git push main
       .mockReturnValueOnce("done\n")
-      // git remote get-url origin (final) — SSH URL
+      // 6. git remote get-url origin (final) — SSH URL
       .mockReturnValueOnce("git@github.com:user/my-app.git\n");
 
     const { publishToGitHub } = await import("./github-publisher.js");

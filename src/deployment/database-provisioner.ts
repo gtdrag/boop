@@ -4,7 +4,7 @@
  * Uses the Neon CLI (`neonctl`) to create PostgreSQL databases and
  * the Vercel CLI to set environment variables on the deploy target.
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createCredentialStore, type CredentialKey } from "../security/credentials.js";
 
 // ---------------------------------------------------------------------------
@@ -49,9 +49,9 @@ export function provisionNeonDatabase(options: {
 
   try {
     // Create project
-    const createOutput = execSync(
+    const createOutput = execFileSync(
+      "npx",
       [
-        "npx",
         "neonctl",
         "projects",
         "create",
@@ -60,7 +60,7 @@ export function provisionNeonDatabase(options: {
         ...regionArgs,
         "--output",
         "json",
-      ].join(" "),
+      ],
       { encoding: "utf-8", env, timeout: 60_000, stdio: ["pipe", "pipe", "pipe"] },
     );
 
@@ -77,8 +77,9 @@ export function provisionNeonDatabase(options: {
     }
 
     // Get connection string
-    const connOutput = execSync(
-      ["npx", "neonctl", "connection-string", "--project-id", projectId, "--pooled"].join(" "),
+    const connOutput = execFileSync(
+      "npx",
+      ["neonctl", "connection-string", "--project-id", projectId, "--pooled"],
       { encoding: "utf-8", env, timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] },
     );
 
@@ -115,12 +116,17 @@ export function setVercelEnvVar(
   projectDir: string,
 ): { success: boolean; error?: string } {
   try {
-    execSync(`printf '%s' "${value}" | npx vercel env add ${key} production preview development --yes`, {
-      cwd: projectDir,
-      encoding: "utf-8",
-      timeout: 30_000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    execFileSync(
+      "npx",
+      ["vercel", "env", "add", key, "production", "preview", "development", "--yes"],
+      {
+        cwd: projectDir,
+        encoding: "utf-8",
+        timeout: 30_000,
+        input: value,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
     return { success: true };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);

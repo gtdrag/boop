@@ -4,8 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Hoisted mocks
 // ---------------------------------------------------------------------------
 
-const { mockExecSync } = vi.hoisted(() => ({
-  mockExecSync: vi.fn(),
+const { mockExecFileSync } = vi.hoisted(() => ({
+  mockExecFileSync: vi.fn(),
 }));
 
 const { mockLoad } = vi.hoisted(() => ({
@@ -13,7 +13,7 @@ const { mockLoad } = vi.hoisted(() => ({
 }));
 
 vi.mock("node:child_process", () => ({
-  execSync: mockExecSync,
+  execFileSync: mockExecFileSync,
 }));
 
 vi.mock("../security/credentials.js", () => ({
@@ -35,12 +35,12 @@ describe("provisionNeonDatabase", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("NEON_API_KEY not found");
-    expect(mockExecSync).not.toHaveBeenCalled();
+    expect(mockExecFileSync).not.toHaveBeenCalled();
   });
 
   it("creates project and returns connection string on success", async () => {
     mockLoad.mockReturnValue("neon-api-key-123");
-    mockExecSync
+    mockExecFileSync
       .mockReturnValueOnce(JSON.stringify({ project: { id: "proj-abc" } }))
       .mockReturnValueOnce("postgresql://user:pass@host/db?sslmode=require\n");
 
@@ -50,26 +50,26 @@ describe("provisionNeonDatabase", () => {
     expect(result.success).toBe(true);
     expect(result.projectId).toBe("proj-abc");
     expect(result.connectionString).toBe("postgresql://user:pass@host/db?sslmode=require");
-    expect(mockExecSync).toHaveBeenCalledTimes(2);
+    expect(mockExecFileSync).toHaveBeenCalledTimes(2);
   });
 
   it("passes region when specified", async () => {
     mockLoad.mockReturnValue("key");
-    mockExecSync
+    mockExecFileSync
       .mockReturnValueOnce(JSON.stringify({ project: { id: "proj-1" } }))
       .mockReturnValueOnce("postgresql://conn\n");
 
     const { provisionNeonDatabase } = await import("./database-provisioner.js");
     provisionNeonDatabase({ projectName: "app", region: "aws-us-east-2" });
 
-    const firstCall = mockExecSync.mock.calls[0]![0] as string;
-    expect(firstCall).toContain("--region-id");
-    expect(firstCall).toContain("aws-us-east-2");
+    const firstCallArgs = mockExecFileSync.mock.calls[0]![1] as string[];
+    expect(firstCallArgs).toContain("--region-id");
+    expect(firstCallArgs).toContain("aws-us-east-2");
   });
 
   it("returns error when neonctl fails", async () => {
     mockLoad.mockReturnValue("key");
-    mockExecSync.mockImplementation(() => {
+    mockExecFileSync.mockImplementation(() => {
       throw new Error("command not found: neonctl");
     });
 
@@ -82,7 +82,7 @@ describe("provisionNeonDatabase", () => {
 
   it("returns error when project ID cannot be parsed", async () => {
     mockLoad.mockReturnValue("key");
-    mockExecSync.mockReturnValueOnce(JSON.stringify({ unexpected: "data" }));
+    mockExecFileSync.mockReturnValueOnce(JSON.stringify({ unexpected: "data" }));
 
     const { provisionNeonDatabase } = await import("./database-provisioner.js");
     const result = provisionNeonDatabase({ projectName: "app" });
@@ -98,20 +98,27 @@ describe("setVercelEnvVar", () => {
   });
 
   it("runs vercel env add and returns success", async () => {
-    mockExecSync.mockReturnValue("");
+    mockExecFileSync.mockReturnValue("");
 
     const { setVercelEnvVar } = await import("./database-provisioner.js");
     const result = setVercelEnvVar("DATABASE_URL", "postgresql://...", "/tmp/project");
 
     expect(result.success).toBe(true);
-    expect(mockExecSync).toHaveBeenCalledOnce();
-    const cmd = mockExecSync.mock.calls[0]![0] as string;
-    expect(cmd).toContain("vercel env add DATABASE_URL");
-    expect(cmd).toContain("production preview development");
+    expect(mockExecFileSync).toHaveBeenCalledOnce();
+    const cmd = mockExecFileSync.mock.calls[0]![0] as string;
+    const args = mockExecFileSync.mock.calls[0]![1] as string[];
+    expect(cmd).toBe("npx");
+    expect(args).toContain("vercel");
+    expect(args).toContain("env");
+    expect(args).toContain("add");
+    expect(args).toContain("DATABASE_URL");
+    expect(args).toContain("production");
+    expect(args).toContain("preview");
+    expect(args).toContain("development");
   });
 
   it("returns error on failure", async () => {
-    mockExecSync.mockImplementation(() => {
+    mockExecFileSync.mockImplementation(() => {
       throw new Error("Vercel CLI not found");
     });
 

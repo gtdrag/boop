@@ -5,6 +5,7 @@ import os from "node:os";
 import {
   createCredentialStore,
   containsCredential,
+  redactCredentials,
   scanFileForCredentials,
   getEnvVarName,
   getDefaultCredentialsDir,
@@ -202,6 +203,69 @@ describe("containsCredential", () => {
     expect(
       containsCredential("config: ANTHROPIC_API_KEY=sk-ant-api03-abcdef1234567890abcdef"),
     ).toBe(true);
+  });
+
+  it("detects GitHub personal access token (ghp_)", () => {
+    expect(containsCredential("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn")).toBe(true);
+  });
+
+  it("detects GitHub OAuth token (gho_)", () => {
+    expect(containsCredential("gho_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn")).toBe(true);
+  });
+
+  it("detects GitHub fine-grained PAT (github_pat_)", () => {
+    expect(containsCredential("github_pat_ABCDEFGHIJKLMNOPQRSTUV_extradata1234")).toBe(true);
+  });
+
+  it("detects Vercel token pattern", () => {
+    expect(containsCredential("vercel_ABCDEFGHIJKLMNOPQRSTUVWXYZab")).toBe(true);
+  });
+
+  it("detects Neon API key pattern", () => {
+    expect(containsCredential("neon_ABCDEFGHIJKLMNOPQRSTUVWXYZab")).toBe(true);
+  });
+});
+
+describe("redactCredentials", () => {
+  it("redacts Anthropic API key", () => {
+    const result = redactCredentials("key is sk-ant-api03-abcdef1234567890");
+    expect(result).toContain("***REDACTED***");
+    expect(result).not.toContain("sk-ant-api03");
+  });
+
+  it("redacts GitHub personal access token", () => {
+    const result = redactCredentials("GH_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn");
+    expect(result).not.toContain("ghp_ABCDEF");
+  });
+
+  it("redacts GitHub OAuth token", () => {
+    const result = redactCredentials("token: gho_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn");
+    expect(result).not.toContain("gho_ABCDEF");
+  });
+
+  it("redacts GitHub fine-grained PAT", () => {
+    const result = redactCredentials("github_pat_ABCDEFGHIJKLMNOPQRSTUV_moredata");
+    expect(result).toContain("***REDACTED***");
+    expect(result).not.toContain("github_pat_ABCDEF");
+  });
+
+  it("redacts Vercel token", () => {
+    const result = redactCredentials("vercel_ABCDEFGHIJKLMNOPQRSTUVWXYZab");
+    expect(result).toContain("***REDACTED***");
+    expect(result).not.toContain("vercel_ABCDEF");
+  });
+
+  it("redacts Neon API key", () => {
+    const result = redactCredentials("neon_ABCDEFGHIJKLMNOPQRSTUVWXYZab");
+    expect(result).toContain("***REDACTED***");
+    expect(result).not.toContain("neon_ABCDEF");
+  });
+
+  it("redacts multiple credential types in one string", () => {
+    const input = "keys: sk-ant-api03-abc123def456 and ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn";
+    const result = redactCredentials(input);
+    expect(result).not.toContain("sk-ant-api03");
+    expect(result).not.toContain("ghp_ABCDEF");
   });
 });
 

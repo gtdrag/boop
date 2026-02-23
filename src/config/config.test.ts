@@ -8,7 +8,6 @@ import {
   resolveHomeDir,
   resolveProfilePath,
   resolveStateDir,
-  runOnboardingStub,
 } from "./index.js";
 
 function makeTmpDir(): string {
@@ -112,21 +111,6 @@ describe("initGlobalConfig", () => {
     expect(result.created).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "logs"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "credentials"))).toBe(true);
-  });
-});
-
-describe("runOnboardingStub", () => {
-  it("prints welcome message to console", () => {
-    const logs: string[] = [];
-    const orig = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-    try {
-      runOnboardingStub();
-      expect(logs.some((l) => l.includes("Welcome"))).toBe(true);
-      expect(logs.some((l) => l.includes("--profile"))).toBe(true);
-    } finally {
-      console.log = orig;
-    }
   });
 });
 

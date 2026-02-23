@@ -109,7 +109,8 @@ export function mergeDecisions(
   existing: ArchDecision[],
   incoming: ArchDecision[],
 ): ArchDecision[] {
-  const merged = [...existing];
+  // Deep copy existing items to avoid mutating the caller's array elements
+  const merged = existing.map((d) => ({ ...d, stackComponents: [...d.stackComponents] }));
   const titleIndex = new Map<string, number>();
 
   for (let i = 0; i < merged.length; i++) {
@@ -139,7 +140,7 @@ export function mergeDecisions(
         prev.date = dec.date;
       }
     } else {
-      merged.push({ ...dec, id: slugify(dec.title) });
+      merged.push({ ...dec, id: slugify(dec.title), stackComponents: [...dec.stackComponents] });
       titleIndex.set(norm, merged.length - 1);
     }
   }

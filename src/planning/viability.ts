@@ -7,19 +7,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  sendMessage,
-  isRetryableApiError,
-  retry,
-  resolveModel,
-  buildCacheableSystemPrompt,
-} from "../shared/index.js";
-import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
+import type { ClaudeResponse } from "../shared/index.js";
+import type { ClaudeClientOptions } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
 import type { ReviewRule } from "../review/adversarial/review-rules.js";
 import type { Heuristic } from "../evolution/consolidator.js";
-import { augmentPrompt } from "../evolution/outcome-injector.js";
-import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
+import { callPlanningClaude } from "./claude-helper.js";
 
 /** Recommendation from the viability assessment. */
 export type ViabilityRecommendation = "PROCEED" | "CONCERNS" | "RECONSIDER";
@@ -143,31 +136,18 @@ export async function assessViability(
   profile: DeveloperProfile,
   options: ViabilityOptions = {},
 ): Promise<ViabilityResult> {
-  const basePrompt = loadSystemPrompt(options.promptDir);
-  const dynamic: string[] = [];
-  if (options.reviewRules && options.reviewRules.length > 0) {
-    dynamic.push(augmentPrompt("", options.reviewRules, "viability", profile));
-  }
-  if (options.heuristics && options.heuristics.length > 0) {
-    dynamic.push(formatHeuristicsForPrompt(options.heuristics));
-  }
-  const systemPrompt = buildCacheableSystemPrompt(basePrompt, dynamic.length ? dynamic : undefined);
-  const userMessage = buildUserMessage(idea, profile);
   const projectDir = options.projectDir ?? process.cwd();
 
-  const clientOptions: ClaudeClientOptions = {
-    model: resolveModel("planning", profile),
+  const response = await callPlanningClaude({
+    phase: "viability",
+    basePrompt: loadSystemPrompt(options.promptDir),
+    userMessage: buildUserMessage(idea, profile),
+    profile,
+    clientOptions: options.clientOptions,
     maxTokens: 4096,
-    ...options.clientOptions,
-  };
-
-  const response = await retry(
-    () => sendMessage(clientOptions, systemPrompt, [{ role: "user", content: userMessage }]),
-    {
-      maxRetries: 1,
-      isRetryable: isRetryableApiError,
-    },
-  );
+    reviewRules: options.reviewRules,
+    heuristics: options.heuristics,
+  });
 
   const recommendation = extractRecommendation(response.text);
 

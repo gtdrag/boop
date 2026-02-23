@@ -7,21 +7,13 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  sendMessage,
-  isRetryableApiError,
-  retry,
-  resolveModel,
-  buildCacheableSystemPrompt,
-} from "../shared/index.js";
-import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
+import type { ClaudeResponse } from "../shared/index.js";
+import type { ClaudeClientOptions } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
 import type { ReviewRule } from "../review/adversarial/review-rules.js";
 import type { ArchDecision } from "../evolution/arch-decisions.js";
 import type { Heuristic } from "../evolution/consolidator.js";
-import { augmentPrompt } from "../evolution/outcome-injector.js";
-import { formatDecisionsForPrompt } from "../evolution/arch-decisions.js";
-import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
+import { callPlanningClaude } from "./claude-helper.js";
 import { formatProfileContext } from "./viability.js";
 
 /** Machine-readable stack summary extracted from architecture output. */
@@ -147,34 +139,19 @@ export async function generateArchitecture(
   prd: string,
   options: ArchitectureOptions = {},
 ): Promise<ArchitectureResult> {
-  const basePrompt = loadSystemPrompt(options.promptDir);
-  const dynamic: string[] = [];
-  if (options.reviewRules && options.reviewRules.length > 0) {
-    dynamic.push(augmentPrompt("", options.reviewRules, "architecture", profile));
-  }
-  if (options.archDecisions && options.archDecisions.length > 0) {
-    dynamic.push(formatDecisionsForPrompt(options.archDecisions));
-  }
-  if (options.heuristics && options.heuristics.length > 0) {
-    dynamic.push(formatHeuristicsForPrompt(options.heuristics));
-  }
-  const systemPrompt = buildCacheableSystemPrompt(basePrompt, dynamic.length ? dynamic : undefined);
-  const userMessage = buildUserMessage(idea, profile, prd);
   const projectDir = options.projectDir ?? process.cwd();
 
-  const clientOptions: ClaudeClientOptions = {
-    model: resolveModel("planning", profile),
+  const response = await callPlanningClaude({
+    phase: "architecture",
+    basePrompt: loadSystemPrompt(options.promptDir),
+    userMessage: buildUserMessage(idea, profile, prd),
+    profile,
+    clientOptions: options.clientOptions,
     maxTokens: 8192,
-    ...options.clientOptions,
-  };
-
-  const response = await retry(
-    () => sendMessage(clientOptions, systemPrompt, [{ role: "user", content: userMessage }]),
-    {
-      maxRetries: 1,
-      isRetryable: isRetryableApiError,
-    },
-  );
+    reviewRules: options.reviewRules,
+    heuristics: options.heuristics,
+    archDecisions: options.archDecisions,
+  });
 
   // Save to .boop/planning/architecture.md
   saveArchitecture(projectDir, response.text);

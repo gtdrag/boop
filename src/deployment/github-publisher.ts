@@ -5,7 +5,7 @@
  * Follows the same pattern as database-provisioner.ts: returns a result
  * object and never throws.
  */
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createCredentialStore, type CredentialKey } from "../security/credentials.js";
 
 // ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ function normalizeToHttps(url: string): string {
 /** Get all local branch names. */
 function getLocalBranches(projectDir: string): string[] {
   try {
-    const output = execSync("git branch --format=%(refname:short)", {
+    const output = execFileSync("git", ["branch", "--format=%(refname:short)"], {
       cwd: projectDir,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -112,7 +112,7 @@ export function publishToGitHub(options: GitHubPublishOptions): GitHubPublishRes
   // 3. Check if origin remote already exists
   let originExists = false;
   try {
-    execSync("git remote get-url origin", {
+    execFileSync("git", ["remote", "get-url", "origin"], {
       cwd: projectDir,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -156,7 +156,7 @@ export function publishToGitHub(options: GitHubPublishOptions): GitHubPublishRes
   const branches = getLocalBranches(projectDir);
   for (const branch of branches) {
     try {
-      const pushOutput = execSync(`git push -u origin ${branch}`, {
+      const pushOutput = execFileSync("git", ["push", "-u", "origin", branch], {
         cwd: projectDir,
         encoding: "utf-8",
         env,
@@ -174,7 +174,7 @@ export function publishToGitHub(options: GitHubPublishOptions): GitHubPublishRes
   // 6. Extract and normalize repo URL
   let repoUrl: string | null = null;
   try {
-    const rawUrl = execSync("git remote get-url origin", {
+    const rawUrl = execFileSync("git", ["remote", "get-url", "origin"], {
       cwd: projectDir,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],

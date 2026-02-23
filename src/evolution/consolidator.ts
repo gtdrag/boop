@@ -214,10 +214,10 @@ export async function consolidate(
   const added: Heuristic[] = [];
   const updated: Heuristic[] = [];
 
-  // Build index of existing heuristics by normalized text
+  // Build index of existing heuristics by normalized text (deep copy to avoid mutating caller's store)
   const existingByText = new Map<string, Heuristic>();
   for (const h of existing.heuristics) {
-    existingByText.set(h.text.toLowerCase().trim(), h);
+    existingByText.set(h.text.toLowerCase().trim(), { ...h, sourceProjects: [...h.sourceProjects] });
   }
 
   // Collect all source projects from inputs

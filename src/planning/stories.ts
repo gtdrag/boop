@@ -6,19 +6,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  sendMessage,
-  isRetryableApiError,
-  retry,
-  resolveModel,
-  buildCacheableSystemPrompt,
-} from "../shared/index.js";
-import type { ClaudeClientOptions, ClaudeResponse } from "../shared/index.js";
+import type { ClaudeResponse } from "../shared/index.js";
+import type { ClaudeClientOptions } from "../shared/index.js";
 import type { DeveloperProfile } from "../profile/schema.js";
 import type { ReviewRule } from "../review/adversarial/review-rules.js";
 import type { Heuristic } from "../evolution/consolidator.js";
-import { augmentPrompt } from "../evolution/outcome-injector.js";
-import { formatHeuristicsForPrompt } from "../evolution/consolidator.js";
+import { callPlanningClaude } from "./claude-helper.js";
 import { formatProfileContext } from "./viability.js";
 
 export interface StoriesResult {
@@ -121,31 +114,18 @@ export async function generateStories(
   architecture: string,
   options: StoriesOptions = {},
 ): Promise<StoriesResult> {
-  const basePrompt = loadSystemPrompt(options.promptDir);
-  const dynamic: string[] = [];
-  if (options.reviewRules && options.reviewRules.length > 0) {
-    dynamic.push(augmentPrompt("", options.reviewRules, "stories", profile));
-  }
-  if (options.heuristics && options.heuristics.length > 0) {
-    dynamic.push(formatHeuristicsForPrompt(options.heuristics));
-  }
-  const systemPrompt = buildCacheableSystemPrompt(basePrompt, dynamic.length ? dynamic : undefined);
-  const userMessage = buildUserMessage(idea, profile, prd, architecture);
   const projectDir = options.projectDir ?? process.cwd();
 
-  const clientOptions: ClaudeClientOptions = {
-    model: resolveModel("planning", profile),
+  const response = await callPlanningClaude({
+    phase: "stories",
+    basePrompt: loadSystemPrompt(options.promptDir),
+    userMessage: buildUserMessage(idea, profile, prd, architecture),
+    profile,
+    clientOptions: options.clientOptions,
     maxTokens: 8192,
-    ...options.clientOptions,
-  };
-
-  const response = await retry(
-    () => sendMessage(clientOptions, systemPrompt, [{ role: "user", content: userMessage }]),
-    {
-      maxRetries: 1,
-      isRetryable: isRetryableApiError,
-    },
-  );
+    reviewRules: options.reviewRules,
+    heuristics: options.heuristics,
+  });
 
   // Save to .boop/planning/epics.md
   saveStories(projectDir, response.text);

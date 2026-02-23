@@ -92,6 +92,11 @@ const FILE_MAP: Record<CredentialKey, string> = {
 const CREDENTIAL_DETECTION_PATTERNS: RegExp[] = [
   /(api.?key|token|password|secret|credential)[=:]\s*\S+/i,
   /sk-ant-[A-Za-z0-9_-]{20,}/,
+  /ghp_[A-Za-z0-9]{36,}/,
+  /gho_[A-Za-z0-9]{36,}/,
+  /github_pat_[A-Za-z0-9_]{22,}/,
+  /vercel_[A-Za-z0-9]{20,}/,
+  /neon_[A-Za-z0-9_-]{20,}/,
 ];
 
 /**
@@ -107,6 +112,11 @@ export function redactCredentials(input: string): string {
     "$1=***REDACTED***",
   );
   result = result.replace(/sk-ant-[A-Za-z0-9_-]+/g, "***REDACTED***");
+  result = result.replace(/ghp_[A-Za-z0-9]+/g, "***REDACTED***");
+  result = result.replace(/gho_[A-Za-z0-9]+/g, "***REDACTED***");
+  result = result.replace(/github_pat_[A-Za-z0-9_]+/g, "***REDACTED***");
+  result = result.replace(/vercel_[A-Za-z0-9]+/g, "***REDACTED***");
+  result = result.replace(/neon_[A-Za-z0-9_-]+/g, "***REDACTED***");
   return result;
 }
 
