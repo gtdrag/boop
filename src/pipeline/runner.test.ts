@@ -48,6 +48,7 @@ const {
   mockCreateMessagingApprovalGate,
   mockProvisionNeonDatabase,
   mockSetVercelEnvVar,
+  mockPublishToGitHub,
 } = vi.hoisted(() => ({
   mockParseStoryMarkdown: vi.fn(),
   mockConvertToPrd: vi.fn(),
@@ -87,6 +88,7 @@ const {
   mockCreateMessagingApprovalGate: vi.fn(),
   mockProvisionNeonDatabase: vi.fn(),
   mockSetVercelEnvVar: vi.fn(),
+  mockPublishToGitHub: vi.fn(),
 }));
 
 // Runner's direct dependencies
@@ -127,6 +129,9 @@ vi.mock("../deployment/deployer.js", () => ({
 vi.mock("../deployment/database-provisioner.js", () => ({
   provisionNeonDatabase: mockProvisionNeonDatabase,
   setVercelEnvVar: mockSetVercelEnvVar,
+}));
+vi.mock("../deployment/github-publisher.js", () => ({
+  publishToGitHub: mockPublishToGitHub,
 }));
 vi.mock("../build/ralph-loop.js", () => ({
   runLoopIteration: mockRunLoopIteration,
@@ -203,6 +208,7 @@ const TEST_PROFILE: DeveloperProfile = {
   stateManagement: "zustand",
   analytics: "posthog",
   ciCd: "github-actions",
+  sourceControl: "github",
   packageManager: "pnpm",
   testRunner: "vitest",
   linter: "oxlint",
@@ -359,6 +365,11 @@ describe("runFullPipeline", () => {
       connectionString: "postgresql://user:pass@host/db",
     });
     mockSetVercelEnvVar.mockReturnValue({ success: true });
+    mockPublishToGitHub.mockReturnValue({
+      success: true,
+      repoUrl: "https://github.com/user/test",
+      output: "Created repo",
+    });
 
     mockRunLoopIteration
       .mockResolvedValueOnce({ outcome: "passed", story: { id: "1.1" }, allComplete: false })
@@ -917,6 +928,106 @@ describe("runFullPipeline", () => {
 
     expect(mockProvisionNeonDatabase).toHaveBeenCalled();
     expect(mockSetVercelEnvVar).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // GitHub publishing
+  // -------------------------------------------------------------------------
+
+  it("publishes to GitHub when sourceControl is 'github'", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(mockPublishToGitHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectDir: tmpDir,
+        repoName: expect.any(String),
+      }),
+    );
+    expect(orch.getState().phase).toBe("COMPLETE");
+  });
+
+  it("skips GitHub publishing when sourceControl is not 'github'", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const noGhProfile = { ...TEST_PROFILE, sourceControl: "none" as const };
+    const orch = new PipelineOrchestrator(tmpDir, noGhProfile);
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: noGhProfile,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    expect(mockPublishToGitHub).not.toHaveBeenCalled();
+    expect(orch.getState().phase).toBe("COMPLETE");
+  });
+
+  it("continues deploy when GitHub publishing fails", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockPublishToGitHub.mockReturnValue({
+      success: false,
+      repoUrl: null,
+      output: "",
+      error: "gh repo create failed",
+    });
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const progress: Array<[string, string]> = [];
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+      onProgress: (phase, msg) => progress.push([phase, msg]),
+    });
+
+    // Deploy still called despite GitHub failure
+    expect(mockDeploy).toHaveBeenCalled();
+    // Pipeline completed
+    expect(orch.getState().phase).toBe("COMPLETE");
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("GitHub push failed"));
+
+    consoleSpy.mockRestore();
+  });
+
+  it("saves github-result.json to .boop directory", async () => {
+    const { runFullPipeline } = await import("./runner.js");
+    const orch = new PipelineOrchestrator(tmpDir, TEST_PROFILE);
+
+    mockPublishToGitHub.mockReturnValue({
+      success: true,
+      repoUrl: "https://github.com/user/my-app",
+      output: "Created and pushed",
+    });
+
+    await runFullPipeline({
+      orchestrator: orch,
+      projectDir: tmpDir,
+      profile: TEST_PROFILE,
+      storiesMarkdown: "md",
+      autonomous: true,
+    });
+
+    const resultPath = path.join(tmpDir, ".boop", "github-result.json");
+    expect(fs.existsSync(resultPath)).toBe(true);
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf-8"));
+    expect(result.success).toBe(true);
+    expect(result.repoUrl).toBe("https://github.com/user/my-app");
+    expect(result.timestamp).toBeDefined();
   });
 
   // -------------------------------------------------------------------------

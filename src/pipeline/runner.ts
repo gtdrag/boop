@@ -469,6 +469,51 @@ export async function runFullPipeline(options: PipelineRunnerOptions): Promise<v
       orch.transition("DEPLOYING");
       onProgress?.("DEPLOYING", `Deploying project...`);
 
+      // --- GitHub repo creation (before cloud deploy) ---
+      if (profile.sourceControl === "github") {
+        try {
+          const { publishToGitHub } = await import("../deployment/github-publisher.js");
+          onProgress?.("DEPLOYING", "Creating GitHub repository...");
+
+          const ghResult = publishToGitHub({
+            projectDir,
+            repoName: projectName,
+            description: `Built by Boop`,
+          });
+
+          // Save result to .boop/github-result.json
+          const ghResultToSave = {
+            success: ghResult.success,
+            repoUrl: ghResult.repoUrl,
+            error: ghResult.error,
+            output: redactSecrets(ghResult.output.slice(0, 2000)),
+            timestamp: new Date().toISOString(),
+          };
+          const ghBoopDir = path.join(projectDir, ".boop");
+          fs.mkdirSync(ghBoopDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(ghBoopDir, "github-result.json"),
+            JSON.stringify(ghResultToSave, null, 2),
+          );
+
+          if (ghResult.success) {
+            const urlMsg = ghResult.repoUrl
+              ? `GitHub repo: ${ghResult.repoUrl}`
+              : "Code pushed to GitHub";
+            onProgress?.("DEPLOYING", urlMsg);
+            if (ghResult.repoUrl) {
+              process.env.GITHUB_REPO_URL = ghResult.repoUrl;
+            }
+          } else {
+            onProgress?.("DEPLOYING", `GitHub push failed: ${ghResult.error ?? "unknown"}`);
+            console.error(`[boop] GitHub push failed: ${ghResult.error}`);
+          }
+        } catch (error: unknown) {
+          onProgress?.("DEPLOYING", `GitHub push error: ${formatError(error)}`);
+          console.error(`[boop] GitHub push error: ${formatError(error)}`);
+        }
+      }
+
       // Provision database if needed (non-blocking)
       if (profile.database === "postgresql") {
         try {

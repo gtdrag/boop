@@ -78,6 +78,9 @@ export type ErrorTracker = "sentry" | "bugsnag" | "none" | string;
 /** CI/CD provider. */
 export type CiCdProvider = "github-actions" | "gitlab-ci" | "circleci" | "none" | string;
 
+/** Source control / repo hosting provider. */
+export type SourceControlProvider = "github" | "gitlab" | "bitbucket" | "none" | string;
+
 /** Programming language preference. */
 export type Language = "typescript" | "javascript" | "python" | "go" | "rust" | string;
 
@@ -130,6 +133,9 @@ export interface DeveloperProfile {
 
   /** CI/CD provider. */
   ciCd: CiCdProvider;
+
+  /** Source control hosting provider. */
+  sourceControl: SourceControlProvider;
 
   /** Package manager. */
   packageManager: PackageManager;

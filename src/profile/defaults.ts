@@ -23,6 +23,7 @@ export const DEFAULT_PROFILE: DeveloperProfile = {
   stateManagement: "zustand",
   analytics: "posthog",
   ciCd: "github-actions",
+  sourceControl: "github",
   packageManager: "pnpm",
   testRunner: "vitest",
   linter: "oxlint",
@@ -100,6 +101,12 @@ export const PROFILE_CATEGORIES: ProfileCategory[] = [
     label: "CI/CD",
     recommended: "github-actions",
     alternatives: ["gitlab-ci", "circleci", "none"],
+  },
+  {
+    key: "sourceControl",
+    label: "Source control hosting",
+    recommended: "github",
+    alternatives: ["gitlab", "bitbucket", "none"],
   },
   {
     key: "packageManager",

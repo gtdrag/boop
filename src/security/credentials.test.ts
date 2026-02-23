@@ -28,6 +28,7 @@ describe("createCredentialStore", () => {
     delete process.env.VERCEL_PROJECT_ID;
     delete process.env.SENTRY_DSN;
     delete process.env.POSTHOG_KEY;
+    delete process.env.GH_TOKEN;
   });
 
   afterEach(() => {
@@ -40,6 +41,7 @@ describe("createCredentialStore", () => {
     delete process.env.VERCEL_PROJECT_ID;
     delete process.env.SENTRY_DSN;
     delete process.env.POSTHOG_KEY;
+    delete process.env.GH_TOKEN;
   });
 
   describe("save and load", () => {
@@ -313,6 +315,7 @@ describe("getRequiredCredentials", () => {
     stateManagement: "zustand",
     analytics: "none",
     ciCd: "github-actions",
+    sourceControl: "none",
     packageManager: "pnpm",
     testRunner: "vitest",
     linter: "oxlint",
@@ -347,6 +350,11 @@ describe("getRequiredCredentials", () => {
     expect(keys).toContain("posthog");
   });
 
+  it("includes github when sourceControl is github", () => {
+    const keys = getRequiredCredentials({ ...baseProfile, sourceControl: "github" });
+    expect(keys).toContain("github");
+  });
+
   it("returns only anthropic for minimal stack", () => {
     const keys = getRequiredCredentials(baseProfile);
     expect(keys).toEqual(["anthropic"]);
@@ -359,9 +367,10 @@ describe("getRequiredCredentials", () => {
       database: "postgresql" as const,
       errorTracker: "sentry" as const,
       analytics: "posthog" as const,
+      sourceControl: "github" as const,
     };
     const keys = getRequiredCredentials(fullProfile);
-    expect(keys).toEqual(["anthropic", "vercel", "neon", "sentry", "posthog"]);
+    expect(keys).toEqual(["anthropic", "vercel", "neon", "sentry", "posthog", "github"]);
   });
 });
 
@@ -400,5 +409,14 @@ describe("validateCredential", () => {
 
   it("returns null for arbitrary neon key (no format check)", () => {
     expect(validateCredential("neon", "neon-api-key-123")).toBeNull();
+  });
+
+  it("returns null for valid github token", () => {
+    expect(validateCredential("github", "ghp_xxxxxxxxxxxxxxxxxxxx")).toBeNull();
+  });
+
+  it("returns error for too-short github token", () => {
+    const error = validateCredential("github", "short");
+    expect(error).toContain("too short");
   });
 });

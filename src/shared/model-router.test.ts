@@ -13,6 +13,7 @@ const BASE_PROFILE: DeveloperProfile = {
   stateManagement: "zustand",
   analytics: "posthog",
   ciCd: "github-actions",
+  sourceControl: "github",
   packageManager: "pnpm",
   testRunner: "vitest",
   linter: "oxlint",

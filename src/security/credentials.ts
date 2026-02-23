@@ -22,7 +22,8 @@ export type CredentialKey =
   | "vercel-org"
   | "vercel-project"
   | "sentry"
-  | "posthog";
+  | "posthog"
+  | "github";
 
 export interface CredentialStore {
   /** Load a credential by key. Returns the value or null if not found. */
@@ -64,6 +65,7 @@ const ENV_VAR_MAP: Record<CredentialKey, string> = {
   "vercel-project": "VERCEL_PROJECT_ID",
   sentry: "SENTRY_DSN",
   posthog: "POSTHOG_KEY",
+  github: "GH_TOKEN",
 };
 
 /**
@@ -77,6 +79,7 @@ const FILE_MAP: Record<CredentialKey, string> = {
   "vercel-project": "vercel-project.key",
   sentry: "sentry.key",
   posthog: "posthog.key",
+  github: "github.key",
 };
 
 /**
@@ -215,6 +218,9 @@ export function getRequiredCredentials(profile: DeveloperProfile): CredentialKey
   if (profile.analytics === "posthog") {
     keys.push("posthog");
   }
+  if (profile.sourceControl === "github") {
+    keys.push("github");
+  }
 
   return keys;
 }
@@ -237,6 +243,11 @@ export function validateCredential(key: CredentialKey, value: string): string | 
     case "sentry":
       if (!value.startsWith("https://") || !value.includes("@")) {
         return "Sentry DSN should be a URL like https://<key>@<host>/<id>";
+      }
+      break;
+    case "github":
+      if (value.length < 10) {
+        return "GitHub token appears too short";
       }
       break;
   }

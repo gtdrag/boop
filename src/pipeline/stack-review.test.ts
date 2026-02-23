@@ -53,6 +53,7 @@ const BASE_PROFILE: DeveloperProfile = {
   stateManagement: "zustand",
   analytics: "none",
   ciCd: "github-actions",
+  sourceControl: "github",
   packageManager: "pnpm",
   testRunner: "vitest",
   linter: "oxlint",
@@ -150,6 +151,7 @@ describe("runStackReview", () => {
         ...BASE_PROFILE,
         database: "none" as const,
         cloudProvider: "none" as const,
+        sourceControl: "none" as const,
       };
       // Only anthropic exists
       mockExists.mockImplementation((key: string) => key === "anthropic");

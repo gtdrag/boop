@@ -44,6 +44,7 @@ describe("types", () => {
       stateManagement: "zustand",
       analytics: "posthog",
       ciCd: "github-actions",
+      sourceControl: "github",
       packageManager: "pnpm",
       testRunner: "vitest",
       linter: "oxlint",

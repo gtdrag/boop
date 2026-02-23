@@ -178,6 +178,7 @@ function makeProfile(): DeveloperProfile {
     stateManagement: "zustand",
     analytics: "none",
     ciCd: "github-actions",
+    sourceControl: "github",
     packageManager: "pnpm",
     testRunner: "vitest",
     linter: "eslint",
