@@ -331,14 +331,10 @@ export async function runLoopIteration(options: RalphLoopOptions): Promise<LoopR
     const qualityResult = runQualityChecks(options.projectDir);
 
     if (qualityResult.passed) {
-      // Commit the story changes
-      commitStory(story.id, story.title, options.projectDir);
-
-      // Mark story as passed and save
+      // Update state files FIRST so they're included in the atomic commit
       markStoryPassed(prd, story.id);
       savePrdFile(prd, prdPath);
 
-      // Record progress
       const entry = buildProgressEntry(
         story,
         [`Completed story ${story.id}: ${story.title}`],
@@ -347,13 +343,11 @@ export async function runLoopIteration(options: RalphLoopOptions): Promise<LoopR
       );
       appendProgress(progressPath, entry);
 
-      // Extract and apply CLAUDE.md updates from agent response
       const claudeMdUpdate = extractClaudeMdUpdates(responseText);
       if (claudeMdUpdate) {
         appendToClaudeMd(claudeMdPath, claudeMdUpdate);
       }
 
-      // Write context snapshot for next iteration
       if (options.epicNumber !== undefined) {
         const snapshot: ContextSnapshot = {
           sessionId: generateSessionId(),
@@ -368,6 +362,9 @@ export async function runLoopIteration(options: RalphLoopOptions): Promise<LoopR
         };
         writeSnapshot(options.projectDir, snapshot);
       }
+
+      // Commit AFTER state updates — captures code + state in one atomic commit
+      commitStory(story.id, story.title, options.projectDir);
 
       return {
         outcome: "passed",

@@ -142,10 +142,10 @@ function autoCommitDirtyFiles(cwd: string): void {
 /**
  * Build a story commit message.
  *
- * Format: `feat: [Story ID] - [Story Title]`
+ * Format: `feat(Story ID): Story Title`
  */
 export function buildStoryCommitMessage(storyId: string, storyTitle: string): string {
-  return `feat: [${storyId}] - ${storyTitle}`;
+  return `feat(${storyId}): ${storyTitle}`;
 }
 
 /**

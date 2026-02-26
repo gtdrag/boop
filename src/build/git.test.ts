@@ -195,13 +195,13 @@ describe("validateBranchName", () => {
 describe("buildStoryCommitMessage", () => {
   it("formats story commit message correctly", () => {
     expect(buildStoryCommitMessage("4.5", "Git branch management")).toBe(
-      "feat: [4.5] - Git branch management",
+      "feat(4.5): Git branch management",
     );
   });
 
   it("handles multi-word titles", () => {
     expect(buildStoryCommitMessage("1.1", "Fork and strip OpenClaw")).toBe(
-      "feat: [1.1] - Fork and strip OpenClaw",
+      "feat(1.1): Fork and strip OpenClaw",
     );
   });
 });
@@ -266,7 +266,7 @@ describe("commitStory", () => {
     expect(result.success).toBe(true);
 
     const log = git("log --oneline -1");
-    expect(log).toContain("feat: [4.5] - Git branch management");
+    expect(log).toContain("feat(4.5): Git branch management");
   });
 });
 
