@@ -64,6 +64,8 @@ export interface AdversarialRunnerOptions {
   agents?: AdversarialAgentType[];
   /** Review rules to inject into agent prompts. */
   reviewRules?: ReviewRule[];
+  /** Override file list (skips git diff). Used by improve mode. */
+  files?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -298,10 +300,11 @@ export async function runAdversarialAgents(
     maxRetries = 2,
     agents: agentSubset,
     reviewRules,
+    files: filesOverride,
   } = options;
 
   // Get changed files and read their content
-  const changedPaths = await getChangedFiles(projectDir, baseBranch);
+  const changedPaths = filesOverride ?? await getChangedFiles(projectDir, baseBranch);
   const files = changedPaths.map((p) => ({
     path: p,
     content: readFileContent(projectDir, p),

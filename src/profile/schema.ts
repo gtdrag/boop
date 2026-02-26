@@ -186,6 +186,7 @@ export interface ModelOverrides {
   building?: string;
   review?: string;
   retrospective?: string;
+  analysis?: string;
 }
 
 /**

@@ -227,6 +227,7 @@ describe("test co-location", () => {
     "sandbox",
     "channels",
     "gauntlet",
+    "improve",
   ];
 
   it("every boop source file has a co-located .test.ts file", () => {
@@ -278,6 +279,7 @@ describe("state machine integrity", () => {
     const required = [
       "IDLE",
       "PLANNING",
+      "ANALYZING",
       "BRIDGING",
       "SCAFFOLDING",
       "BUILDING",
@@ -305,6 +307,7 @@ describe("state machine integrity", () => {
     const expectedPhases = [
       "IDLE",
       "PLANNING",
+      "ANALYZING",
       "BRIDGING",
       "SCAFFOLDING",
       "BUILDING",

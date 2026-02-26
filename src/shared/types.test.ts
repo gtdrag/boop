@@ -7,6 +7,7 @@ describe("types", () => {
     expect(PIPELINE_PHASES).toEqual([
       "IDLE",
       "PLANNING",
+      "ANALYZING",
       "BRIDGING",
       "SCAFFOLDING",
       "BUILDING",

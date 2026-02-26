@@ -97,6 +97,8 @@ export interface AdversarialLoopOptions {
   reviewRules?: ReviewRule[];
   /** Optional human approval gate before fixing. */
   approvalGate?: ApprovalGateFn;
+  /** Override file list (skips git diff). Used by improve mode. */
+  files?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +234,7 @@ export async function runAdversarialLoop(
     agents: agentSubset,
     reviewRules,
     approvalGate,
+    files: filesOverride,
   } = options;
 
   const iterations: IterationResult[] = [];
@@ -252,6 +255,7 @@ export async function runAdversarialLoop(
       baseBranch,
       agents: agentSubset,
       reviewRules,
+      files: filesOverride,
     };
     const agentResults = await runAdversarialAgents(runnerOptions);
     const allFindings = agentResults.flatMap((r) => r.findings);

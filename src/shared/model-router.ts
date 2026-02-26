@@ -14,13 +14,14 @@
 import type { DeveloperProfile } from "../profile/schema.js";
 
 /** Pipeline phase groups for model routing. */
-export type PipelinePhaseGroup = "planning" | "building" | "review" | "retrospective";
+export type PipelinePhaseGroup = "planning" | "building" | "review" | "retrospective" | "analysis";
 
 const SMART_DEFAULTS: Record<PipelinePhaseGroup, string> = {
   planning: "claude-sonnet-4-5-20250929",
   building: "claude-opus-4-6",
   review: "claude-sonnet-4-5-20250929",
   retrospective: "claude-sonnet-4-5-20250929",
+  analysis: "claude-sonnet-4-5-20250929",
 };
 
 const HARDCODED_FALLBACK = "claude-opus-4-6";

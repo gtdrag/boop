@@ -12,6 +12,7 @@
 export const PIPELINE_PHASES = [
   "IDLE",
   "PLANNING",
+  "ANALYZING",
   "BRIDGING",
   "SCAFFOLDING",
   "BUILDING",

@@ -64,8 +64,9 @@ export type PlanningProgressCallback = (
  * BRIDGING can go to SCAFFOLDING (first epic) or BUILDING (subsequent epics).
  */
 const TRANSITIONS: Record<PipelinePhase, PipelinePhase[]> = {
-  IDLE: ["PLANNING", "BRIDGING"],
+  IDLE: ["PLANNING", "ANALYZING", "BRIDGING"],
   PLANNING: ["BRIDGING"],
+  ANALYZING: ["BUILDING", "SIGN_OFF"],
   BRIDGING: ["SCAFFOLDING", "BUILDING"],
   SCAFFOLDING: ["BUILDING"],
   BUILDING: ["REVIEWING"],
@@ -182,7 +183,7 @@ export class PipelineOrchestrator {
 
   /**
    * Advance to the next phase in sequence.
-   * Automatically skips SCAFFOLDING if it's already been done.
+   * Automatically skips ANALYZING (improve-mode only) and SCAFFOLDING (if already done).
    */
   advance(): void {
     const currentIndex = PIPELINE_PHASES.indexOf(this.state.phase);
@@ -193,6 +194,15 @@ export class PipelineOrchestrator {
     }
 
     let nextPhase = PIPELINE_PHASES[nextIndex]!;
+
+    // Skip ANALYZING — it's only entered via explicit transition() in improve mode.
+    if (nextPhase === "ANALYZING") {
+      nextIndex++;
+      if (nextIndex >= PIPELINE_PHASES.length) {
+        throw new Error("No valid next phase after skipping ANALYZING.");
+      }
+      nextPhase = PIPELINE_PHASES[nextIndex]!;
+    }
 
     // Skip SCAFFOLDING if already done.
     // NOTE: DEPLOYING should be entered via explicit transition(), not advance(),

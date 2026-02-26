@@ -47,6 +47,9 @@ export function buildProgram(): Command {
     .option("--autonomous", "run in fully autonomous mode (no prompts)")
     .option("--sandbox", "run build agents inside Docker containers for isolation")
     .option("--project-dir <path>", "project directory (created if it doesn't exist)")
+    .option("--improve", "improve an existing project (brownfield mode)")
+    .option("--depth <N>", "max improvement cycles (default: 3)", parseInt)
+    .option("--focus <theme>", "focus area: security, tests, quality, all")
     .action(async (idea: string | undefined, opts: CliOptions) => {
       await handleCli(idea, opts);
     });
@@ -65,6 +68,9 @@ export interface CliOptions {
   autonomous?: boolean;
   sandbox?: boolean;
   projectDir?: string;
+  improve?: boolean;
+  depth?: number;
+  focus?: string;
 }
 
 export async function handleCli(
@@ -185,6 +191,20 @@ export async function handleCli(
       }
       console.log("[boop] Resuming pipeline...");
     }
+    return;
+  }
+
+  if (opts.improve) {
+    if (!profile) {
+      console.log("[boop] No developer profile found. Please run onboarding first.");
+      return;
+    }
+    await startImproveMode(resolvedProjectDir, profile, {
+      depth: opts.depth ?? 3,
+      focus: opts.focus ?? "all",
+      autonomous: opts.autonomous,
+      sandboxed: opts.sandbox,
+    });
     return;
   }
 
@@ -414,5 +434,46 @@ async function startPipeline(
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`[boop] Pipeline failed: ${msg}`);
+  }
+}
+
+/**
+ * Start improve mode: iteratively analyze and fix an existing codebase.
+ */
+async function startImproveMode(
+  projectDir: string,
+  profile: DeveloperProfile,
+  options: {
+    depth: number;
+    focus: string;
+    autonomous?: boolean;
+    sandboxed?: boolean;
+  },
+): Promise<void> {
+  console.log(`[boop] Starting improve mode (depth: ${options.depth}, focus: ${options.focus})`);
+  if (options.autonomous) {
+    console.log("[boop] Running in autonomous mode.");
+  }
+
+  const orch = new PipelineOrchestrator(projectDir, profile);
+
+  try {
+    const { runImproveLoop } = await import("../improve/runner.js");
+
+    await runImproveLoop({
+      orchestrator: orch,
+      projectDir,
+      profile,
+      maxDepth: options.depth,
+      focus: (options.focus as "security" | "tests" | "quality" | "all") ?? "all",
+      autonomous: options.autonomous,
+      sandboxed: options.sandboxed,
+      onProgress: (phase, msg) => console.log(`[boop] [${phase}] ${msg}`),
+    });
+
+    console.log("[boop] Improve mode complete.");
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[boop] Improve mode failed: ${msg}`);
   }
 }
